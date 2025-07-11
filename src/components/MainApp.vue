@@ -212,13 +212,6 @@
       <AbrechnungenHistory :abrechnungen="formattedAbrechnungen" />
     </div>
   </div>
-  <!-- Debug output for Firestore data -->
-  <div style="margin-top: 3rem; background: #f9fafb; border: 1px solid #d1d5db; border-radius: 8px; padding: 1rem; font-size: 0.95em; color: #111;">
-    <h3 style="font-weight: bold; margin-bottom: 0.5em;">[Debug] Firestore lastInvoices</h3>
-    <pre style="white-space: pre-wrap; word-break: break-all; background: #f3f4f6; padding: 0.5em; border-radius: 4px;">{{ lastInvoices }}</pre>
-    <h3 style="font-weight: bold; margin-top: 1.5em; margin-bottom: 0.5em;">[Debug] insurersData (merged)</h3>
-    <pre style="white-space: pre-wrap; word-break: break-all; background: #f3f4f6; padding: 0.5em; border-radius: 4px;">{{ insurersData }}</pre>
-  </div>
 </template>
 
 <script setup>

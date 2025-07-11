@@ -240,7 +240,7 @@ const formattedTurnus = computed(() => {
           @click="openDatePicker"
           class="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
         >
-          Abrechnung soeben erfolgt
+          Abrechnung eintragen
         </button>
       </div>
 

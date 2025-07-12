@@ -218,12 +218,35 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import AbrechnungenHistory from './AbrechnungenHistory.vue'
 import { useRouter, useRoute } from 'vue-router'
-import { currentEnvironment, getInsurersData } from '../config/environment'
+import { currentEnvironment, getInsurersData, getFirestoreNames } from '../config/environment'
 import InsurerDetail from './InsurerDetail.vue'
 import { calculateDaysOverdue, isOverdue, getStatusColor, getStatusText, formatLastInvoiceDate } from '../utils/insurerUtils'
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
 import TestDateSimulator from './TestDateSimulator.vue'
+import { getFirestore, collection, doc, getDoc, setDoc } from 'firebase/firestore'
+
+// Helper function to log raw Firestore data for debugging
+const logRawFirestoreData = async () => {
+  try {
+    console.log('Fetching raw Firestore data...');
+    const { COLLECTION_NAME, DOC_NAME } = getFirestoreNames(currentEnvironment.value);
+    const docRef = doc(collection(getFirestore(), COLLECTION_NAME), DOC_NAME);
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      console.log('Raw Firestore data:', JSON.stringify(data, null, 2));
+      return data;
+    } else {
+      console.log('No data found in Firestore');
+      return null;
+    }
+  } catch (error) {
+    console.error('Error fetching Firestore data:', error);
+    throw error;
+  }
+};
 
 const router = useRouter()
 const route = useRoute()
@@ -294,8 +317,9 @@ const handleDateUpdate = (newDate) => {
 watch(testDate, (newDate) => {
   console.log('Test date changed to:', newDate)
   // Update the filtered insurers to trigger re-render
-
 })
+
+
 
 // Watch for environment changes
 watch(currentEnvironment, () => {
@@ -335,7 +359,19 @@ const loadInsurersData = async () => {
       return value;
     });
     
-    insurersData.value = processedData;
+    // Ensure each insurer has an invoices array
+    const insurersWithInvoices = processedData.map(insurer => {
+      // If invoices array doesn't exist, initialize it with last_invoice if available
+      if (!insurer.invoices) {
+        return {
+          ...insurer,
+          invoices: insurer.last_invoice ? [insurer.last_invoice] : []
+        };
+      }
+      return insurer;
+    });
+    
+    insurersData.value = insurersWithInvoices;
   } catch (error) {
     console.error('Error loading insurers data:', error)
   }
@@ -346,11 +382,226 @@ import { fetchInvoices, saveInvoices, subscribeInvoices } from '../firebaseInvoi
 
 // Set up real-time listener for last_invoices
 let unsubscribeInvoices = null;
-const loadLastInvoices = () => {
-  if (unsubscribeInvoices) unsubscribeInvoices();
+
+// Helper function to update insurers with invoice data
+const updateInsurersWithInvoiceData = (insurers, invoicesData) => {
+  console.log('=== Updating insurers with invoice data ===');
+  console.log('Raw invoices data:', JSON.parse(JSON.stringify(invoicesData)));
+  
+  // If we have the new format with allInvoices, use that
+  if (invoicesData.allInvoices) {
+    console.log('Processing allInvoices data');
+    
+    return insurers.map(insurer => {
+      if (!insurer || !insurer.name) {
+        console.warn('Skipping invalid insurer:', insurer);
+        return insurer;
+      }
+      
+      // Get all invoices for this insurer
+      let allInvoices = [];
+      const insurerInvoices = invoicesData.allInvoices[insurer.name];
+      
+      console.log(`\n--- Processing insurer: ${insurer.name} ---`);
+      console.log('Current insurer data:', JSON.parse(JSON.stringify(insurer)));
+      
+      // Handle both array format and object format
+      if (Array.isArray(insurerInvoices)) {
+        console.log(`Found ${insurerInvoices.length} invoices in array format`);
+        allInvoices = insurerInvoices.map(inv => {
+          if (!inv) return null;
+          
+          // If it's already an object with display and timestamp, use it as is
+          if (typeof inv === 'object' && inv !== null && inv.display) {
+            return {
+              display: inv.display,
+              date: inv.date || new Date().toISOString(),
+              timestamp: inv.timestamp || new Date().getTime()
+            };
+          }
+          
+          // If it's a string, convert it to the object format
+          if (typeof inv === 'string') {
+            return {
+              display: inv,
+              date: new Date().toISOString(),
+              timestamp: new Date().getTime()
+            };
+          }
+          
+          // For any other format, convert to string
+          return {
+            display: String(inv),
+            date: new Date().toISOString(),
+            timestamp: new Date().getTime()
+          };
+        }).filter(Boolean); // Remove any null entries
+      } 
+      // If it's not an array but exists, wrap it in an array
+      else if (insurerInvoices) {
+        console.log('Found single invoice (non-array format):', insurerInvoices);
+        allInvoices = [{
+          display: typeof insurerInvoices === 'object' 
+            ? (insurerInvoices.display || JSON.stringify(insurerInvoices))
+            : String(insurerInvoices),
+          date: insurerInvoices.date || new Date().toISOString(),
+          timestamp: insurerInvoices.timestamp || new Date().getTime()
+        }];
+      }
+      
+      // Get the most recent invoice (first in the array)
+      const lastInvoice = allInvoices.length > 0 ? allInvoices[0] : null;
+      
+      console.log(`Processed ${insurer.name}:`, {
+        allInvoices: JSON.parse(JSON.stringify(allInvoices)),
+        lastInvoice: JSON.parse(JSON.stringify(lastInvoice))
+      });
+      
+      // Create the updated insurer with all invoices
+      const updatedInsurer = {
+        ...insurer,
+        invoices: allInvoices
+      };
+      
+      // Only update last_invoice if we have invoices
+      if (lastInvoice) {
+        updatedInsurer.last_invoice = lastInvoice.display;
+        updatedInsurer.last_invoice_timestamp = lastInvoice.timestamp;
+      }
+      
+      return updatedInsurer;
+    });
+  }
+  
+  // Fallback to lastInvoices for backward compatibility
+  console.log('No allInvoices found, falling back to lastInvoices');
+  return insurers.map(insurer => {
+    const lastInvoice = invoicesData.lastInvoices?.[insurer.name];
+    
+    // If we have a last_invoice, make sure it's in the invoices array
+    let invoices = [...(insurer.invoices || [])];
+    if (lastInvoice) {
+      // Check if this invoice already exists in the array
+      const invoiceExists = invoices.some(inv => {
+        const invStr = typeof inv === 'object' ? inv.display : String(inv);
+        const lastInvStr = typeof lastInvoice === 'object' ? lastInvoice.display : String(lastInvoice);
+        return invStr === lastInvStr;
+      });
+      
+      // If it doesn't exist, add it to the beginning of the array
+      if (!invoiceExists) {
+        invoices.unshift({
+          display: typeof lastInvoice === 'object' ? lastInvoice.display : String(lastInvoice),
+          date: new Date().toISOString(),
+          timestamp: new Date().getTime()
+        });
+      }
+    }
+    
+    return {
+      ...insurer,
+      last_invoice: lastInvoice || insurer.last_invoice,
+      invoices: invoices,
+      last_invoice_timestamp: lastInvoice 
+        ? (typeof lastInvoice === 'object' && lastInvoice.timestamp 
+            ? lastInvoice.timestamp 
+            : new Date(
+                typeof lastInvoice === 'string' 
+                  ? lastInvoice.split(', ').reverse().join('T')
+                  : lastInvoice
+              ).getTime())
+        : insurer.last_invoice_timestamp
+    };
+  });
+};
+
+// Debug function to log raw Firestore data
+const logRawFirestoreData = async () => {
+  try {
+    console.log('Fetching raw Firestore data...');
+    const data = await fetchInvoices(currentEnvironment.value);
+    console.log('Raw Firestore data:', JSON.parse(JSON.stringify(data)));
+    
+    // Log structure of the data
+    if (data) {
+      console.log('Data structure:');
+      if (data.allInvoices) {
+        console.log('allInvoices keys:', Object.keys(data.allInvoices));
+        Object.entries(data.allInvoices).forEach(([insurer, invoices]) => {
+          console.log(`Insurer ${insurer} has ${Array.isArray(invoices) ? invoices.length : 'non-array'} invoices:`, invoices);
+        });
+      }
+      if (data.lastInvoices) {
+        console.log('lastInvoices:', data.lastInvoices);
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching raw Firestore data:', error);
+  }
+};
+
+// Load last invoices from Firestore
+const loadLastInvoices = async () => {
+  // Log raw Firestore data for debugging
+  await logRawFirestoreData();
+  
+  // Set up real-time listener for future updates first
+  if (unsubscribeInvoices) {
+    console.log('Unsubscribing from previous invoice updates');
+    unsubscribeInvoices();
+  }
+  
+  console.log('Setting up real-time invoice listener...');
   unsubscribeInvoices = subscribeInvoices((data) => {
-    lastInvoices.value = data || {};
+    console.log('Received real-time invoice update:', data);
+    
+    if (data) {
+      // Update lastInvoices for backward compatibility
+      lastInvoices.value = data.lastInvoices || {};
+      
+      // Update the local state with the new invoice data
+      insurersData.value = updateInsurersWithInvoiceData(insurersData.value, data);
+      
+      // Update the selected insurer if it exists
+      if (selectedInsurer.value) {
+        const updatedInsurer = insurersData.value.find(i => i.name === selectedInsurer.value.name);
+        if (updatedInsurer) {
+          selectedInsurer.value = { ...updatedInsurer };
+        }
+      }
+    }
   }, currentEnvironment.value);
+  
+  // Now load the initial data
+  try {
+    console.log('Loading last invoices from Firestore...');
+    const data = await fetchInvoices(currentEnvironment.value);
+    
+    if (data) {
+      console.log('Fetched invoice data from Firestore:', JSON.parse(JSON.stringify(data)));
+      
+      // Update lastInvoices for backward compatibility
+      lastInvoices.value = data.lastInvoices || {};
+      
+      // Update the local state with the new invoice data
+      insurersData.value = updateInsurersWithInvoiceData(insurersData.value, data);
+      
+      console.log('Updated insurers data:', JSON.parse(JSON.stringify(insurersData.value)));
+      
+      // Update the selected insurer if it exists
+      if (selectedInsurer.value) {
+        const updatedInsurer = insurersData.value.find(i => i.name === selectedInsurer.value.name);
+        if (updatedInsurer) {
+          selectedInsurer.value = { ...updatedInsurer };
+          console.log('Updated selected insurer:', JSON.parse(JSON.stringify(selectedInsurer.value)));
+        }
+      }
+    } else {
+      console.log('No invoice data found in Firestore');
+    }
+  } catch (error) {
+    console.error('Error loading invoices:', error);
+  }
 };
 
 // Load all data based on current environment
@@ -446,13 +697,143 @@ const filteredInsurers = computed(() => {
   return filtered
 })
 
-// Format last invoices for the history view
+// Parse a date string in the format "DD.MM.YYYY, HH:mm" or "DD.MM.YYYY"
+const parseDateString = (dateStr) => {
+  if (!dateStr) return new Date(0);
+  
+  try {
+    // Handle the format "DD.MM.YYYY, HH:mm"
+    if (dateStr.includes(',')) {
+      const [datePart, timePart] = dateStr.split(',').map(s => s.trim());
+      const [day, month, year] = datePart.split('.').map(Number);
+      
+      let hours = 0, minutes = 0;
+      if (timePart) {
+        [hours, minutes] = timePart.split(':').map(Number);
+      }
+      
+      // Note: Month is 0-indexed in JavaScript Date
+      return new Date(year, month - 1, day, hours, minutes);
+    } 
+    // Handle the format "DD.MM.YYYY"
+    else if (dateStr.includes('.')) {
+      const [day, month, year] = dateStr.split('.').map(Number);
+      return new Date(year, month - 1, day);
+    }
+    // Fallback to default Date parsing
+    else {
+      const date = new Date(dateStr);
+      return isNaN(date.getTime()) ? new Date(0) : date;
+    }
+  } catch (e) {
+    console.warn('Failed to parse date:', dateStr, e);
+    return new Date(0);
+  }
+};
+
+
+
+// Format all invoices for the history view
 const formattedAbrechnungen = computed(() => {
-  return Object.entries(lastInvoices.value).map(([insurer, dateString]) => ({
-    insurer,
-    date: dateString,
-    timestamp: new Date(dateString.split(', ').reverse().join('T'))
-  }));
+  const allAbrechnungen = [];
+  
+  console.log('MainApp - Formatting abrechnungen from insurers:', JSON.parse(JSON.stringify(insurersData.value)));
+  
+  // Debug: Check if we have data
+  if (!insurersData.value || insurersData.value.length === 0) {
+    console.warn('MainApp - No insurers data available');
+    return [];
+  }
+  
+  insurersData.value.forEach(insurer => {
+    if (!insurer) return;
+    
+    console.log(`MainApp - Processing insurer: ${insurer.name}`, insurer);
+    
+    try {
+      // Process invoices array if it exists
+      if (Array.isArray(insurer.invoices) && insurer.invoices.length > 0) {
+        console.log(`Processing ${insurer.invoices.length} invoices for ${insurer.name}:`, insurer.invoices);
+        
+        insurer.invoices.forEach((invoiceDate, index) => {
+          try {
+            if (!invoiceDate) return;
+            
+            // Handle both string and object formats
+            let dateString, displayDate, timestamp;
+            
+            if (typeof invoiceDate === 'object' && invoiceDate !== null) {
+              // Handle object format
+              dateString = invoiceDate.date || invoiceDate.display || JSON.stringify(invoiceDate);
+              displayDate = invoiceDate.display || dateString;
+              timestamp = invoiceDate.timestamp || parseDateString(dateString);
+            } else {
+              // Handle string format
+              dateString = String(invoiceDate);
+              displayDate = dateString;
+              timestamp = parseDateString(dateString);
+            }
+            
+            // Only add if we have a valid date
+            if (dateString) {
+              const entry = {
+                insurer: insurer.name,
+                date: displayDate,
+                timestamp: timestamp,
+                raw: invoiceDate
+              };
+              
+              allAbrechnungen.push(entry);
+              console.log(`Added invoice ${index + 1} for ${insurer.name}:`, entry);
+            }
+          } catch (e) {
+            console.error(`Error processing invoice ${index} for ${insurer.name}:`, invoiceDate, e);
+          }
+        });
+      } 
+      // Fallback to last_invoice for backward compatibility
+      else if (insurer.last_invoice) {
+        console.log(`Using last_invoice for ${insurer.name}:`, insurer.last_invoice);
+        
+        let dateString, displayDate, timestamp;
+        
+        if (typeof insurer.last_invoice === 'object' && insurer.last_invoice !== null) {
+          dateString = insurer.last_invoice.date || insurer.last_invoice.display || JSON.stringify(insurer.last_invoice);
+          displayDate = insurer.last_invoice.display || dateString;
+          timestamp = insurer.last_invoice.timestamp || parseDateString(dateString);
+        } else {
+          dateString = String(insurer.last_invoice);
+          displayDate = dateString;
+          timestamp = parseDateString(dateString);
+        }
+        
+        // Only add if we have a valid date
+        if (dateString) {
+          allAbrechnungen.push({
+            insurer: insurer.name,
+            date: displayDate,
+            timestamp: timestamp,
+            raw: insurer.last_invoice
+          });
+        }
+      }
+    } catch (e) {
+      console.error(`Error processing insurer ${insurer.name}:`, e);
+    }
+  });
+  
+  console.log('All abrechnungen before sorting:', JSON.parse(JSON.stringify(allAbrechnungen)));
+  
+  // Sort by timestamp (newest first) - ensure we have valid timestamps
+  const sorted = [...allAbrechnungen].sort((a, b) => {
+    const timeA = a.timestamp || 0;
+    const timeB = b.timestamp || 0;
+    return timeB - timeA;
+  });
+  
+  console.log('Sorted abrechnungen:', JSON.parse(JSON.stringify(sorted)));
+  
+  return sorted;
 });
 
 // Watch for environment changes
@@ -479,81 +860,262 @@ const clearSearch = () => {
 
 const saveToJson = async () => {
   try {
+    console.log('\n=== Starting saveToJson ===');
+    
     if (!selectedInsurer.value) {
-      throw new Error('Kein Versicherer ausgewählt')
+      console.warn('No insurer selected, saving all insurers data');
+    } else {
+      console.log('Selected insurer:', selectedInsurer.value.name);
+      
+      // Update local state
+      const insurerIndex = insurersData.value.findIndex(i => i && i.name === selectedInsurer.value.name);
+      if (insurerIndex !== -1) {
+        console.log('Updating local state for insurer:', selectedInsurer.value.name);
+        insurersData.value[insurerIndex] = { ...selectedInsurer.value };
+      } else {
+        console.warn('Selected insurer not found in insurersData');
+      }
     }
 
-    // Update local state
-    const insurerIndex = insurersData.value.findIndex(i => i.name === selectedInsurer.value.name)
-    if (insurerIndex !== -1) {
-      insurersData.value[insurerIndex] = { ...selectedInsurer.value }
-    }
+    // Prepare data for saving
+    const lastInvoicesObj = {}; // For backward compatibility
+    const allInvoicesObj = {};  // For storing all invoices
 
-    // Save last_invoices data to Firebase (with environment)
-    const lastInvoicesObj = insurersData.value.reduce((acc, insurer) => {
-      if (insurer.last_invoice) {
+    console.log('\n--- Processing insurers data ---');
+    console.log('Total insurers:', insurersData.value.length);
+    console.log('Current environment:', currentEnvironment.value);
+
+    insurersData.value.forEach((insurer, index) => {
+      if (!insurer || !insurer.name) {
+        console.warn(`Skipping invalid insurer at index ${index}:`, insurer);
+        return;
+      }
+      
+      console.log(`\n--- Processing insurer: ${insurer.name} (${index + 1}/${insurersData.value.length}) ---`);
+      console.log('Raw insurer data:', JSON.parse(JSON.stringify(insurer)));
+      
+      // Initialize the invoices array for this insurer
+      let invoicesToSave = [];
+      
+      // If we have an array of invoices, use it
+      if (Array.isArray(insurer.invoices) && insurer.invoices.length > 0) {
+        console.log(`Found ${insurer.invoices.length} invoices in the 'invoices' array`);
+        console.log('Invoices array:', JSON.parse(JSON.stringify(insurer.invoices)));
+        invoicesToSave = [...insurer.invoices];
+      } 
+      // Fallback to last_invoice if no invoices array exists
+      else if (insurer.last_invoice) {
+        console.log(`No 'invoices' array found, using 'last_invoice' for ${insurer.name}`);
+        console.log('last_invoice value:', insurer.last_invoice);
+        
         // Handle different formats of last_invoice
         if (typeof insurer.last_invoice === 'object' && insurer.last_invoice !== null) {
-          // If it's an object, use the display string if available
-          if (insurer.last_invoice.display) {
-            acc[insurer.name] = insurer.last_invoice.display;
-          } else if (typeof insurer.last_invoice.toJSON === 'function') {
-            // If it has a toJSON method, call it
-            acc[insurer.name] = insurer.last_invoice.toJSON();
-          } else {
-            // Otherwise, convert to string
-            acc[insurer.name] = String(insurer.last_invoice);
-          }
+          console.log('last_invoice is an object, normalizing...');
+          invoicesToSave = [{
+            display: insurer.last_invoice.display || JSON.stringify(insurer.last_invoice),
+            date: insurer.last_invoice.date || new Date().toISOString(),
+            timestamp: insurer.last_invoice.timestamp || new Date().getTime()
+          }];
         } else {
           // It's a string or other primitive
-          acc[insurer.name] = insurer.last_invoice;
+          console.log('last_invoice is a primitive, converting to object...');
+          invoicesToSave = [{
+            display: String(insurer.last_invoice),
+            date: new Date().toISOString(),
+            timestamp: new Date().getTime()
+          }];
         }
+        console.log('Created invoice entry from last_invoice:', invoicesToSave[0]);
+      } else {
+        console.log(`No invoices or last_invoice found for ${insurer.name}`);
       }
-      return acc;
-    }, {});
+      
+      // Store the most recent invoice for backward compatibility
+      if (invoicesToSave.length > 0) {
+        const mostRecentInvoice = invoicesToSave[0];
+        lastInvoicesObj[insurer.name] = typeof mostRecentInvoice === 'object' 
+          ? mostRecentInvoice.display 
+          : String(mostRecentInvoice);
+        
+        console.log(`Set last_invoice for ${insurer.name}:`, lastInvoicesObj[insurer.name]);
+      } else {
+        console.log(`No invoices to save for ${insurer.name}`);
+      }
+      
+      // Store all invoices in the standardized format
+      allInvoicesObj[insurer.name] = invoicesToSave.map((invoice, index) => {
+        let processedInvoice;
+        
+        if (typeof invoice === 'object' && invoice !== null) {
+          processedInvoice = {
+            display: invoice.display || String(invoice),
+            date: invoice.date || new Date().toISOString(),
+            timestamp: invoice.timestamp || new Date().getTime()
+          };
+        } else {
+          processedInvoice = {
+            display: String(invoice),
+            date: new Date().toISOString(),
+            timestamp: new Date().getTime()
+          };
+        }
+        
+        console.log(`  Invoice ${index + 1}:`, processedInvoice);
+        return processedInvoice;
+      });
+      
+      console.log(`Processed ${allInvoicesObj[insurer.name].length} invoices for ${insurer.name}`);
+      console.log('lastInvoices entry:', lastInvoicesObj[insurer.name] || 'undefined');
+      console.log('allInvoices entries:', allInvoicesObj[insurer.name]);
+    });
+
+    console.log('\n=== Prepared data for saving ===');
+    const saveData = {
+      lastInvoices: lastInvoicesObj,
+      allInvoices: allInvoicesObj
+    };
+    
+    console.log('Data to save:', JSON.stringify(saveData, null, 2));
+    console.log('Environment:', currentEnvironment.value);
+
     try {
-      await saveInvoices(lastInvoicesObj, currentEnvironment.value)
-      console.log('[Save] Wrote lastInvoices:', lastInvoicesObj, 'to environment:', currentEnvironment.value);
+      console.log('\n=== Starting Firestore save operation ===');
+      
+      // Log the data we're about to save
+      console.log('Calling saveInvoices with:', {
+        data: saveData,
+        environment: currentEnvironment.value
+      });
+      
+      // Save both lastInvoices (for backward compatibility) and allInvoices
+      const saveResult = await saveInvoices(saveData, currentEnvironment.value);
+      
+      console.log('Save operation completed. Result:', saveResult);
+      console.log('[Save] Successfully saved invoices to environment:', currentEnvironment.value);
+      
+      try {
+        // Log the raw Firestore data after saving
+        console.log('\n=== Fetching Firestore data for verification ===');
+        const rawData = await logRawFirestoreData();
+        console.log('Raw Firestore data after save:', rawData);
+        
+        // Reload data after successful save to ensure consistency
+        console.log('\n=== Reloading insurers data ===');
+        await loadInsurersData();
+        
+        console.log('\n=== Save operation completed successfully ===');
+        return true; // Indicate success
+      } catch (error) {
+        console.error('Error in save operation verification:', error);
+        // Even if verification fails, the save might have succeeded
+        // So we'll still return true but log the error
+        return true;
+      }
     } catch (error) {
-      console.error('[Save] Error writing lastInvoices:', error);
+      console.error('[Save] Error writing invoices:', error);
       throw error;
     }
-
-    alert('Daten erfolgreich gespeichert!')
-    
-    // Reload data after successful save to ensure consistency
-    await loadInsurersData()
   } catch (error) {
-    console.error('Error saving data:', error)
-    alert(`Fehler beim Speichern der Daten:\n${error.message}\nDetails:\n${error.stack}`)
+    console.error('Error in saveToJson:', error);
+    alert(`Fehler beim Speichern der Daten:\n${error.message}\nDetails:\n${error.stack}`);
   }
-}
+};
 
-const handleSettlementCompleted = ({ insurer, newDate, displayDate }) => {
-  if (!insurer || !selectedInsurer.value || insurer.name !== selectedInsurer.value.name) return
-  
-  console.log('Settlement completed with date:', newDate, 'Display date:', displayDate)
-  
-  // Update local state with the display date for UI
-  const insurerIndex = insurersData.value.findIndex(i => i.name === insurer.name)
-  if (insurerIndex !== -1) {
-    insurersData.value[insurerIndex] = { 
-      ...insurer,
-      last_invoice: displayDate || newDate,
-      last_invoice_timestamp: newDate.getTime() // Store timestamp for sorting/calculations
+const handleSettlementCompleted = async ({ insurer, newDate, displayDate }) => {
+  try {
+    console.log('=== Starting handleSettlementCompleted ===');
+    console.log('Insurer:', insurer.name);
+    console.log('New date:', displayDate);
+    
+    // Create a new invoice entry
+    const newInvoice = {
+      date: newDate.toISOString(),
+      display: displayDate,
+      timestamp: newDate.getTime()
+    };
+    
+    console.log('New invoice object:', newInvoice);
+    
+    // Get the current insurer data
+    const index = insurersData.value.findIndex(i => i.name === insurer.name);
+    if (index === -1) {
+      console.error('Insurer not found:', insurer.name);
+      return;
     }
-    selectedInsurer.value = { 
-      ...selectedInsurer.value, 
-      last_invoice: displayDate || newDate,
-      last_invoice_timestamp: newDate.getTime()
+    
+    const currentInsurer = JSON.parse(JSON.stringify(insurersData.value[index]));
+    console.log('Current insurer data (before update):', currentInsurer);
+    
+    // Ensure we have an array of invoices
+    const currentInvoices = Array.isArray(currentInsurer.invoices) 
+      ? [...currentInsurer.invoices] 
+      : [];
+    
+    console.log('Current invoices (before adding new one):', currentInvoices);
+    
+    // Check if this exact date already exists to prevent duplicates
+    const dateExists = currentInvoices.some(invoice => {
+      const invoiceDate = typeof invoice === 'object' 
+        ? (invoice.display || String(invoice))
+        : String(invoice);
+      return invoiceDate === displayDate;
+    });
+    
+    if (dateExists) {
+      console.log('This date already exists in the invoices:', displayDate);
+      return;
     }
+    
+    // Create the updated insurer with the new invoice
+    const updatedInvoices = [newInvoice, ...currentInvoices];
+    console.log('Updated invoices array:', updatedInvoices);
+    
+    const updatedInsurer = {
+      ...currentInsurer,
+      last_invoice: displayDate,
+      last_invoice_timestamp: newDate.getTime(),
+      last_invoice_date: newDate.toISOString(),
+      invoices: updatedInvoices
+    };
+
+    console.log('Updated insurer data (before saving):', updatedInsurer);
+    
+    // Update the insurers data - create a new array to trigger reactivity
+    const updatedInsurers = insurersData.value.map(ins => 
+      ins.name === insurer.name ? updatedInsurer : ins
+    );
+    
+    // Update the reactive state
+    insurersData.value = updatedInsurers;
+    
+    console.log('Saving to Firestore...');
+    
+    try {
+      // Save the updated data to Firestore
+      console.log('Calling saveToJson()...');
+      const success = await saveToJson();
+      
+      if (success) {
+        console.log('Save successful, showing success message');
+        alert('Daten erfolgreich gespeichert');
+        // Close the detail view
+        selectedInsurer.value = null;
+      } else {
+        console.warn('Save did not return success');
+      }
+      
+      console.log('Successfully saved and updated UI');
+    } catch (error) {
+      console.error('Error saving to Firestore:', error);
+      alert('Fehler beim Speichern: ' + error.message);
+    }
+    
+    console.log('=== Completed handleSettlementCompleted ===');
+    
+  } catch (error) {
+    console.error('Error in handleSettlementCompleted:', error);
+    alert('Fehler beim Speichern der Abrechnung: ' + error.message);
   }
-  
-  // Save the updated data to Firestore
-  saveToJson()
-  
-  // Reload data to ensure consistency
-  loadInsurersData()
 }
 
 const handleUpdateLastInvoice = ({ insurerName, lastInvoice }) => {
@@ -565,10 +1127,18 @@ const handleUpdateLastInvoice = ({ insurerName, lastInvoice }) => {
 }
 
 // Make functions globally available
-window.calculateDaysOverdue = calculateDaysOverdue
-window.getStatusColor = getStatusColor
-window.getStatusText = getStatusText
-window.formatLastInvoiceDate = formatLastInvoiceDate
+window.calculateDaysOverdue = calculateDaysOverdue;
+window.getStatusColor = getStatusColor;
+window.getStatusText = getStatusText;
+window.formatLastInvoiceDate = formatLastInvoiceDate;
+window.logRawFirestoreData = logRawFirestoreData;
+
+// Initialize the app
+onMounted(() => {
+  loadInsurersData();
+  // Make the logRawFirestoreData function available globally
+  window.logRawFirestoreData = logRawFirestoreData;
+});
 </script>
 
 <style>

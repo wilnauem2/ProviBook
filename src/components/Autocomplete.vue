@@ -106,15 +106,13 @@ const updateLastInvoice = (insurer, dateValue) => {
   updateInsurerData(insurer, formattedDate)
 }
 
-// Datum für Speicherung formatieren (DD.MM.YYYY, HH:MM)
+// Datum für Speicherung formatieren (nur DD.MM.YYYY)
 const formatDateForStorage = (date) => {
   const day = String(date.getDate()).padStart(2, '0')
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const year = date.getFullYear()
-  const hours = String(date.getHours()).padStart(2, '0')
-  const minutes = String(date.getMinutes()).padStart(2, '0')
   
-  return `${day}.${month}.${year}, ${hours}:${minutes}`
+  return `${day}.${month}.${year}`
 }
 
 // Datum für HTML-Input formatieren (YYYY-MM-DD)
@@ -122,12 +120,15 @@ const getDateValue = (dateString) => {
   if (!dateString) return ''
   
   try {
-    // Annahme: dateString ist im Format "DD.MM.YYYY, HH:MM"
-    const datePart = dateString.split(',')[0] // "DD.MM.YYYY"
-    const [day, month, year] = datePart.split('.')
-    return `${year}-${month}-${day}`
+    // Entferne den Zeitanteil, falls vorhanden
+    const datePart = dateString.split(',')[0].trim(); // "DD.MM.YYYY"
+    const [day, month, year] = datePart.split('.').map(part => part.padStart(2, '0'));
+    
+    // Format: YYYY-MM-DD (für HTML date input)
+    return `${year}-${month}-${day}`;
   } catch (error) {
-    return ''
+    console.error('Error parsing date:', error);
+    return '';
   }
 }
 
@@ -181,24 +182,40 @@ const saveInsurerData = async (insurerName, lastInvoice) => {
 // Formatierung des Datums für bessere Lesbarkeit
 const formatLastSettlement = (dateString) => {
   if (!dateString) return ''
- 
+  
   try {
-    const date = new Date(dateString.replace(/(\d{2})\.(\d{2})\.(\d{4}), (\d{2}):(\d{2})/, '$3-$2-$1T$4:$5'))
-    const now = new Date()
-    const diffTime = Math.abs(now - date)
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
-   
-    if (diffDays === 0) {
-      return 'heute'
-    } else if (diffDays === 1) {
-      return 'vor 1 Tag'
-    } else if (diffDays < 7) {
-      return `vor ${diffDays} Tagen`
+    // Handle both date-only and datetime formats for backward compatibility
+    let date;
+    if (dateString.includes(',')) {
+      // Old format with time: "DD.MM.YYYY, HH:MM"
+      date = new Date(dateString.replace(/(\d{2})\.(\d{2})\.(\d{4}), (\d{2}):(\d{2})/, '$3-$2-$1T$4:$5'));
     } else {
-      return `am ${dateString.split(',')[0]}`
+      // New date-only format: "DD.MM.YYYY"
+      const [day, month, year] = dateString.split('.');
+      date = new Date(`${year}-${month}-${day}T12:00:00`); // Use noon to avoid timezone issues
+    }
+    
+    const now = new Date();
+    // Set both dates to midnight for accurate day difference calculation
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const compareDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    
+    const diffTime = Math.abs(today - compareDate);
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) {
+      return 'heute';
+    } else if (diffDays === 1) {
+      return 'vor 1 Tag';
+    } else if (diffDays < 7) {
+      return `vor ${diffDays} Tagen`;
+    } else {
+      // Return just the date part (in case it was in the old format)
+      return `am ${dateString.split(',')[0]}`;
     }
   } catch (error) {
-    return dateString
+    console.error('Error formatting date:', error);
+    return dateString;
   }
 }
 </script>

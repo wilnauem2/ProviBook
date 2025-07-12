@@ -94,57 +94,154 @@ const props = defineProps({
 const sortField = ref('date');
 const sortAscending = ref(false);
 
+// Debug: Log props when they change
+onMounted(() => {
+  console.log('AbrechnungenHistory mounted with props:', JSON.parse(JSON.stringify(props)))
+  console.log('AbrechnungenHistory - Raw abrechnungen:', JSON.parse(JSON.stringify(props.abrechnungen)));
+  
+  // Log each item in the array
+  if (Array.isArray(props.abrechnungen)) {
+    console.log(`Found ${props.abrechnungen.length} abrechnungen:`);
+    props.abrechnungen.forEach((item, index) => {
+      console.log(`  [${index}]:`, JSON.parse(JSON.stringify(item)));
+    });
+  }
+})
+
+// Watch for changes to the abrechnungen prop
+watch(() => props.abrechnungen, (newVal) => {
+  console.log('Abrechnungen prop changed:', JSON.parse(JSON.stringify(newVal)));
+  
+  if (Array.isArray(newVal)) {
+    console.log(`New abrechnungen array has ${newVal.length} items`);
+    newVal.forEach((item, index) => {
+      console.log(`  [${index}]:`, JSON.parse(JSON.stringify(item)));
+    });
+  }
+}, { deep: true });
+
+const sortedAbrechnungen = computed(() => {
+  console.log('--- sortedAbrechnungen computed ---');
+  console.log('Input abrechnungen:', JSON.parse(JSON.stringify(props.abrechnungen)));
+  
+  if (!props.abrechnungen || !Array.isArray(props.abrechnungen)) {
+    console.error('Invalid abrechnungen prop:', props.abrechnungen);
+    return [];
+  }
+  
+  if (props.abrechnungen.length === 0) {
+    console.log('No abrechnungen to sort');
+    return [];
+  }
+  
+  console.log(`Sorting ${props.abrechnungen.length} abrechnungen by ${sortField.value} ${sortAscending.value ? 'ascending' : 'descending'}`);
+  
+  // Create a copy of the array to avoid mutating the original
+  const sorted = [...props.abrechnungen];
+  
+  const result = sorted.sort((a, b) => {
+    let comparison = 0;
+    
+    if (sortField.value === 'date') {
+      // Log the items being compared
+      console.log('\nComparing items for date sorting:');
+      console.log('  Item A:', JSON.parse(JSON.stringify(a)));
+      console.log('  Item B:', JSON.parse(JSON.stringify(b)));
+      
+      // Get timestamps for comparison
+      const timeA = a.timestamp || (a.date ? new Date(a.date).getTime() : 0);
+      const timeB = b.timestamp || (b.date ? new Date(b.date).getTime() : 0);
+      
+      console.log(`  Timestamps: ${timeA} (${new Date(timeA).toISOString()}) vs ${timeB} (${new Date(timeB).toISOString()})`);
+      
+      comparison = timeA - timeB;
+      console.log(`  Comparison result: ${comparison}`);
+    } else {
+      const insurerA = a.insurer || '';
+      const insurerB = b.insurer || '';
+      comparison = insurerA.localeCompare(insurerB);
+      console.log(`Comparing insurers: "${insurerA}" vs "${insurerB}" => ${comparison}`);
+    }
+    
+    // If ascending, return the comparison as is, otherwise reverse it
+    return sortAscending.value ? comparison : -comparison;
+  });
+  
+  console.log('Sorted result:', JSON.parse(JSON.stringify(result)));
+  return result;
+});
+
 const setSort = (field) => {
+  console.log(`Sorting by ${field}, current field: ${sortField.value}, ascending: ${sortAscending.value}`);
   if (sortField.value === field) {
     sortAscending.value = !sortAscending.value;
   } else {
     sortField.value = field;
-    sortAscending.value = true;
+    sortAscending.value = false;
   }
-};
-
-const sortedAbrechnungen = computed(() => {
-  return [...props.abrechnungen].sort((a, b) => {
-    let comparison = 0;
-    
-    if (sortField.value === 'date') {
-      comparison = new Date(a.date) - new Date(b.date);
-    } else {
-      comparison = a.insurer.localeCompare(b.insurer);
-    }
-    
-    return sortAscending.value ? comparison : -comparison;
-  });
-});
-
-const parseGermanDate = (dateString) => {
-  // Handle German date format: DD.MM.YYYY, HH:mm
-  const [datePart] = dateString.split(','); // Only take the date part
-  const [day, month, year] = datePart.split('.').map(Number);
-  
-  // Note: Month is 0-indexed in JavaScript Date
-  return new Date(year, month - 1, day);
-};
+  console.log(`New sort: field=${sortField.value}, ascending=${sortAscending.value}`);
+}
 
 const formatDate = (dateString) => {
-  try {
-    // First try to parse as German format
-    if (dateString.match(/^\d{2}\.\d{2}\.\d{4}(, \d{2}:\d{2})?$/)) {
-      const date = parseGermanDate(dateString);
-      return format(date, 'dd.MM.yyyy');
-    }
-    
-    // Fallback to default parsing
-    const date = new Date(dateString);
-    if (isNaN(date.getTime())) {
-      throw new Error('Invalid date');
-    }
-    return format(date, 'dd.MM.yyyy');
-  } catch (e) {
-    console.warn('Failed to format date:', dateString, e);
+  console.log(`Formatting date: ${dateString}`);
+  
+  if (!dateString) {
+    console.log('  No date string provided');
+    return '';
+  }
+  
+  // If it's already a formatted string, return as is
+  if (typeof dateString === 'string' && dateString.includes(',')) {
+    console.log('  Already formatted:', dateString);
     return dateString;
   }
+  
+  let date;
+  
+  // Handle different date formats
+  if (typeof dateString === 'number') {
+    // It's a timestamp
+    date = new Date(dateString);
+    console.log(`  Parsed from timestamp ${dateString}:`, date);
+  } else if (typeof dateString === 'object' && dateString !== null) {
+    // It's a date object or similar
+    date = new Date(dateString);
+    console.log('  Parsed from object:', date);
+  } else if (typeof dateString === 'string') {
+    // Try to parse the string
+    // Handle German date format: DD.MM.YYYY, HH:MM
+    const match = dateString.match(/(\d{2})\.(\d{2})\.(\d{4}), (\d{2}):(\d{2})/);
+    if (match) {
+      const [_, day, month, year, hours, minutes] = match.map(Number);
+      date = new Date(year, month - 1, day, hours, minutes);
+      console.log('  Parsed from German format:', date);
+    } else {
+      // Try ISO format
+      date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        console.error('  Could not parse date string:', dateString);
+        return 'Ungültiges Datum';
+      }
+      console.log('  Parsed from string:', date);
+    }
+  } else {
+    console.error('  Unsupported date format:', dateString);
+    return 'Ungültiges Format';
+  }
+  
+  // Format the date as DD.MM.YYYY, HH:MM
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  
+  const formatted = `${day}.${month}.${year}, ${hours}:${minutes}`;
+  console.log('  Formatted as:', formatted);
+  
+  return formatted;
 };
+
 </script>
 
 <style scoped>

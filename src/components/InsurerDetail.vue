@@ -72,24 +72,38 @@ const handleUpdateLastInvoice = (newDate) => {
   emit('update-last-invoice', { insurerName: props.insurer.name, lastInvoice: newDate })
 }
 
-const formattedLastInvoice = computed(() => {
-  if (!props.insurer.last_invoice) return ''
+// Get all invoices in a formatted array
+const formattedInvoices = computed(() => {
+  const invoices = [];
   
-  // Handle the new object format
-  if (typeof props.insurer.last_invoice === 'object' && props.insurer.last_invoice !== null) {
-    if (props.insurer.last_invoice.display) {
-      return props.insurer.last_invoice.display.split(',')[0]
-    }
-    return ''
+  // Add all invoices from the invoices array if it exists
+  if (Array.isArray(props.insurer.invoices)) {
+    return props.insurer.invoices.map(invoice => {
+      // Handle both string and object formats
+      const dateString = typeof invoice === 'object' && invoice !== null && invoice.display 
+        ? invoice.display 
+        : String(invoice);
+      
+      return dateString.split(',')[0].trim();
+    });
+  } 
+  // Fallback to last_invoice for backward compatibility
+  else if (props.insurer.last_invoice) {
+    const dateString = typeof props.insurer.last_invoice === 'object' && props.insurer.last_invoice !== null && props.insurer.last_invoice.display
+      ? props.insurer.last_invoice.display
+      : String(props.insurer.last_invoice);
+    
+    return [dateString.split(',')[0].trim()];
   }
   
-  // Handle the old string format (backward compatibility)
-  if (typeof props.insurer.last_invoice === 'string') {
-    return props.insurer.last_invoice.split(',')[0]
-  }
-  
-  return ''
-})
+  return [];
+});
+
+// Format date for display (kept for backward compatibility)
+const formatDate = (dateString) => {
+  if (!dateString) return '';
+  return dateString;
+};
 
 const formattedTurnus = computed(() => {
   if (!props.insurer.turnus) return ''
@@ -192,17 +206,30 @@ const formattedTurnus = computed(() => {
         </div>
       </div>
 
-      <!-- Letzte Abrechnung -->
-      <div v-if="insurer.last_invoice" class="mb-6">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">Letzte Abrechnung</h3>
-        <div class="p-4 bg-green-50 rounded-lg border border-green-200">
-          <div class="flex items-center mb-2">
-            <svg class="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
-            <span class="font-medium text-green-800">Datum</span>
+      <!-- Abrechnungsverlauf -->
+      <div class="mb-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Abrechnungsverlauf</h3>
+        <div v-if="formattedInvoices.length > 0" class="space-y-2">
+          <div v-for="(invoice, index) in formattedInvoices" :key="index" 
+               class="p-4 rounded-lg border" 
+               :class="index === 0 ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center">
+                <svg class="w-5 h-5 mr-2" :class="index === 0 ? 'text-green-600' : 'text-gray-500'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span class="font-medium" :class="index === 0 ? 'text-green-800' : 'text-gray-700'">
+                  {{ formatDate(invoice) }}
+                </span>
+              </div>
+              <span v-if="index === 0" class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                Neueste
+              </span>
+            </div>
           </div>
-          <p class="text-gray-600">{{ formattedLastInvoice }}</p>
+        </div>
+        <div v-else class="p-4 bg-gray-50 rounded-lg border border-gray-200 text-center text-gray-500">
+          Keine vergangenen Abrechnungen gefunden.
         </div>
       </div>
 

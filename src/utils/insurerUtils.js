@@ -145,14 +145,19 @@ export const formatLastInvoiceDate = (dateValue) => {
   // Handle the new object format
   if (typeof dateValue === 'object' && dateValue !== null) {
     if (dateValue.display) {
-      return dateValue.display.split(',')[0]; // Just return the date part
+      return dateValue.display; // Return the date part only
     }
     return 'Ungültiges Datum';
   }
   
-  // Handle the old string format (backward compatibility)
+  // Handle the string format (with or without time)
   if (typeof dateValue === 'string') {
-    return dateValue.split(',')[0];
+    // If the string contains a comma, it's in the old format with time
+    if (dateValue.includes(',')) {
+      return dateValue.split(',')[0];
+    }
+    // Otherwise, it's already in the date-only format
+    return dateValue;
   }
   
   return 'Ungültiges Datum';

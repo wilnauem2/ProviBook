@@ -23,14 +23,88 @@ export async function fetchInvoices(environment = 'production') {
   }
 }
 
-// Save invoices JSON to Firestore
-export async function saveInvoices(data, environment = 'production') {
-  const { COLLECTION_NAME, DOC_NAME } = getFirestoreNames(environment);
-  const docRef = doc(collection(db, COLLECTION_NAME), DOC_NAME);
-  console.log('[Firestore] Saving to', COLLECTION_NAME, DOC_NAME, data);
-  await setDoc(docRef, data);
-  console.log('[Firestore] Save complete');
-}
+// Save invoices to Firestore
+export const saveInvoices = async (data, environment = 'production') => {
+  try {
+    const { COLLECTION_NAME, DOC_NAME } = getFirestoreNames(environment);
+    const docRef = doc(collection(db, COLLECTION_NAME), DOC_NAME);
+    
+    console.log('Saving invoices to Firestore:', data);
+    
+    // Get the current document first
+    const docSnap = await getDoc(docRef);
+    let currentData = {};
+    
+    if (docSnap.exists()) {
+      currentData = docSnap.data();
+      console.log('Current Firestore data:', currentData);
+    }
+    
+    // If we received an object with lastInvoices and allInvoices, use it as is
+    // Otherwise, assume it's the old format and save to both fields for backward compatibility
+    let saveData;
+    
+    if (data.lastInvoices !== undefined && data.allInvoices !== undefined) {
+      // For new format, we need to merge the invoice arrays
+      const mergedLastInvoices = { ...(currentData.lastInvoices || {}), ...data.lastInvoices };
+      
+      // For allInvoices, we need to merge the arrays for each insurer
+      const mergedAllInvoices = { ...(currentData.allInvoices || {}) };
+      
+      // Merge the invoices for each insurer
+      Object.entries(data.allInvoices).forEach(([insurerName, invoices]) => {
+        if (Array.isArray(invoices) && invoices.length > 0) {
+          const existingInvoices = Array.isArray(mergedAllInvoices[insurerName]) 
+            ? mergedAllInvoices[insurerName] 
+            : [];
+          
+          // Create a map of existing invoices by date to avoid duplicates
+          const invoiceMap = new Map();
+          
+          // Add existing invoices to the map
+          existingInvoices.forEach(inv => {
+            const date = inv.display || String(inv);
+            invoiceMap.set(date, inv);
+          });
+          
+          // Add new invoices, overwriting any with the same date
+          invoices.forEach(inv => {
+            const date = inv.display || String(inv);
+            invoiceMap.set(date, inv);
+          });
+          
+          // Convert back to array and sort by timestamp (newest first)
+          mergedAllInvoices[insurerName] = Array.from(invoiceMap.values())
+            .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        } else if (!mergedAllInvoices[insurerName]) {
+          // Only set if it doesn't exist yet
+          mergedAllInvoices[insurerName] = [];
+        }
+      });
+      
+      saveData = {
+        lastInvoices: mergedLastInvoices,
+        allInvoices: mergedAllInvoices
+      };
+    } else {
+      // Old format - convert to new format
+      saveData = {
+        lastInvoices: data,
+        allInvoices: data
+      };
+    }
+    
+    console.log('Merged data to save:', saveData);
+    
+    // Use setDoc with merge: false to completely replace the document
+    await setDoc(docRef, saveData, { merge: false });
+    console.log('Invoices saved to Firestore');
+    return saveData;
+  } catch (error) {
+    console.error('Error saving invoices to Firestore:', error);
+    throw error;
+  }
+};
 
 // Subscribe to real-time updates for invoices
 export function subscribeInvoices(callback, environment = 'production') {

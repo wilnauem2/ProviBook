@@ -25,11 +25,36 @@ export async function fetchInvoices(environment = 'production') {
 
 // Save invoices JSON to Firestore
 export async function saveInvoices(data, environment = 'production') {
-  const { COLLECTION_NAME, DOC_NAME } = getFirestoreNames(environment);
-  const docRef = doc(collection(db, COLLECTION_NAME), DOC_NAME);
-  console.log('[Firestore] Saving to', COLLECTION_NAME, DOC_NAME, data);
-  await setDoc(docRef, data);
-  console.log('[Firestore] Save complete');
+  try {
+    console.log('[DEBUG] saveInvoices called with environment:', environment);
+    console.log('[DEBUG] Data to save:', JSON.stringify(data, null, 2));
+    
+    const { COLLECTION_NAME, DOC_NAME } = getFirestoreNames(environment);
+    console.log(`[DEBUG] Using collection: ${COLLECTION_NAME}, document: ${DOC_NAME}`);
+    
+    const docRef = doc(collection(db, COLLECTION_NAME), DOC_NAME);
+    console.log('[DEBUG] Document reference created');
+    
+    // Ensure data is a plain object (not a Proxy or other non-serializable object)
+    const cleanData = JSON.parse(JSON.stringify(data));
+    console.log('[DEBUG] Data cleaned for Firebase:', cleanData);
+    
+    await setDoc(docRef, cleanData);
+    console.log('[DEBUG] Firebase save completed successfully');
+    
+    // Verify the save by reading it back
+    const savedDoc = await getDoc(docRef);
+    if (savedDoc.exists()) {
+      console.log('[DEBUG] Verification - Data was saved:', savedDoc.data());
+      return true;
+    } else {
+      console.error('[DEBUG] Verification failed - Document does not exist after save');
+      return false;
+    }
+  } catch (error) {
+    console.error('[DEBUG] Error in saveInvoices:', error);
+    throw error;
+  }
 }
 
 // Subscribe to real-time updates for invoices
@@ -59,4 +84,51 @@ export async function saveInsurer(insurer, environment = 'production') {
   const { INSURERS_COLLECTION } = getFirestoreNames(environment);
   const insurerDoc = doc(collection(db, INSURERS_COLLECTION), insurer.name);
   await setDoc(insurerDoc, insurer);
+}
+
+// Update an insurer's last invoice date in both collections
+export async function updateInsurerLastInvoiceDate(insurerId, insurerName, lastInvoice, environment = 'production') {
+  console.log('[DEBUG] updateInsurerLastInvoiceDate called with:', { insurerId, insurerName, lastInvoice, environment });
+  
+  try {
+    // 1. Update the insurer document
+    const { INSURERS_COLLECTION, COLLECTION_NAME, DOC_NAME } = getFirestoreNames(environment);
+    
+    // Make sure we have valid data
+    if (!insurerId) throw new Error('Insurer ID is required');
+    if (!insurerName) throw new Error('Insurer name is required');
+    if (!lastInvoice) throw new Error('Last invoice data is required');
+    
+    console.log(`[DEBUG] Updating insurer ${insurerId} in ${INSURERS_COLLECTION}`);
+    const insurerRef = doc(db, INSURERS_COLLECTION, insurerId);
+    await updateDoc(insurerRef, { last_invoice: lastInvoice });
+    console.log('[DEBUG] Insurer document updated successfully');
+    
+    // 2. Update the invoices collection
+    console.log(`[DEBUG] Updating invoices for ${insurerName} in ${COLLECTION_NAME}/${DOC_NAME}`);
+    const invoicesRef = doc(db, COLLECTION_NAME, DOC_NAME);
+    
+    // First get the current data
+    const invoicesDoc = await getDoc(invoicesRef);
+    let invoicesData = {};
+    
+    if (invoicesDoc.exists()) {
+      invoicesData = invoicesDoc.data();
+      console.log('[DEBUG] Existing invoices data:', invoicesData);
+    } else {
+      console.log('[DEBUG] No existing invoices document, creating new one');
+    }
+    
+    // Update the data for this insurer
+    invoicesData[insurerName] = lastInvoice;
+    
+    // Save it back
+    await setDoc(invoicesRef, invoicesData);
+    console.log('[DEBUG] Invoices document updated successfully');
+    
+    return true;
+  } catch (error) {
+    console.error('[DEBUG] Error in updateInsurerLastInvoiceDate:', error);
+    throw error;
+  }
 }

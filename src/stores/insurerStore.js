@@ -69,6 +69,7 @@ export const useInsurerStore = defineStore('insurer', () => {
 
       // Update in Firebase (if needed)
       try {
+        // 1. Update the insurer document
         const db = getFirestore();
         const insurerRef = doc(db, 'insurers', insurerId);
         
@@ -76,7 +77,28 @@ export const useInsurerStore = defineStore('insurer', () => {
           last_invoice: lastInvoice
         });
         
-        console.log('Firebase update successful');
+        // 2. Also update the last_invoices document in the invoices collection
+        // Import the necessary functions
+        const { saveInvoices, fetchInvoices } = await import('../firebaseInvoices');
+        
+        // Get the current environment
+        const { currentEnvironment } = await import('../config/environment');
+        const env = typeof currentEnvironment === 'function' ? currentEnvironment() : 
+                   (currentEnvironment.value || 'test');
+        
+        // Get current invoices data
+        const currentInvoices = await fetchInvoices(env) || {};
+        
+        // Update the invoice for this insurer
+        const updatedInvoices = {
+          ...currentInvoices,
+          [updatedInsurer.name]: lastInvoice
+        };
+        
+        // Save back to Firebase
+        await saveInvoices(updatedInvoices, env);
+        
+        console.log('Firebase updates successful (both insurer and invoices)');
       } catch (firebaseError) {
         console.error('Firebase update failed:', firebaseError);
         // We don't throw here to keep the UI updated even if Firebase fails

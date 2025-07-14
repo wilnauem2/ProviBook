@@ -403,9 +403,19 @@ const handleSettlementCompleted = async (event) => {
     
     console.log('Using last_invoice object:', JSON.stringify(lastInvoice, null, 2));
     
-    // Use the Pinia store to update the insurer data
-    await insurerStore.updateInsurerLastInvoice(insurer.id, lastInvoice);
+    // Import the new function to update both collections
+    const { updateInsurerLastInvoiceDate } = await import('../firebaseInvoices');
     
+    // Get the current environment
+    const env = currentEnvironment.value || 'test';
+    console.log(`Current environment: ${env}`);
+    
+    // Update both the insurer document and the invoices collection
+    await updateInsurerLastInvoiceDate(insurer.id, insurer.name, lastInvoice, env);
+    console.log('Firebase update completed for both collections');
+    
+    // Also update the local store
+    await insurerStore.updateInsurerLastInvoice(insurer.id, lastInvoice);
     console.log('Insurer data updated via Pinia store');
     
     // Force a UI update

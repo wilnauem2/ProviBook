@@ -1,6 +1,10 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, defineProps, defineEmits } from 'vue';
+import { useInsurerStore } from '../stores/insurerStore';
 import { calculateDaysOverdue, getStatusColor, getStatusText } from '../utils/insurerUtils'
+
+// Initialize Pinia store
+const insurerStore = useInsurerStore();
 
 const showDatePicker = ref(false)
 const selectedDate = ref('')
@@ -26,6 +30,14 @@ const props = defineProps({
   insurer: {
     type: Object,
     required: true
+  },
+  lastInvoices: {
+    type: Array,
+    default: () => []
+  },
+  currentDate: {
+    type: [Date, String],
+    required: true
   }
 })
 
@@ -44,27 +56,95 @@ const openDatePicker = () => {
   }, 100)
 }
 
-const handleDateSubmit = () => {
-  if (!selectedDate.value) return
+const handleDateSubmit = async (date) => {
+  console.log('=== handleDateSubmit ===');
   
-  // Create a Date object from the selected date
-  const [year, month, day] = selectedDate.value.split('-').map(Number)
-  const now = new Date()
-  const date = new Date(year, month - 1, day, now.getHours(), now.getMinutes())
-  
-  // For display purposes, format as DD.MM.YYYY, HH:MM
-  const displayDate = `${String(day).padStart(2, '0')}.${String(month).padStart(2, '0')}.${year}, ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
-  
-  // Emit both the Date object and the display string
-  emit('settlement-completed', { 
-    insurer: props.insurer,
-    newDate: date,
-    displayDate: displayDate
-  })
-  
-  // Reset and close
-  showDatePicker.value = false
-}
+  try {
+    console.log('Starting handleDateSubmit with date:', date);
+    
+    // Use the provided date or default to today
+    const dateToUse = date || selectedDate.value;
+    
+    if (!dateToUse) {
+      console.error('No date provided');
+      return;
+    }
+    
+    console.log('Input date:', dateToUse);
+    
+    // Parse the date string to a Date object
+    const parsedDate = new Date(dateToUse);
+    
+    // Set the time to 14:00 local time
+    parsedDate.setHours(14, 0, 0, 0);
+    
+    // Get timestamp for easier comparisons
+    const timestamp = parsedDate.getTime();
+    
+    // Format the date for display (DD.MM.YYYY, HH:MM)
+    const formattedDay = String(parsedDate.getDate()).padStart(2, '0');
+    const formattedMonth = String(parsedDate.getMonth() + 1).padStart(2, '0');
+    const formattedYear = parsedDate.getFullYear();
+    const hours = String(parsedDate.getHours()).padStart(2, '0');
+    const minutes = String(parsedDate.getMinutes()).padStart(2, '0');
+    
+    const displayDate = `${formattedDay}.${formattedMonth}.${formattedYear}, ${hours}:${minutes}`;
+    
+    console.log('Creating date object:', {
+      inputDate: dateToUse,
+      parsedDate: parsedDate.toString(),
+      isoString: parsedDate.toISOString(),
+      timestamp,
+      displayDate
+    });
+    
+    // Create the last_invoice object
+    const lastInvoice = {
+      display: displayDate,
+      timestamp: timestamp,
+      date: parsedDate.toISOString()
+    };
+    
+    console.log('Created last_invoice object:', JSON.stringify(lastInvoice, null, 2));
+    
+    try {
+      // 1. Update the data using Pinia store
+      if (props.insurer && props.insurer.id) {
+        console.log('Updating insurer data via Pinia store');
+        await insurerStore.updateInsurerLastInvoice(props.insurer.id, lastInvoice);
+        console.log('Insurer data updated successfully via Pinia');
+      }
+      
+      // 2. Also emit the event for backward compatibility
+      const eventData = {
+        insurer: props.insurer,
+        newDate: parsedDate,
+        displayDate,
+        last_invoice: lastInvoice
+      };
+      
+      console.log('Emitting settlement-completed event with data:', JSON.stringify(eventData, null, 2));
+      emit('settlement-completed', eventData);
+      console.log('settlement-completed event emitted successfully');
+    } catch (error) {
+      console.error('Error updating insurer data:', error);
+      throw error; // Re-throw to be caught by the outer catch
+    }
+    
+    console.log('Date picker closed');
+    showDatePicker.value = false;
+  } catch (error) {
+    console.error('Error in handleDateSubmit:', error);
+    // Log additional error details
+    if (error instanceof Error) {
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
+    // Re-throw to ensure the error is not silently swallowed
+    throw error;
+  }
+};
 
 const handleCancel = () => {
   showDatePicker.value = false
@@ -81,62 +161,126 @@ const handleUpdateLastInvoice = (newDate) => {
 }
 
 const formattedLastInvoice = computed(() => {
-  if (!props.insurer.last_invoice) return ''
+  console.log('formattedLastInvoice called with:', props.insurer.last_invoice);
   
-  let dateStr = ''
+  if (!props.insurer.last_invoice) {
+    console.log('No last_invoice, returning empty string');
+    return '';
+  }
   
-  // Handle the new object format
-  if (typeof props.insurer.last_invoice === 'object' && props.insurer.last_invoice !== null) {
-    if (props.insurer.last_invoice.display) {
-      // Extract just the date part (DD.MM.YYYY)
-      dateStr = props.insurer.last_invoice.display.split(',')[0].trim()
+  let dateStr = '';
+  const lastInvoice = props.insurer.last_invoice;
+  
+  // Handle the object format with display property
+  if (typeof lastInvoice === 'object' && lastInvoice !== null) {
+    console.log('last_invoice is an object with keys:', Object.keys(lastInvoice));
+    
+    // If we have a date property that's an ISO string
+    if (lastInvoice.date) {
+      console.log('Using date property (ISO):', lastInvoice.date);
+      const date = new Date(lastInvoice.date);
+      if (!isNaN(date.getTime())) {
+        dateStr = date.toLocaleDateString('de-DE', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        });
+        console.log('Formatted date from ISO string:', dateStr);
+      }
+    }
+    // Fall back to display property
+    else if (lastInvoice.display) {
+      console.log('Using display property:', lastInvoice.display);
+      dateStr = lastInvoice.display.split(',')[0].trim();
+      console.log('Extracted date from display:', dateStr);
+    } 
+    // Fall back to timestamp
+    else if (lastInvoice.timestamp) {
+      console.log('Using timestamp property:', lastInvoice.timestamp);
+      const date = new Date(Number(lastInvoice.timestamp));
+      if (!isNaN(date.getTime())) {
+        dateStr = date.toLocaleDateString('de-DE', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        });
+        console.log('Formatted date from timestamp:', dateStr);
+      }
     }
   } 
-  // Handle the old string format (backward compatibility)
-  else if (typeof props.insurer.last_invoice === 'string') {
-    // Extract just the date part (DD.MM.YYYY)
-    dateStr = props.insurer.last_invoice.split(',')[0].trim()
+  // Handle string format (backward compatibility)
+  else if (typeof lastInvoice === 'string' && lastInvoice.trim() !== '') {
+    console.log('last_invoice is a string:', lastInvoice);
+    // If it's an ISO date string
+    if (lastInvoice.includes('T') && !isNaN(Date.parse(lastInvoice))) {
+      const date = new Date(lastInvoice);
+      dateStr = date.toLocaleDateString('de-DE', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+      console.log('Formatted ISO date string:', dateStr);
+    } else {
+      // Try to extract date part from other string formats
+      dateStr = lastInvoice.split(',')[0].trim();
+      console.log('Extracted date from string:', dateStr);
+    }
   }
   
   // If we don't have a date string, return empty
-  if (!dateStr) return ''
+  if (!dateStr) {
+    console.log('No date string extracted, returning empty string');
+    return '';
+  }
+  
+  console.log('Final date string to format:', dateStr);
   
   // Try to parse the date in different formats
   try {
     // Try DD.MM.YYYY format
     if (/^\d{1,2}\.\d{1,2}\.\d{4}$/.test(dateStr)) {
-      const [day, month, year] = dateStr.split('.').map(Number)
-      const date = new Date(year, month - 1, day)
+      const [day, month, year] = dateStr.split('.').map(Number);
+      const date = new Date(year, month - 1, day);
       
-      // If we couldn't parse the date, return the original string
-      if (isNaN(date.getTime())) return dateStr
+      if (isNaN(date.getTime())) {
+        console.log('Invalid date from DD.MM.YYYY format, returning as is');
+        return dateStr;
+      }
       
       // Format the date in German format (DD.MM.YYYY)
-      return date.toLocaleDateString('de-DE', {
+      const formatted = date.toLocaleDateString('de-DE', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric'
-      })
+      });
+      
+      console.log('Formatted date from DD.MM.YYYY:', formatted);
+      return formatted;
     }
     
-    // If it's a full ISO string or other format, try to parse it directly
-    const date = new Date(dateStr)
+    // Try to parse as ISO string or other format
+    const date = new Date(dateStr);
     if (!isNaN(date.getTime())) {
-      return date.toLocaleDateString('de-DE', {
+      const formatted = date.toLocaleDateString('de-DE', {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric'
-      })
+      });
+      console.log('Formatted date from Date object:', formatted);
+      return formatted;
     }
     
-    // If we get here, return the original string without any time part
-    return dateStr.split(' ')[0].split(',')[0].trim()
+    console.log('Could not parse date, returning as is:', dateStr);
+    return dateStr;
+    
   } catch (e) {
-    console.error('Error formatting date:', e)
-    // If anything fails, return the original string without time
-    return dateStr.split(' ')[0].split(',')[0].trim()
+    console.error('Error formatting date:', e);
+    // Return the original string without time part if possible
+    const result = dateStr.split(' ')[0].split(',')[0].trim();
+    console.log('Error case, returning:', result);
+    return result;
   }
-})
+});
 
 const formattedTurnus = computed(() => {
   if (!props.insurer.turnus) return ''
@@ -275,13 +419,39 @@ const formattedTurnus = computed(() => {
       <div v-if="insurer.last_invoice" class="mb-6">
         <h3 class="text-lg font-semibold text-gray-900 mb-4">Letzte Abrechnung</h3>
         <div class="p-4 bg-green-50 rounded-lg border border-green-200">
+          <!-- Debug Info -->
+          <div class="text-xs text-gray-500 mb-2 p-2 bg-gray-100 rounded">
+            <div>Debug - last_invoice type: {{ typeof insurer.last_invoice }}</div>
+            <div>Debug - last_invoice: {{ JSON.stringify(insurer.last_invoice) }}</div>
+            <div v-if="typeof insurer.last_invoice === 'object'">
+              <div>Debug - has display: {{ 'display' in insurer.last_invoice }}</div>
+              <div>Debug - has date: {{ 'date' in insurer.last_invoice }}</div>
+              <div>Debug - has timestamp: {{ 'timestamp' in insurer.last_invoice }}</div>
+            </div>
+          </div>
+          
           <div class="flex items-center mb-2">
             <svg class="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
             </svg>
             <span class="font-medium text-green-800">Datum</span>
           </div>
-          <p class="text-gray-600">{{ formattedLastInvoice }}</p>
+          <div class="mt-4 text-sm">
+            <div class="font-medium text-gray-700">Letzte Abrechnung:</div>
+            <div class="text-gray-600" v-if="props.insurer.last_invoice">
+              {{ props.insurer.last_invoice.display || 
+                 (props.insurer.last_invoice.date ? new Date(props.insurer.last_invoice.date).toLocaleDateString('de-DE') : '') }}
+            </div>
+            <div class="text-gray-600" v-else>
+              Keine Abrechnung vorhanden
+            </div>
+            
+            <!-- Debug output -->
+            <div class="mt-2 p-2 bg-gray-100 rounded text-xs">
+              <div><strong>Debug:</strong></div>
+              <div>last_invoice: {{ JSON.stringify(props.insurer.last_invoice) }}</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -338,20 +508,23 @@ const formattedTurnus = computed(() => {
               id="settlementDate"
               v-model="selectedDate"
               class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-              @keyup.enter="handleDateSubmit"
+              @keyup.enter="() => handleDateSubmit()"
             >
           </div>
           
           <div class="flex justify-end space-x-3">
             <button
+              type="button"
               @click="handleCancel"
               class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
             >
               Abbrechen
             </button>
             <button
-              @click="handleDateSubmit"
-              class="px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+              type="button"
+              @click="() => handleDateSubmit()"
+              class="px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              :disabled="!selectedDate"
             >
               Bestätigen
             </button>

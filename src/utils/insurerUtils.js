@@ -123,20 +123,17 @@ export const isWithinTurnus = (insurer, currentDate = null) => {
 };
 
 export const getStatusColor = (insurer, currentDate = null) => {
-  if (!insurer?.turnus || !insurer?.last_invoice) return ''
+  if (!insurer?.last_invoice || !insurer?.turnus) return 'gray';
   
-  const daysOverdue = calculateDaysOverdue(insurer, currentDate)
-  
-  // If within turnus period or no overdue days
-  if (daysOverdue === 0) return 'green'
-  
-  // For 1-5 days overdue
-  if (daysOverdue > 0 && daysOverdue <= 5) return 'yellow'
-  
-  // For more than 5 days overdue
-  if (daysOverdue > 5) return 'red'
-  
-  return ''
+  try {
+    const daysOverdue = calculateDaysOverdue(insurer, currentDate);
+    if (daysOverdue > 5) return 'red';
+    if (daysOverdue > 0) return 'yellow'; 
+    return 'green';
+  } catch (error) {
+    console.error('Error getting status color:', error);
+    return 'gray';
+  }
 };
 
 export const formatLastInvoiceDate = (dateValue) => {

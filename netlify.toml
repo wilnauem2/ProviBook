@@ -1,0 +1,33 @@
+[build]
+  command = "npm install --legacy-peer-deps && npm run netlify-build"
+  publish = "dist"
+  NODE_VERSION = "18.17.1"  # Use specific Node.js version for better compatibility
+
+[build.environment]
+  NODE_OPTIONS = "--openssl-legacy-provider"
+  NPM_FLAGS = "--legacy-peer-deps"
+  CI = "false"
+  NODE_ENV = "production"
+
+[dev]
+  command = "npm run dev"
+  port = 3000
+  publish = "dist"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  force = true
+
+[context.production]
+  command = "npm install --legacy-peer-deps && npm run netlify-build"
+  environment = { NODE_ENV = "production" }
+
+[context.deploy-preview]
+  command = "npm install --legacy-peer-deps && npm run netlify-build"
+  environment = { NODE_ENV = "production" }
+
+[context.branch-deploy]
+  command = "npm install --legacy-peer-deps && npm run netlify-build"
+  environment = { NODE_ENV = "production" }

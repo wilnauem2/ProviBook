@@ -4,8 +4,8 @@
       v-for="(count, status) in statusCounts" 
       :key="status"
       class="relative overflow-hidden rounded-xl p-4 transition-all duration-200 hover:shadow-md w-full cursor-pointer"
-      :class="getStatusCardClass(status)"
-      @click="incrementCounter(status)"
+      :class="[getStatusCardClass(status), isActive(status) ? 'ring-2 ring-offset-2' : '']"
+      @click="handleStatusClick(status)"
     >
       <div class="flex items-center">
         <div class="flex-shrink-0 w-4 h-4 rounded-full mr-3" 
@@ -16,9 +16,6 @@
           </div>
           <div class="text-2xl font-bold leading-tight mt-1" :class="getStatusTextColor(status, true)">
             {{ count }}
-          </div>
-          <div v-if="clickCounts[status] > 0" class="text-xs mt-1" :class="getStatusTextColor(status)">
-            Clicks: {{ clickCounts[status] }}
           </div>
         </div>
       </div>
@@ -39,33 +36,24 @@ export default {
         critical: 0,
         unknown: 0
       })
+    },
+    activeStatus: {
+      type: String,
+      default: 'all'
     }
-  },
-  data() {
-    return {
-      clickCounts: {
-        on_time: 0,
-        yellow: 0,
-        warning: 0,
-        red: 0,
-        critical: 0,
-        total: 0,
-        unknown: 0
-      }
-    };
   },
   emits: ['status-clicked'],
   
   methods: {
-    incrementCounter(status) {
-      // Increment the click counter for this status
-      this.clickCounts[status]++;
-      
+    isActive(status) {
+      return this.activeStatus === status;
+    },
+    handleStatusClick(status) {
       // Emit an event that can be captured by parent components
-      this.$emit('status-clicked', { status, count: this.clickCounts[status] });
+      this.$emit('status-clicked', { status });
       
       // Log the click for debugging
-      console.log(`${status} button clicked ${this.clickCounts[status]} times`);
+      console.log(`${status} button clicked`);
     },
     getStatusColor(status, type = 'text') {
       const colors = {

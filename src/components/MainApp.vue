@@ -70,7 +70,8 @@
           <div class="lg:col-span-1 space-y-4">
             <!-- Status summary cards -->
             <StatusSummary 
-              :statusCounts="statusCounts" 
+              :statusCounts="statusCounts"
+              :activeStatus="statusFilter"
               @status-clicked="handleStatusClicked" 
             />
             
@@ -99,7 +100,33 @@
           <div class="lg:col-span-3">
             <div class="bg-white shadow overflow-hidden sm:rounded-md">
               <div class="border-b border-gray-200 px-4 py-4 sm:px-6 flex justify-between items-center">
-                <h2 class="text-lg font-medium text-gray-900">Versicherer</h2>
+                <div class="flex items-center">
+                  <h2 class="text-lg font-medium text-gray-900">Versicherer</h2>
+                  
+                  <!-- Active filter indicator -->
+                  <div v-if="statusFilter !== 'all'" class="ml-3 flex items-center">
+                    <span class="text-sm text-gray-500">Filter:</span>
+                    <span 
+                      class="ml-1 px-2 py-1 text-xs rounded-full" 
+                      :class="{
+                        'bg-yellow-100 text-yellow-800': statusFilter === 'warning',
+                        'bg-red-100 text-red-800': statusFilter === 'critical',
+                        'bg-green-100 text-green-800': statusFilter === 'on_time'
+                      }"
+                    >
+                      {{ getStatusFilterLabel(statusFilter) }}
+                    </span>
+                    <button 
+                      @click="clearStatusFilter"
+                      class="ml-1 text-gray-400 hover:text-gray-600"
+                      title="Filter zurücksetzen"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
                 
                 <!-- Sort options -->
                 <div class="inline-flex">
@@ -238,11 +265,14 @@ const activeTab = ref('main');
 const isLoading = ref(false);
 const sortOption = ref('name');
 const testDate = ref(new Date());
+const statusFilter = ref('all'); // 'all', 'warning', 'critical', 'on_time'
 
 // Data - use store references
 const insurersData = computed(() => insurerStore.insurers);
 const selectedInsurer = computed(() => insurerStore.selectedInsurer);
 const lastInvoices = computed(() => insurerStore.lastInvoices);
+
+
 
 // Status counts for dashboard
 const statusCounts = computed(() => {
@@ -254,8 +284,8 @@ const statusCounts = computed(() => {
     on_time: 0
   };
   
-  if (filteredInsurers.value) {
-    filteredInsurers.value.forEach(insurer => {
+  if (insurersData.value) {
+    insurersData.value.forEach(insurer => {
       // Count all insurers
       counts.total++;
       
@@ -269,14 +299,8 @@ const statusCounts = computed(() => {
       } else {
         counts.on_time++;
       }
-      
-      // Debug log to check overdue calculation
-      console.log(`Insurer: ${insurer.name}, Days overdue: ${daysOverdue}`);
     });
   }
-  
-  // Debug log to verify counts
-  console.log('Status counts:', counts);
   
   return counts;
 });
@@ -291,18 +315,37 @@ const handleDateUpdate = (newDate) => {
   testDate.value = newDate;
 };
 
+// Get a human-readable label for the status filter
+const getStatusFilterLabel = (status) => {
+  switch (status) {
+    case 'warning':
+      return 'Warnung (1-5 Tage überfällig)';
+    case 'critical':
+      return 'Kritisch (>5 Tage überfällig)';
+    case 'on_time':
+      return 'Pünktlich';
+    default:
+      return status;
+  }
+};
+
+// Clear the status filter
+const clearStatusFilter = () => {
+  statusFilter.value = 'all';
+  console.log('Status filter cleared');
+};
+
 // Handle status button clicks from StatusSummary component
 const handleStatusClicked = (data) => {
-  console.log(`Status clicked: ${data.status}, Count: ${data.count}`);
+  console.log(`Status clicked: ${data.status}`);
   
-  // You can add additional functionality here based on which status was clicked
-  // For example, filter the list to show only items with that status
-  if (data.status === 'warning') {
-    // Show a notification or filter to show only warning status items
-    alert(`Warning status clicked ${data.count} times!`);
-  } else if (data.status === 'critical') {
-    // Show a notification or filter to show only critical status items
-    alert(`Critical status clicked ${data.count} times!`);
+  // If the same status is clicked again, clear the filter
+  if (statusFilter.value === data.status) {
+    clearStatusFilter();
+  } else {
+    // Otherwise, set the filter to the clicked status
+    statusFilter.value = data.status;
+    console.log(`Filtering insurers by status: ${data.status}`);
   }
 };
 
@@ -439,10 +482,35 @@ const switchEnvironment = async (newEnvironment) => {
 const filteredInsurers = computed(() => {
   if (!insurersData.value) return [];
   
-  const filtered = insurersData.value.filter(insurer => {
-    if (!searchFilter.value) return true;
-    return insurer.name.toLowerCase().includes(searchFilter.value.toLowerCase());
-  });
+  const now = getCurrentDate();
+  let filtered = [...insurersData.value];
+  
+  // Apply search filter
+  if (searchFilter.value.trim()) {
+    const searchTerm = searchFilter.value.toLowerCase().trim();
+    filtered = filtered.filter(insurer => 
+      insurer.name.toLowerCase().includes(searchTerm) ||
+      (insurer.id && insurer.id.toLowerCase().includes(searchTerm))
+    );
+  }
+  
+  // Apply status filter
+  if (statusFilter.value !== 'all') {
+    filtered = filtered.filter(insurer => {
+      const daysOverdue = calculateDaysOverdue(insurer, now);
+      
+      switch (statusFilter.value) {
+        case 'warning':
+          return daysOverdue > 0 && daysOverdue <= 5;
+        case 'critical':
+          return daysOverdue > 5;
+        case 'on_time':
+          return daysOverdue <= 0;
+        default:
+          return true;
+      }
+    });
+  }
   
   return filtered;
 });

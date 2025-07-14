@@ -13,8 +13,7 @@
               ? 'bg-blue-100 text-blue-700 border border-blue-300'
               : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50',
             env.id === 'production' ? 'rounded-l-md' : '',
-            env.id === 'test' ? 'border-l-0' : '',
-            env.id === 'development' ? 'rounded-r-md border-l-0' : ''
+            env.id === 'test' ? 'border-l-0 rounded-r-md' : ''
           ]"
         >
           {{ env.label }}
@@ -43,7 +42,7 @@ export default {
     currentEnvironment: {
       type: String,
       required: true,
-      validator: (value) => ['production', 'test', 'development'].includes(value)
+      validator: (value) => ['production', 'test'].includes(value)
     },
     username: {
       type: String,
@@ -55,8 +54,7 @@ export default {
     return {
       environments: [
         { id: 'production', label: 'Produktion' },
-        { id: 'test', label: 'Test' },
-        { id: 'development', label: 'Entwicklung' }
+        { id: 'test', label: 'Test' }
       ]
     }
   }

@@ -1,29 +1,21 @@
 <template>
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+  <div class="grid grid-cols-1 gap-3 w-full">
     <div 
       v-for="(count, status) in statusCounts" 
       :key="status"
-      class="relative overflow-hidden rounded-xl p-5 transition-all duration-200 hover:shadow-md"
+      class="relative overflow-hidden rounded-xl p-4 transition-all duration-200 hover:shadow-md w-full"
       :class="getStatusCardClass(status)"
     >
-      <!-- Decorative element -->
-      <div class="absolute top-0 right-0 w-16 h-16 -mr-5 -mt-5 rounded-full opacity-20" 
-           :class="getStatusColor(status, 'bg')"></div>
-      
-      <div class="relative z-10">
-        <div class="flex items-center mb-2">
-          <div class="flex-shrink-0 w-3 h-3 rounded-full mr-2" 
-               :class="getStatusColor(status, 'bg')"></div>
-          <span class="text-xs font-medium uppercase tracking-wider" 
-                :class="getStatusTextColor(status)">
+      <div class="flex items-center">
+        <div class="flex-shrink-0 w-4 h-4 rounded-full mr-3" 
+             :class="getStatusColor(status, 'bg')"></div>
+        <div class="flex-1">
+          <div class="text-sm font-medium" :class="getStatusTextColor(status)">
             {{ getStatusText(status) }}
-          </span>
-        </div>
-        <div class="text-2xl font-bold" :class="getStatusTextColor(status, true)">
-          {{ count }}
-        </div>
-        <div class="mt-1 text-xs opacity-75" :class="getStatusTextColor(status)">
-          Versicherer
+          </div>
+          <div class="text-2xl font-bold leading-tight mt-1" :class="getStatusTextColor(status, true)">
+            {{ count }}
+          </div>
         </div>
       </div>
     </div>
@@ -88,9 +80,15 @@ export default {
       return colorSet[type] || colorSet.text
     },
     getStatusCardClass(status) {
-      const base = 'bg-white border shadow-sm hover:-translate-y-0.5';
-      const statusClass = this.getStatusColor(status, 'light') + ' ' + this.getStatusColor(status, 'border');
-      return `${base} ${statusClass}`;
+      const baseClass = 'bg-opacity-10 hover:bg-opacity-15 border';
+      const borderColors = {
+        yellow: 'border-yellow-200',
+        red: 'border-red-200',
+        total: 'border-blue-200',
+        on_time: 'border-green-200',
+        unknown: 'border-gray-200'
+      };
+      return `${this.getStatusColor(status, 'bg')} ${baseClass} ${borderColors[status] || ''}`;
     },
     getStatusTextColor(status, isBold = false) {
       const textColor = this.getStatusColor(status, 'text');

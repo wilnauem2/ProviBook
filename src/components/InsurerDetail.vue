@@ -6,13 +6,20 @@ const showDatePicker = ref(false)
 const selectedDate = ref('')
 const dateInputRef = ref(null)
 
-// Set initial date to today when component mounts
+// Set initial date to today and log insurer data when component mounts
 onMounted(() => {
+  // Set default date
   const today = new Date()
   const day = String(today.getDate()).padStart(2, '0')
   const month = String(today.getMonth() + 1).padStart(2, '0')
   const year = today.getFullYear()
   selectedDate.value = `${year}-${month}-${day}`
+  
+  // Debug logs
+  console.log('Insurer data:', props.insurer);
+  if (props.insurer) {
+    console.log('Dokumentenart:', props.insurer.dokumentenart);
+  }
 })
 
 const props = defineProps({
@@ -21,6 +28,7 @@ const props = defineProps({
     required: true
   }
 })
+
 
 const emit = defineEmits(['close', 'settlement-completed'])
 
@@ -196,6 +204,50 @@ const formattedTurnus = computed(() => {
               <span class="font-medium text-teal-800">Bezugsweg</span>
             </div>
             <p class="text-gray-600">{{ insurer.bezugsweg }}</p>
+          </div>
+
+          <!-- File Formats -->
+          <div v-if="insurer.dokumentenart && insurer.dokumentenart.length > 0" class="p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+            <div class="flex items-center mb-3">
+              <svg class="w-5 h-5 text-indigo-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span class="font-medium text-indigo-800">Verfügbare Formate</span>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <span v-if="insurer.dokumentenart.includes('CSV')" class="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium bg-blue-100 text-blue-800">
+                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                CSV
+              </span>
+              <span v-if="insurer.dokumentenart.includes('PDF')" class="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium bg-red-100 text-red-800">
+                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                PDF
+              </span>
+              <span v-if="insurer.dokumentenart.includes('XLS')" class="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium bg-green-100 text-green-800">
+                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Excel
+              </span>
+              <span v-if="insurer.dokumentenart.includes('XML')" class="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium bg-purple-100 text-purple-800">
+                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                </svg>
+                XML
+              </span>
+              
+              <!-- Papier -->
+              <span v-if="insurer.dokumentenart.includes('Papier')" class="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium bg-gray-100 text-gray-800">
+                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Papier
+              </span>
+            </div>
           </div>
 
           <div v-if="insurer.dokumentenart" class="p-4 bg-yellow-50 rounded-lg border border-yellow-200">

@@ -29,48 +29,56 @@
       </header>
 
       <!-- Main Content -->
-      <main class="container mx-auto px-4 py-6">
-        <div v-if="activeTab === 'main'" class="space-y-6">
-          <!-- Status Summary Cards -->
-          <StatusSummary :statusCounts="statusCounts" />
-          
-          <!-- Test Date Simulator -->
-          <TestDateSimulator 
-            v-if="currentEnvironment === 'test'" 
-            v-model="testDate" 
-            @update:modelValue="handleDateUpdate" 
-            class="bg-white rounded-lg shadow p-4"
-          />
-          
-          <!-- Search and Insurer List -->
-          <div class="bg-white rounded-lg shadow overflow-hidden">
-            <div class="p-4 border-b border-gray-200">
-              <SearchBar v-model="searchFilter" />
-            </div>
+      <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
+        <div v-if="activeTab === 'main'" class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <!-- Left Sidebar -->
+          <div class="lg:col-span-1 space-y-4">
+            <!-- Test Date Simulator -->
+            <TestDateSimulator 
+              v-if="currentEnvironment === 'test'" 
+              v-model="testDate" 
+              @update:modelValue="handleDateUpdate"
+              class="sticky top-24 z-10"
+            />
             
-            <div class="divide-y divide-gray-200">
-              <template v-if="filteredInsurers.length > 0">
-                <InsurerList
-                  :insurers="filteredInsurers"
-                  :selectedInsurer="selectedInsurer"
-                  @selectInsurer="insurer => selectedInsurer = insurer"
-                />
-              </template>
-              <template v-else>
-                <div class="py-12 text-center text-gray-500">
-                  <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <h3 class="mt-2 text-sm font-medium text-gray-900">Keine Versicherer gefunden</h3>
-                  <p class="mt-1 text-sm text-gray-500">Versuchen Sie es mit einem anderen Suchbegriff.</p>
-                </div>
-              </template>
+            <!-- Status Summary Cards -->
+            <div class="mt-6">
+              <StatusSummary :statusCounts="statusCounts" />
+            </div>
+          </div>
+          
+          <!-- Main Content Area -->
+          <div class="lg:col-span-3 space-y-6">
+            <!-- Search and Insurer List -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden w-full transition-all duration-200 hover:shadow-md">
+              <div class="p-5 border-b border-gray-100 bg-gray-50">
+                <SearchBar v-model="searchFilter" />
+              </div>
+              
+              <div class="divide-y divide-gray-200">
+                <template v-if="filteredInsurers.length > 0">
+                  <InsurerList
+                    :insurers="filteredInsurers"
+                    :selectedInsurer="selectedInsurer"
+                    @selectInsurer="insurer => selectedInsurer = insurer"
+                  />
+                </template>
+                <template v-else>
+                  <div class="py-12 text-center text-gray-500">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <h3 class="mt-2 text-sm font-medium text-gray-900">Keine Versicherer gefunden</h3>
+                    <p class="mt-1 text-sm text-gray-500">Versuchen Sie es mit einem anderen Suchbegriff.</p>
+                  </div>
+                </template>
+              </div>
             </div>
           </div>
         </div>
         
         <!-- Settings Tab Content -->
-        <div v-else class="bg-white rounded-lg shadow p-6">
+        <div v-else class="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
           <h2 class="text-lg font-medium text-gray-900 mb-6">Einstellungen</h2>
           <!-- Add settings content here -->
         </div>
@@ -89,8 +97,8 @@
     
     <!-- Detail panel with slide transition -->
     <transition name="slide-in-right">
-      <div v-if="selectedInsurer" class="fixed inset-y-0 right-0 w-full max-w-md bg-white shadow-xl z-30 transform transition-transform duration-300 ease-in-out">
-        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+      <div v-if="selectedInsurer" class="fixed inset-y-0 right-0 w-full max-w-2xl bg-white shadow-2xl z-30 transform transition-transform duration-300 ease-in-out border-l border-gray-100">
+        <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100 bg-gray-50">
           <h2 class="text-lg font-medium text-gray-900">{{ selectedInsurer.name }}</h2>
           <button 
             @click="selectedInsurer = null" 
@@ -112,11 +120,9 @@
       </div>
     </transition>
   </div>
-    </div>
-    <!-- Abrechnungen History View -->
-    <div v-if="activeTab === 'history'" class="content p-4">
-      <AbrechnungenHistory :abrechnungen="formattedAbrechnungen" />
-    </div>
+  <!-- Abrechnungen History View -->
+  <div v-if="activeTab === 'history'" class="content p-4">
+    <AbrechnungenHistory :abrechnungen="formattedAbrechnungen" />
   </div>
   <!-- Debug output for selectedInsurer.value -->
 <div style="margin-top: 1rem; background: #fffbe6; border: 1px solid #facc15; border-radius: 8px; padding: 0.5rem; font-size: 0.95em; color: #92400e;">

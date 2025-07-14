@@ -1,16 +1,36 @@
 <template>
-  <div class="test-date-simulator" v-if="currentEnvironment === 'test'">
-    <div class="date-controls">
-      <button @click="decreaseDate" :disabled="!canDecrease">
-        ⏪
-      </button>
-      <span class="current-date">{{ formatDate(testDate) }}</span>
-      <button @click="increaseDate" :disabled="!canIncrease">
-        ⏩
-      </button>
-    </div>
-    <div class="reset-controls">
-      <button @click="resetDate">Reset to Today</button>
+  <div class="test-date-simulator bg-white rounded-lg border border-gray-200 p-3 shadow-sm" v-if="currentEnvironment === 'test'">
+    <div class="flex flex-col space-y-2">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">Test Datum</span>
+        <button 
+          @click="resetDate" 
+          class="text-xs text-blue-600 hover:text-blue-800 hover:underline focus:outline-none"
+        >
+          Heute
+        </button>
+      </div>
+      <div class="flex items-center space-x-2">
+        <button 
+          @click="decreaseDate" 
+          :disabled="!canDecrease"
+          class="p-1.5 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <span class="text-sm font-medium text-gray-900 flex-1 text-center">{{ formatDate(testDate) }}</span>
+        <button 
+          @click="increaseDate" 
+          :disabled="!canIncrease"
+          class="p-1.5 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -95,45 +115,12 @@ watch(() => props.modelValue, (newDate) => {
 
 <style scoped>
 .test-date-simulator {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  background: white;
-  padding: 15px;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  z-index: 1000;
+  width: 100%;
+  max-width: 100%;
+  transition: all 0.2s ease;
 }
 
-.date-controls {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-button {
-  padding: 8px 12px;
-  border: none;
-  border-radius: 4px;
-  background: var(--primary-color);
-  color: white;
-  cursor: pointer;
-  font-size: 16px;
-}
-
-button:disabled {
-  background: #ccc;
-  cursor: not-allowed;
-}
-
-.current-date {
-  font-size: 14px;
-  color: var(--gray-color);
-}
-
-.reset-controls {
-  display: flex;
-  gap: 10px;
+.test-date-simulator:hover {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 </style>

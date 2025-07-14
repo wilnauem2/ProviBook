@@ -16,11 +16,22 @@ export const getInsurersData = async () => {
       console.error('Error loading last_invoices from Firestore:', e);
       lastInvoicesData = {};
     }
-    // Merge last_invoice data into insurers
-    return insurersData.map(insurer => ({
-      ...insurer,
-      last_invoice: lastInvoicesData[insurer.name] || ''
-    }));
+    // Merge last_invoice data into insurers while preserving all other properties including formats
+    return insurersData.map(insurer => {
+      const mergedInsurer = {
+        ...insurer,
+        last_invoice: lastInvoicesData[insurer.name] || ''
+      };
+      
+      // Log the insurer data for debugging
+      console.log(`Insurer: ${insurer.name}`, {
+        hasFormats: !!insurer.formats,
+        formats: insurer.formats,
+        mergedFormats: mergedInsurer.formats
+      });
+      
+      return mergedInsurer;
+    });
   } catch (error) {
     console.error('Error loading insurers data:', error);
     return [];

@@ -34,7 +34,9 @@
               ? 'ring-2 ring-blue-500 ring-opacity-50 border-transparent transform scale-[0.99] shadow-md'
               : 'hover:scale-[1.01]',
             'h-full min-h-[140px] flex flex-col',
-            'transition-all duration-200 hover:shadow-md'
+            'transition-all duration-200 hover:shadow-md',
+            // Gray out tiles with complete: false in production environment
+            isProductionIncomplete(insurer) ? 'incomplete-tile opacity-50 grayscale' : ''
           ]"
           @click="selectInsurer(insurer)"
           @keydown.enter="selectInsurer(insurer)"
@@ -69,7 +71,13 @@
               
               <!-- Status badge -->
               <span 
-                v-if="getStatusColor(insurer) === 'red'"
+                v-if="isProductionIncomplete(insurer)"
+                class="flex-shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-2 bg-gray-100 text-gray-800"
+              >
+                Unvollständig
+              </span>
+              <span 
+                v-else-if="getStatusColor(insurer) === 'red'"
                 class="flex-shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-2 bg-red-100 text-red-800"
               >
                 Überfällig (>5 Tage)
@@ -223,12 +231,37 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
 }
+
+/* Incomplete tile styling with diagonal stripes */
+.incomplete-tile {
+  position: relative;
+  overflow: hidden;
+}
+
+.incomplete-tile::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(0, 0, 0, 0.05),
+    rgba(0, 0, 0, 0.05) 10px,
+    rgba(0, 0, 0, 0.1) 10px,
+    rgba(0, 0, 0, 0.1) 20px
+  );
+  pointer-events: none;
+  z-index: 1;
+}
 </style>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useInsurerStore } from '../stores/insurerStore';
 import { isOverdue, getStatusColor, calculateDaysOverdue, getStatusText } from '../utils/insurerUtils';
+import { currentEnvironment } from '../config/environment';
 
 const props = defineProps({
   insurers: {
@@ -318,6 +351,23 @@ const formatDate = (dateString) => {
     month: '2-digit',
     year: 'numeric'
   });
+};
+
+// Check if insurer is in production environment and has complete: false status
+const isProductionIncomplete = (insurer) => {
+  // Only apply this logic in production environment
+  if (currentEnvironment.value !== 'production') return false;
+  
+  // Check if the insurer has a complete property set to false
+  return insurer.complete === false;
+};
+
+// Add a badge to indicate incomplete status
+const getIncompleteText = (insurer) => {
+  if (isProductionIncomplete(insurer)) {
+    return 'Unvollständig';
+  }
+  return '';
 };
 
 // Format last invoice date to show only the date part

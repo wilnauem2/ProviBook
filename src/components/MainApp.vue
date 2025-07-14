@@ -69,7 +69,10 @@
           <!-- Left Sidebar -->
           <div class="lg:col-span-1 space-y-4">
             <!-- Status summary cards -->
-            <StatusSummary :counts="statusCounts" />
+            <StatusSummary 
+              :statusCounts="statusCounts" 
+              @status-clicked="handleStatusClicked" 
+            />
             
             <!-- Search bar -->
             <div class="bg-white rounded-lg shadow overflow-hidden">
@@ -245,24 +248,35 @@ const lastInvoices = computed(() => insurerStore.lastInvoices);
 const statusCounts = computed(() => {
   const now = getCurrentDate();
   const counts = {
-    yellow: 0,
-    red: 0,
-    total: 0
+    warning: 0,
+    critical: 0,
+    total: 0,
+    on_time: 0
   };
   
   if (filteredInsurers.value) {
     filteredInsurers.value.forEach(insurer => {
+      // Count all insurers
+      counts.total++;
+      
       const daysOverdue = calculateDaysOverdue(insurer, now);
       if (daysOverdue > 0) {
-        counts.total++;
         if (daysOverdue <= 5) {
-          counts.yellow++;
+          counts.warning++;
         } else {
-          counts.red++;
+          counts.critical++;
         }
+      } else {
+        counts.on_time++;
       }
+      
+      // Debug log to check overdue calculation
+      console.log(`Insurer: ${insurer.name}, Days overdue: ${daysOverdue}`);
     });
   }
+  
+  // Debug log to verify counts
+  console.log('Status counts:', counts);
   
   return counts;
 });
@@ -275,6 +289,21 @@ const getCurrentDate = () => {
 // Handle date changes from the simulator
 const handleDateUpdate = (newDate) => {
   testDate.value = newDate;
+};
+
+// Handle status button clicks from StatusSummary component
+const handleStatusClicked = (data) => {
+  console.log(`Status clicked: ${data.status}, Count: ${data.count}`);
+  
+  // You can add additional functionality here based on which status was clicked
+  // For example, filter the list to show only items with that status
+  if (data.status === 'warning') {
+    // Show a notification or filter to show only warning status items
+    alert(`Warning status clicked ${data.count} times!`);
+  } else if (data.status === 'critical') {
+    // Show a notification or filter to show only critical status items
+    alert(`Critical status clicked ${data.count} times!`);
+  }
 };
 
 // Handle insurer selection
@@ -553,9 +582,36 @@ const getSampleAbrechnungen = () => {
   ];
 };
 
+// Debug function to check insurer data and overdue status
+const debugInsurerStatus = () => {
+  console.log('===== DEBUG INSURER STATUS =====');
+  const now = getCurrentDate();
+  
+  if (insurersData.value && insurersData.value.length > 0) {
+    insurersData.value.forEach(insurer => {
+      const daysOverdue = calculateDaysOverdue(insurer, now);
+      console.log(`Insurer: ${insurer.name}`);
+      console.log(`  Last Invoice: ${JSON.stringify(insurer.last_invoice)}`);
+      console.log(`  Turnus: ${insurer.turnus}`);
+      console.log(`  Days Overdue: ${daysOverdue}`);
+      console.log(`  Status Color: ${getStatusColor(insurer)}`);
+      console.log('-------------------------');
+    });
+  } else {
+    console.log('No insurers data available');
+  }
+  
+  console.log('Status counts:', statusCounts.value);
+  console.log('===== END DEBUG =====');
+};
+
 // Initial data loading and cleanup
 onMounted(() => {
   loadData();
+  // Run debug after data is loaded
+  setTimeout(() => {
+    debugInsurerStatus();
+  }, 2000);
 });
 
 onUnmounted(() => {

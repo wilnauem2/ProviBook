@@ -54,16 +54,18 @@ export const calculateDaysOverdue = (insurer, currentDate = null) => {
     if (!turnusMatch) return 0;
     
     const turnusDays = parseInt(turnusMatch[1]);
-    const dueDate = new Date(invoiceDate);
-    dueDate.setDate(dueDate.getDate() + turnusDays);
     
-    // If we're still within the turnus period
-    if (now <= dueDate) {
+    // Calculate the expected invoice date (current date - turnus period)
+    const expectedInvoiceDate = new Date(now);
+    expectedInvoiceDate.setDate(expectedInvoiceDate.getDate() - turnusDays);
+    
+    // If the last invoice is more recent than the expected date, it's not overdue
+    if (invoiceDate >= expectedInvoiceDate) {
       return 0;
     }
     
-    // Calculate days overdue
-    const daysOverdue = Math.floor((now - dueDate) / (1000 * 60 * 60 * 24));
+    // Calculate days overdue as the difference between expected invoice date and actual invoice date
+    const daysOverdue = Math.floor((expectedInvoiceDate - invoiceDate) / (1000 * 60 * 60 * 24));
     return Math.max(1, daysOverdue);
   } catch (error) {
     console.error('Error calculating days overdue:', error);
@@ -84,10 +86,13 @@ export const isOverdue = (insurer, currentDate = null) => {
     if (!turnusMatch) return false;
     
     const turnusDays = parseInt(turnusMatch[1]);
-    const dueDate = new Date(invoiceDate);
-    dueDate.setDate(dueDate.getDate() + turnusDays);
     
-    return now > dueDate;
+    // Calculate the expected invoice date (current date - turnus period)
+    const expectedInvoiceDate = new Date(now);
+    expectedInvoiceDate.setDate(expectedInvoiceDate.getDate() - turnusDays);
+    
+    // If the last invoice is older than the expected date, it's overdue
+    return invoiceDate < expectedInvoiceDate;
   } catch (error) {
     console.error('Error checking overdue status:', error);
     return false;
@@ -107,15 +112,18 @@ export const isWithinTurnus = (insurer, currentDate = null) => {
     if (!turnusMatch) return false;
     
     const turnusDays = parseInt(turnusMatch[1]);
-    const dueDate = new Date(invoiceDate);
-    dueDate.setDate(dueDate.getDate() + turnusDays);
+    
+    // Calculate the expected invoice date (current date - turnus period)
+    const expectedInvoiceDate = new Date(now);
+    expectedInvoiceDate.setDate(expectedInvoiceDate.getDate() - turnusDays);
     
     // Add a 2-day buffer for processing time
     const bufferDays = 2;
-    const bufferDate = new Date(dueDate);
-    bufferDate.setDate(bufferDate.getDate() + bufferDays);
+    const bufferDate = new Date(expectedInvoiceDate);
+    bufferDate.setDate(bufferDate.getDate() - bufferDays); // Buffer is subtracted since we're comparing against an older date
     
-    return now <= bufferDate;
+    // If the last invoice is newer than or equal to the expected date minus buffer, it's within turnus
+    return invoiceDate >= bufferDate;
   } catch (error) {
     console.error('Error checking turnus status:', error);
     return false;

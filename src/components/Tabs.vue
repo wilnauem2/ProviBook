@@ -4,7 +4,7 @@
       <button
         v-for="tab in tabs"
         :key="tab.id"
-        @click="$emit('update:activeTab', tab.id)"
+        @click="switchTab(tab.id)"
         :class="[
           'px-4 py-2 text-sm font-medium rounded-t-lg',
           activeTab === tab.id
@@ -18,24 +18,27 @@
   </div>
 </template>
 
-<script>
-export default {
-  name: 'Tabs',
-  props: {
-    activeTab: {
-      type: String,
-      required: true
-    },
-    tabs: {
-      type: Array,
-      default: () => [
-        { id: 'main', label: 'Übersicht' },
-        { id: 'settings', label: 'Einstellungen' }
-      ]
-    }
+<script setup>
+defineProps({
+  activeTab: {
+    type: String,
+    required: true
   },
-  emits: ['update:activeTab']
-}
+  tabs: {
+    type: Array,
+    default: () => [
+      { id: 'main', label: 'Übersicht' },
+      { id: 'settings', label: 'Einstellungen' }
+    ]
+  }
+});
+
+const emit = defineEmits(['update:activeTab']);
+
+const switchTab = (tabId) => {
+  console.log('Tab component: switching to', tabId);
+  emit('update:activeTab', tabId);
+};
 </script>
 
 <style scoped>

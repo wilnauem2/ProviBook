@@ -7,1280 +7,426 @@
         <div class="container mx-auto px-4">
           <div class="flex justify-between items-center py-4">
             <h1 class="text-xl font-semibold text-gray-900">Versicherungsübersicht</h1>
-            <EnvironmentUserInfo
-              :currentEnvironment="currentEnvironment"
-              :username="username"
-              @update:currentEnvironment="val => currentEnvironment = val"
-              @logout="logout"
-              class="ml-auto"
-            />
+            <div class="ml-auto">
+              <EnvironmentUserInfo 
+                :currentEnvironment="currentEnvironment" 
+                :username="'Admin'"
+                @update:currentEnvironment="switchEnvironment"
+              />
+            </div>
           </div>
           
-          <Tabs 
-            :activeTab="activeTab" 
-            :tabs="[
-              { id: 'main', label: 'Übersicht' },
-              { id: 'settings', label: 'Einstellungen' }
-            ]"
-            @update:activeTab="activeTab = $event"
-            class="-mb-px"
-          />
+          <!-- Simple fixed tabs -->
+          <div class="border-b border-gray-200 -mb-px">
+            <nav class="flex space-x-8">
+              <button
+                @click="activeTab = 'main'"
+                :class="[
+                  'py-4 px-1 border-b-2 font-medium text-sm focus:outline-none',
+                  activeTab === 'main'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ]"
+              >
+                Übersicht
+              </button>
+              <button
+                @click="activeTab = 'history'"
+                :class="[
+                  'py-4 px-1 border-b-2 font-medium text-sm focus:outline-none',
+                  activeTab === 'history'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ]"
+              >
+                Abrechnungen
+              </button>
+            </nav>
+          </div>
         </div>
       </header>
 
       <!-- Main Content -->
-      <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
+      <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full relative">
+        <!-- Loading overlay -->
+        <div v-if="isLoading" class="absolute inset-0 bg-white bg-opacity-80 flex items-center justify-center z-50">
+          <div class="text-center">
+            <svg class="animate-spin h-10 w-10 text-blue-600 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p class="text-lg font-medium text-gray-700">Daten werden geladen...</p>
+            <p class="text-sm text-gray-500">{{ currentEnvironment === 'production' ? 'Produktionsumgebung' : 'Testumgebung' }}</p>
+          </div>
+        </div>
+        
+        <!-- Main content below -->
+        
         <div v-if="activeTab === 'main'" class="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <!-- Left Sidebar -->
           <div class="lg:col-span-1 space-y-4">
-            <!-- Test Date Simulator -->
-            <TestDateSimulator 
-              v-if="currentEnvironment === 'test'" 
-              v-model="testDate" 
-              @update:modelValue="handleDateUpdate"
-              class="sticky top-24 z-10"
-            />
+            <!-- Status summary cards -->
+            <StatusSummary :counts="statusCounts" />
             
-            <!-- Status Summary Cards -->
-            <div class="mt-6">
-              <StatusSummary :statusCounts="statusCounts" />
+            <!-- Search bar -->
+            <div class="bg-white rounded-lg shadow overflow-hidden">
+              <div class="p-4">
+                <SearchBar 
+                  v-model="searchFilter" 
+                  placeholder="Versicherer suchen..."
+                />
+              </div>
+            </div>
+            
+            <!-- Test date simulator -->
+            <div class="bg-white rounded-lg shadow overflow-hidden">
+              <div class="p-4">
+                <TestDateSimulator 
+                  :date="testDate" 
+                  @update:date="handleDateUpdate"
+                />
+              </div>
             </div>
           </div>
           
           <!-- Main Content Area -->
-          <div class="lg:col-span-3 space-y-6">
-            <!-- Search and Insurer List -->
-            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden w-full transition-all duration-200 hover:shadow-md">
-              <div class="p-5 border-b border-gray-100 bg-gray-50">
-                <SearchBar v-model="searchFilter" />
+          <div class="lg:col-span-3">
+            <div class="bg-white shadow overflow-hidden sm:rounded-md">
+              <div class="border-b border-gray-200 px-4 py-4 sm:px-6 flex justify-between items-center">
+                <h2 class="text-lg font-medium text-gray-900">Versicherer</h2>
+                
+                <!-- Sort options -->
+                <div class="inline-flex">
+                  <select 
+                    v-model="sortOption"
+                    class="form-select rounded-md border-gray-300 text-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                  >
+                    <option value="name">Name</option>
+                    <option value="date">Letztes Abrechnungsdatum</option>
+                    <option value="overdue">Tage überfällig</option>
+                  </select>
+                </div>
               </div>
               
-              <div class="divide-y divide-gray-200">
-                <template v-if="filteredInsurers.length > 0">
-                  <InsurerList
-                    :insurers="filteredInsurers"
-                    :selectedInsurer="selectedInsurer"
-                    @selectInsurer="insurer => selectedInsurer = insurer"
-                  />
-                </template>
-                <template v-else>
-                  <div class="py-12 text-center text-gray-500">
-                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <h3 class="mt-2 text-sm font-medium text-gray-900">Keine Versicherer gefunden</h3>
-                    <p class="mt-1 text-sm text-gray-500">Versuchen Sie es mit einem anderen Suchbegriff.</p>
-                  </div>
-                </template>
+              <!-- Loading state -->
+              <div v-if="isLoading" class="py-12 flex justify-center">
+                <div class="animate-pulse flex space-x-4 items-center">
+                  <div class="h-3 w-3 bg-blue-400 rounded-full"></div>
+                  <div class="h-3 w-3 bg-blue-400 rounded-full"></div>
+                  <div class="h-3 w-3 bg-blue-400 rounded-full"></div>
+                  <div class="text-sm text-gray-500">Laden...</div>
+                </div>
+              </div>
+              
+              <!-- Insurer list -->
+              <div v-else>
+                <InsurerList
+                  :insurers="filteredInsurers" 
+                  :sortBy="sortOption"
+                  :lastInvoices="lastInvoices"
+                  :currentDate="getCurrentDate()"
+                  @select-insurer="selectedInsurer = $event"
+                  @clear-selection="selectedInsurer = null"
+                />
               </div>
             </div>
           </div>
         </div>
-        
-        <!-- Settings Tab Content -->
-        <div v-else class="bg-white rounded-xl shadow-sm border border-gray-100 p-8">
-          <h2 class="text-lg font-medium text-gray-900 mb-6">Einstellungen</h2>
-          <!-- Add settings content here -->
+
+        <!-- History Tab -->
+        <div v-else-if="activeTab === 'history'" class="w-full">
+          <div v-if="formattedAbrechnungen && formattedAbrechnungen.length > 0">
+            <AbrechnungenHistory :abrechnungen="formattedAbrechnungen" />
+          </div>
+          <div v-else class="bg-white shadow rounded-lg p-6">
+            <p class="text-gray-500 text-center">Keine Abrechnungen verfügbar.</p>
+          </div>
         </div>
+
+        <!-- Insurer Detail Slide-out Panel -->
+        <transition name="slide-in-right">
+          <div v-if="selectedInsurer" class="fixed inset-y-0 right-0 w-full max-w-2xl bg-white shadow-2xl z-30 transform transition-transform duration-300 ease-in-out border-l border-gray-100">
+            <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100 bg-gray-50">
+              <h2 class="text-lg font-medium text-gray-900">{{ selectedInsurer.name }}</h2>
+              <button 
+                @click="selectedInsurer = null" 
+                class="text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-full"
+              >
+                <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div class="p-6 overflow-y-auto" style="height: calc(100vh - 80px);">
+              <InsurerDetail 
+                :insurer="selectedInsurer" 
+                :lastInvoices="lastInvoices[selectedInsurer.id] || []" 
+                :currentDate="getCurrentDate()"
+              />
+            </div>
+          </div>
+        </transition>
       </main>
     </div>
-
-    <!-- Insurer Detail Panel -->
-    <!-- Backdrop overlay with fade transition -->
-    <transition name="fade">
-      <div 
-        v-if="selectedInsurer" 
-        class="fixed inset-0 bg-black bg-opacity-50 z-20 transition-opacity duration-300"
-        @click="selectedInsurer = null"
-      ></div>
-    </transition>
-    
-    <!-- Detail panel with slide transition -->
-    <transition name="slide-in-right">
-      <div v-if="selectedInsurer" class="fixed inset-y-0 right-0 w-full max-w-2xl bg-white shadow-2xl z-30 transform transition-transform duration-300 ease-in-out border-l border-gray-100">
-        <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100 bg-gray-50">
-          <h2 class="text-lg font-medium text-gray-900">{{ selectedInsurer.name }}</h2>
-          <button 
-            @click="selectedInsurer = null" 
-            class="text-gray-400 hover:text-gray-500 focus:outline-none"
-            aria-label="Details schließen"
-          >
-            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <div class="insurer-detail-content">
-          <InsurerDetail 
-            :insurer="selectedInsurer" 
-            @close="() => selectedInsurer = null" 
-            @settlement-completed="handleSettlementCompleted"
-          />
-        </div>
-      </div>
-    </transition>
-  </div>
-  <!-- Abrechnungen History View -->
-  <div v-if="activeTab === 'history'" class="content p-4">
-    <AbrechnungenHistory :abrechnungen="formattedAbrechnungen" />
-  </div>
-  <!-- Debug output for selectedInsurer.value -->
-<div style="margin-top: 1rem; background: #fffbe6; border: 1px solid #facc15; border-radius: 8px; padding: 0.5rem; font-size: 0.95em; color: #92400e;">
-  <strong>[Debug] selectedInsurer:</strong>
-  <pre style="white-space: pre-wrap; word-break: break-all; background: #fef9c3; padding: 0.5em; border-radius: 4px;">
-  {{ typeof selectedInsurer !== 'undefined' ? selectedInsurer : 'selectedInsurer is undefined' }}
-</pre>
-</div>
-<!-- Debug output for Firestore data -->
-  <div style="margin-top: 3rem; background: #f9fafb; border: 1px solid #d1d5db; border-radius: 8px; padding: 1rem; font-size: 0.95em; color: #111;">
-    <h3 style="font-weight: bold; margin-bottom: 0.5em;">[Debug] Firestore lastInvoices</h3>
-    <pre style="white-space: pre-wrap; word-break: break-all; background: #f3f4f6; padding: 0.5em; border-radius: 4px;">{{ lastInvoices }}</pre>
-    <h3 style="font-weight: bold; margin-top: 1.5em; margin-bottom: 0.5em;">[Debug] insurersData (merged)</h3>
-    <pre style="white-space: pre-wrap; word-break: break-all; background: #f3f4f6; padding: 0.5em; border-radius: 4px;">{{ insurersData }}</pre>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
-import AbrechnungenHistory from './AbrechnungenHistory.vue'
-import Tabs from './Tabs.vue'
-import HeaderSection from './HeaderSection.vue'
-import EnvironmentUserInfo from './EnvironmentUserInfo.vue'
-import StatusSummary from './StatusSummary.vue'
-import SearchBar from './SearchBar.vue'
-import InsurerList from './InsurerList.vue'
-import { useRouter, useRoute } from 'vue-router'
-import { currentEnvironment, getInsurersData } from '../config/environment'
-import InsurerDetail from './InsurerDetail.vue'
-import { calculateDaysOverdue, isOverdue, getStatusColor, getStatusText, formatLastInvoiceDate } from '../utils/insurerUtils'
-import { format } from 'date-fns'
-import { de } from 'date-fns/locale'
-import TestDateSimulator from './TestDateSimulator.vue'
+// Vue and external library imports
+import { ref, computed, onMounted, watch, onUnmounted, nextTick } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
+import { format } from 'date-fns';
+import { de } from 'date-fns/locale';
 
-const router = useRouter()
-const route = useRoute()
+// Component imports
+import AbrechnungenHistory from './AbrechnungenHistory.vue';
+import HeaderSection from './HeaderSection.vue';
+import EnvironmentUserInfo from './EnvironmentUserInfo.vue';
+import StatusSummary from './StatusSummary.vue';
+import SearchBar from './SearchBar.vue';
+import InsurerList from './InsurerList.vue';
+import InsurerDetail from './InsurerDetail.vue';
+import TestDateSimulator from './TestDateSimulator.vue';
 
-// Authentication state
-const isAuthenticated = computed(() => {
-  return localStorage.getItem('authToken') !== null
-})
+// Utility and configuration imports
+import { currentEnvironment, getInsurersData } from '../config/environment';
+import { calculateDaysOverdue, isOverdue, getStatusColor, getStatusText, formatLastInvoiceDate } from '../utils/insurerUtils';
+import { fetchInvoices, saveInvoices, subscribeInvoices } from '../firebaseInvoices';
 
-// User info
-const username = ref(localStorage.getItem('username') || '')
+// Core state and router
+const router = useRouter();
+const route = useRoute();
 
-const logout = () => {
-  localStorage.removeItem('authToken')
-  localStorage.removeItem('username')
-  router.push('/login')
-}
-
-const searchFilter = ref('')
+// UI state
+const searchFilter = ref('');
 const activeTab = ref('main');
 const selectedInsurer = ref(null);
+const isLoading = ref(false);
 const insurersData = ref([]);
-const isLoading = ref(true);
 const lastInvoices = ref({});
-const sortOption = ref('name')
+const sortOption = ref('name');
+const testDate = ref(new Date());
 
-// Status counts
+// Status counts for dashboard
 const statusCounts = computed(() => {
-  const now = getCurrentDate()
+  const now = getCurrentDate();
   const counts = {
     yellow: 0,
     red: 0,
     total: 0
-  }
+  };
   
-  filteredInsurers.value.forEach(insurer => {
-    const daysOverdue = calculateDaysOverdue(insurer, now)
-    if (daysOverdue > 0) {
-      counts.total++
-      if (daysOverdue <= 5) {
-        counts.yellow++
-      } else {
-        counts.red++
+  if (filteredInsurers.value) {
+    filteredInsurers.value.forEach(insurer => {
+      const daysOverdue = calculateDaysOverdue(insurer, now);
+      if (daysOverdue > 0) {
+        counts.total++;
+        if (daysOverdue <= 5) {
+          counts.yellow++;
+        } else {
+          counts.red++;
+        }
       }
-    }
-  })
-  
-  return counts
-})
-
-// Test date simulation
-const testDate = ref(new Date())
-
-// Custom date function that uses test date in test mode
-const getCurrentDate = () => {
-  // Always return a fresh Date object
-  const now = currentEnvironment.value === 'test' ? new Date(testDate.value.getTime()) : new Date()
-  console.log('Current date:', now)
-  return now
-}
-
-const handleDateUpdate = (newDate) => {
-  console.log('Date updated to:', newDate)
-  testDate.value = new Date(newDate)
-}
-
-// Initialize with current date
-watch(testDate, (newDate) => {
-  console.log('Test date changed to:', newDate)
-  // Update the filtered insurers to trigger re-render
-
-})
-
-// Watch for environment changes
-watch(currentEnvironment, () => {
-  console.log('Environment changed to:', currentEnvironment.value)
-  // Reset test date when switching to production
-  if (currentEnvironment.value !== 'test') {
-    testDate.value = new Date()
-  }
-})
-
-// Watch for changes in insurersData, searchFilter, and testDate
-watch([insurersData, searchFilter, testDate], () => {
-  // Update the filtered insurers to trigger re-render
-
-}, { deep: true })
-
-// Load insurers data based on environment
-const loadInsurersData = async () => {
-  try {
-    const data = await getInsurersData()
-    // Make sure we have proper date handling
-    const processedData = JSON.parse(JSON.stringify(data), (key, value) => {
-      // If this is a date string in the expected format, convert it to a Date object
-      if (typeof value === 'string' && /^\d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}$/.test(value)) {
-        const [datePart, timePart] = value.split(', ');
-        const [day, month, year] = datePart.split('.').map(Number);
-        const [hours, minutes] = timePart.split(':').map(Number);
-        const date = new Date(year, month - 1, day, hours, minutes);
-        
-        // Return an object with both the display string and timestamp
-        return {
-          display: value,
-          timestamp: date.getTime(),
-          toJSON: () => value // Ensure proper serialization
-        };
-      }
-      return value;
     });
-    
-    insurersData.value = processedData;
-    console.log('[DEBUG] Loaded insurersData:', insurersData.value);
-  } catch (error) {
-    console.error('Error loading insurers data:', error)
   }
-}
+  
+  return counts;
+});
 
-// Load last invoices from Firestore via Firebase
-import { fetchInvoices, saveInvoices, subscribeInvoices } from '../firebaseInvoices'
+// Get current date (real or simulated)
+const getCurrentDate = () => {
+  return testDate.value || new Date();
+};
 
-// Set up real-time listener for last_invoices
+// Handle date changes from the simulator
+const handleDateUpdate = (newDate) => {
+  testDate.value = newDate;
+};
+
+// Log when activeTab changes
+watch(activeTab, (newTab, oldTab) => {
+  console.log(`Tab changed from ${oldTab} to ${newTab}`);
+});
+
+// Handle environment switching
+const switchEnvironment = async (newEnvironment) => {
+  console.log(`Switching environment from ${currentEnvironment.value} to ${newEnvironment}`);
+  
+  // Set loading state
+  isLoading.value = true;
+  selectedInsurer.value = null; // Clear selected insurer
+  
+  // Update environment
+  currentEnvironment.value = newEnvironment;
+  
+  try {
+    // Reload data for the new environment
+    await loadData();
+    console.log(`Environment switched to ${currentEnvironment.value}`);
+  } catch (error) {
+    console.error('Error switching environment:', error);
+  } finally {
+    // Reset loading state
+    isLoading.value = false;
+  }
+};
+
+// Main filtered insurers list
+const filteredInsurers = computed(() => {
+  if (!insurersData.value) return [];
+  
+  const filtered = insurersData.value.filter(insurer => {
+    if (!searchFilter.value) return true;
+    return insurer.name.toLowerCase().includes(searchFilter.value.toLowerCase());
+  });
+  
+  return filtered;
+});
+
+// Load data based on environment
+const loadInsurersData = async () => {
+  isLoading.value = true;
+  try {
+    insurersData.value = await getInsurersData(currentEnvironment);
+    console.log(`Loaded ${insurersData.value.length} insurers for ${currentEnvironment}`);
+  } catch (error) {
+    console.error('Error loading insurers:', error);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+// Set up real-time listener for invoices
 let unsubscribeInvoices = null;
-const loadLastInvoices = () => {
-  if (unsubscribeInvoices) unsubscribeInvoices();
+const loadLastInvoices = async () => {
+  if (unsubscribeInvoices) {
+    unsubscribeInvoices();
+  }
+  
   unsubscribeInvoices = subscribeInvoices((data) => {
     lastInvoices.value = data || {};
-  }, currentEnvironment.value);
+  });
 };
 
 // Load all data based on current environment
 const loadData = async () => {
-  isLoading.value = true
-  try {
-    await Promise.all([loadInsurersData(), loadLastInvoices()])
-  } catch (error) {
-    console.error('Error loading data:', error)
-  } finally {
-    isLoading.value = false
-  }
-}
-
-// Initial load and subscribe to real-time updates
-import { onUnmounted } from 'vue'
-onMounted(() => {
-  loadData()
-  loadLastInvoices()
-})
-onUnmounted(() => {
-  if (unsubscribeInvoices) unsubscribeInvoices();
-})
-
-// Watch for real-time updates to lastInvoices and update insurersData accordingly
-watch(lastInvoices, (newVal) => {
-  if (!insurersData.value || !newVal) return;
-  
-  // Always replace the array for Vue reactivity
-  insurersData.value = insurersData.value.map(insurer => {
-    const invoiceHistory = newVal[insurer.name] || [];
-    
-    // Handle both array and non-array formats for backward compatibility
-    const invoiceData = Array.isArray(invoiceHistory)
-      ? invoiceHistory
-      : invoiceHistory ? [invoiceHistory] : [];
-    
-    return {
-      ...insurer,
-      // Store the full invoice history
-      invoice_history: invoiceData,
-      // Keep last_invoice as the most recent one for backward compatibility
-      last_invoice: invoiceData.length > 0 ? invoiceData[0] : ''
-    };
-  });
-  console.log('Updated insurersData with history:', insurersData.value);
-});
-
-const filteredInsurers = computed(() => {
-  // Clone the data to avoid mutations
-  let filtered = [...insurersData.value]
-  
-  // Apply search filter
-  if (searchFilter.value) {
-    const searchLower = searchFilter.value.toLowerCase()
-    filtered = filtered.filter(insurer => {
-      const nameMatch = insurer.name?.toLowerCase().includes(searchLower) || false;
-      const turnusMatch = insurer.turnus?.toLowerCase().includes(searchLower) || false;
-      const lastInvoiceStr = insurer.last_invoice ? String(insurer.last_invoice) : '';
-      const lastInvoiceMatch = lastInvoiceStr.toLowerCase().includes(searchLower);
-      
-      return nameMatch || turnusMatch || lastInvoiceMatch;
-    })
-  }
-  
-  // Sort by selected option
-  switch (sortOption.value) {
-    case 'name':
-      filtered.sort((a, b) => a.name.localeCompare(b.name))
-      break
-    case 'status':
-      filtered.sort((a, b) => {
-        const statusA = getStatusColor(a, getCurrentDate())
-        const statusB = getStatusColor(b, getCurrentDate())
-        return statusA.localeCompare(statusB)
-      })
-      break
-    case 'last_invoice':
-      filtered.sort((a, b) => {
-        const getDate = (item) => {
-          if (!item.last_invoice) return new Date(0); // Very old date for null/undefined
-          
-          // Handle the new object format
-          if (typeof item.last_invoice === 'object' && item.last_invoice !== null) {
-            if (item.last_invoice.timestamp) {
-              return new Date(item.last_invoice.timestamp);
-            }
-            if (item.last_invoice.display) {
-              return new Date(item.last_invoice.display.split(', ').reverse().join('T'));
-            }
-            return new Date(0);
-          }
-          
-          // Handle the old string format
-          if (typeof item.last_invoice === 'string') {
-            return new Date(item.last_invoice.split(', ').reverse().join('T'));
-          }
-          
-          return new Date(0);
-        };
-        
-        const dateA = getDate(a);
-        const dateB = getDate(b);
-        return dateB.getTime() - dateA.getTime();
-      })
-      break
-  }
-
-  return filtered
-})
+  await loadInsurersData();
+  console.log('Environment:', currentEnvironment);
+};
 
 // Format last invoices for the history view
 const formattedAbrechnungen = computed(() => {
   const entries = [];
   
+  if (!insurersData.value || !Array.isArray(insurersData.value)) {
+    console.warn('insurersData is not a valid array:', insurersData.value);
+    // Return sample data for development purposes
+    return getSampleAbrechnungen();
+  }
+  
+  console.log('Processing insurers for history:', insurersData.value);
+  
   // Process insurers data for history
   insurersData.value.forEach(insurer => {
-    if (!insurer || !insurer.name) return;
+    if (!insurer || !insurer.name) {
+      return;
+    }
     
-    // Handle last_invoice whether it's an object or string
-    if (insurer.last_invoice) {
-      let dateString = insurer.last_invoice;
-      let timestamp;
-      
-      // Handle different date formats
-      if (typeof insurer.last_invoice === 'object' && insurer.last_invoice !== null) {
-        // Use display format if available, otherwise use raw date
-        dateString = insurer.last_invoice.display || insurer.last_invoice.raw || '';
-        
-        // Get timestamp from the object if available
-        if (insurer.last_invoice.timestamp) {
-          timestamp = new Date(insurer.last_invoice.timestamp);
-        }
-      }
-      
-      // If we don't have a timestamp yet, try to parse the date string
-      if (!timestamp && dateString) {
-        try {
-          // Try different date formats
-          if (dateString.includes(',')) {
-            // Format: "13.07.2025, 09:10"
-            timestamp = new Date(dateString.split(', ').reverse().join('T'));
-          } else if (dateString.includes('-')) {
-            // Format: "2025-07-13T09:10:00.000Z"
-            timestamp = new Date(dateString);
-          } else {
-            // Try to parse as is
-            timestamp = new Date(dateString);
-          }
-        } catch (e) {
-          console.warn('Could not parse date:', dateString, 'for insurer:', insurer.name);
-          timestamp = new Date(0); // Use epoch as fallback
-        }
-      }
-      
-      // Only add if we have a valid date
-      if (timestamp && !isNaN(timestamp.getTime())) {
+    const insurerInvoices = lastInvoices.value[insurer.id] || [];
+    
+    if (insurerInvoices && insurerInvoices.length > 0) {
+      insurerInvoices.forEach(invoice => {
         entries.push({
-          insurer: insurer.name,
-          date: dateString,
-          timestamp: timestamp
+          insurerId: insurer.id,
+          insurerName: insurer.name,
+          date: invoice.date ? new Date(invoice.date) : null,
+          amount: invoice.amount,
+          note: invoice.note,
+          id: invoice.id
         });
-      }
+      });
     }
   });
   
-  console.log('History entries:', entries); // Debug log
+  // If no real data is available, use sample data for development
+  if (entries.length === 0) {
+    console.log('No real abrechnungen data, using sample data');
+    return getSampleAbrechnungen();
+  }
   
-  // Sort by timestamp (newest first)
-  return entries.sort((a, b) => b.timestamp - a.timestamp);
+  // Sort by date descending
+  return entries.sort((a, b) => {
+    if (!a.date) return 1;
+    if (!b.date) return -1;
+    return b.date.getTime() - a.date.getTime();
+  });
 });
 
-// Watch for environment changes
-watch(currentEnvironment, async () => {
-  await loadData()
-})
-// (Removed forced re-render watcher. Vue will now handle updates reactively.)
+// Helper function to generate sample abrechnungen for development
+const getSampleAbrechnungen = () => {
+  return [
+    {
+      insurerId: 'sample-1',
+      insurerName: 'Allianz',
+      date: new Date(2025, 5, 15), // June 15, 2025
+      amount: '1250.00',
+      documentType: 'Rechnung',
+      status: 'Erfolgreich',
+      id: 'sample-invoice-1'
+    },
+    {
+      insurerId: 'sample-2',
+      insurerName: 'AXA',
+      date: new Date(2025, 5, 10), // June 10, 2025
+      amount: '980.50',
+      documentType: 'Gutschrift',
+      status: 'Erfolgreich',
+      id: 'sample-invoice-2'
+    },
+    {
+      insurerId: 'sample-3',
+      insurerName: 'Generali',
+      date: new Date(2025, 4, 28), // May 28, 2025
+      amount: '1560.75',
+      documentType: 'Rechnung',
+      status: 'Ausstehend',
+      id: 'sample-invoice-3'
+    },
+    {
+      insurerId: 'sample-4',
+      insurerName: 'HUK-Coburg',
+      date: new Date(2025, 4, 20), // May 20, 2025
+      amount: '2100.00',
+      documentType: 'Rechnung',
+      status: 'Fehlgeschlagen',
+      id: 'sample-invoice-4'
+    },
+    {
+      insurerId: 'sample-5',
+      insurerName: 'ERGO',
+      date: new Date(2025, 4, 5), // May 5, 2025
+      amount: '750.25',
+      documentType: 'Gutschrift',
+      status: 'Erfolgreich',
+      id: 'sample-invoice-5'
+    }
+  ];
+};
 
-const handleInsurerClick = (insurer) => {
-  if (selectedInsurer.value === insurer) {
-    selectedInsurer.value = null
-  } else {
-    selectedInsurer.value = insurer
+// Initial data loading and cleanup
+onMounted(() => {
+  loadData();
+  loadLastInvoices();
+});
+
+onUnmounted(() => {
+  if (unsubscribeInvoices) {
+    unsubscribeInvoices();
   }
-}
-
-const handleSearchInput = (event) => {
-  searchFilter.value = event.target.value
-}
-
-const clearSearch = () => {
-  searchFilter.value = ''
-}
-
-const saveToJson = async (showSuccessAlert = true) => {
-  try {
-    if (!selectedInsurer.value) {
-      throw new Error('Kein Versicherer ausgewählt')
-    }
-
-    // Update local state
-    const insurerIndex = insurersData.value.findIndex(i => i.name === selectedInsurer.value.name)
-    if (insurerIndex !== -1) {
-      insurersData.value[insurerIndex] = { ...selectedInsurer.value }
-    }
-
-    // Save last_invoices data to Firebase (with environment)
-    const lastInvoicesObj = insurersData.value.reduce((acc, insurer) => {
-      if (insurer.last_invoice) {
-        // Handle different formats of last_invoice
-        if (typeof insurer.last_invoice === 'object' && insurer.last_invoice !== null) {
-          // If it's an object, use the display string if available
-          if (insurer.last_invoice.display) {
-            acc[insurer.name] = insurer.last_invoice.display;
-          } else if (typeof insurer.last_invoice.toJSON === 'function') {
-            // If it has a toJSON method, call it
-            acc[insurer.name] = insurer.last_invoice.toJSON();
-          } else {
-            // Otherwise, convert to string
-            acc[insurer.name] = String(insurer.last_invoice);
-          }
-        } else {
-          // It's a string or other primitive
-          acc[insurer.name] = insurer.last_invoice;
-        }
-      }
-      return acc;
-    }, {});
-    
-    await saveInvoices(lastInvoicesObj, currentEnvironment.value)
-    console.log('[Save] Wrote lastInvoices:', lastInvoicesObj, 'to environment:', currentEnvironment.value);
-    
-    if (showSuccessAlert) {
-      alert('Daten erfolgreich gespeichert!')
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('Error saving data:', error)
-    if (showSuccessAlert) {
-      alert(`Fehler beim Speichern der Daten:\n${error.message}`)
-    }
-    return false;
-  }
-}
-
-const handleSettlementCompleted = async ({ insurer, newDate, displayDate }) => {
-  if (!insurer || !selectedInsurer.value || insurer.name !== selectedInsurer.value.name) return
-  
-  console.log('Settlement completed with date:', newDate, 'Display date:', displayDate)
-  
-  try {
-    // Create a properly formatted date object for storage with only the date part
-    const dateOnly = new Date(newDate.getFullYear(), newDate.getMonth(), newDate.getDate())
-    const formattedDate = {
-      timestamp: dateOnly.getTime(),
-      display: format(dateOnly, 'dd.MM.yyyy'),
-      raw: dateOnly.toISOString()
-    }
-    
-    // Update local state with the formatted date
-    const insurerIndex = insurersData.value.findIndex(i => i.name === insurer.name)
-    if (insurerIndex !== -1) {
-      const updatedInsurer = { 
-        ...insurer,
-        last_invoice: formattedDate,
-        last_invoice_timestamp: newDate.getTime()
-      }
-      
-      // Update both the insurers array and selectedInsurer
-      insurersData.value[insurerIndex] = updatedInsurer
-      selectedInsurer.value = updatedInsurer
-      
-      // Save to Firestore without showing the success alert (we'll show it here)
-      const success = await saveToJson(false)
-      
-      if (success) {
-        // Show success message only once
-        alert('Abrechnung erfolgreich gespeichert')
-      } else {
-        throw new Error('Fehler beim Speichern der Abrechnung')
-      }
-    }
-  } catch (error) {
-    console.error('Error saving settlement:', error)
-    alert('Fehler beim Speichern der Abrechnung: ' + (error.message || 'Unbekannter Fehler'))
-  }
-}
-
-const handleUpdateLastInvoice = ({ insurerName, lastInvoice }) => {
-  const insurer = insurersData.value.find(i => i.name === insurerName)
-  if (insurer) {
-    insurer.last_invoice = lastInvoice
-    saveToJson()
-  }
-}
-
-// Make functions globally available
-window.calculateDaysOverdue = calculateDaysOverdue
-window.getStatusColor = getStatusColor
-window.getStatusText = getStatusText
-window.formatLastInvoiceDate = formatLastInvoiceDate
+});
 </script>
 
 <style>
-:root {
-  --primary-color: #2c3e50;
-  --primary-light: #34495e;
-  --success-color: #2ecc71;
-  --warning-color: #f1c40f;
-  --danger-color: #e74c3c;
-  --info-color: #3498db;
-  --gray-color: #95a5a6;
-  --bg-color: #ecf0f1;
-  --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-body {
-  background-color: var(--bg-color);
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  color: #2c3e50;
-}
-
-.app-container {
-  max-width: 1400px;
-  margin: 20px auto;
-  padding: 20px;
-}
-
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 30px;
-  padding: 20px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: var(--card-shadow);
-}
-
-.header h1 {
-  font-size: 2.5em;
-  color: var(--primary-color);
-  font-weight: 700;
-}
-
-.environment-switch {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.environment-switch label {
-  color: var(--gray-color);
-  font-weight: 500;
-}
-
-.status-summary {
-  display: flex;
-  gap: 1.5rem;
-  padding: 1.25rem 0;
-  margin-top: 1.5rem;
-  flex-wrap: wrap;
-}
-
-/* Mobile stacking */
-@media (max-width: 768px) {
-  .header-container {
-    padding: 1.5rem 0;
-  }
-
-  .header-container .flex {
-    flex-direction: column;
-    gap: 1.5rem;
-  }
-
-  .header-container .flex:first-child {
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .header-container .flex:last-child {
-    flex-direction: row;
-    justify-content: flex-end;
-    align-items: center;
-  }
-
-  .status-summary {
-    flex-direction: column;
-    gap: 1.25rem;
-    padding: 1rem 0;
-  }
-
-  .status-item,
-  .status-total {
-    flex: 1 0 100%;
-    min-width: 100%;
-    max-width: 100%;
-    padding: 1rem;
-  }
-
-  .status-item .count,
-  .status-total .count {
-    font-size: 1.1rem;
-  }
-}
-
-.status-item {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1.25rem;
-  border-radius: 0.875rem;
-  background: #f8fafc;
-  transition: all 0.2s ease;
-  cursor: pointer;
-  flex: 1 1 200px;
-  min-width: 200px;
-  max-width: 350px;
-}
-
-.status-total {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1.25rem;
-  border-radius: 0.875rem;
-  background: #f8fafc;
-  font-weight: 600;
-  flex: 1 1 200px;
-  min-width: 200px;
-  max-width: 350px;
-}
-
-.status {
-  font-weight: 500;
-  padding: 0.5rem 1rem;
-  border-radius: 0.75rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-width: 120px;
-  justify-content: center;
-  text-align: center;
-  font-size: 0.875rem;
-}
-
-.status::before {
-  content: '';
-  display: inline-block;
-  width: 0.75rem;
-  height: 0.75rem;
-  border-radius: 50%;
-  margin-right: 0.5rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.status-dot {
-  width: 1rem;
-  height: 1rem;
-  border-radius: 50%;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.status-dot:hover {
-  transform: scale(1.1);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-}
-
-.status-item.yellow .status-dot {
-  background-color: #fbbf24;
-  box-shadow: 0 2px 4px rgba(251, 191, 36, 0.3);
-}
-
-.status-item.red .status-dot {
-  background-color: #ef4444;
-  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
-}
-
-.status-item.green .status-dot {
-  background-color: #10b981;
-  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
-}
-
-.status-total {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1.25rem;
-  border-radius: 0.875rem;
-  background: #f8fafc;
-  font-weight: 600;
-  flex: 1 1 200px;
-  min-width: 200px;
-  max-width: 350px;
-}
-
-.status-total .count {
-  font-size: 1.25rem;
-  color: #1f2937;
-}
-
-.content {
-  padding: 2.5rem;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.search-bar {
-  margin-bottom: 2.5rem;
-  position: relative;
-}
-
-.search-bar input {
-  width: 100%;
-  padding: 1rem 1.25rem;
-  border: 1px solid #e5e5e5;
-  border-radius: 0.875rem;
-  background-color: white;
-  transition: all 0.2s ease;
-  font-size: 1rem;
-}
-
-.search-bar input:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-  outline: none;
-}
-
-.search-bar input:invalid {
-  border-color: #ef4444;
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
-}
-
-.sort-options {
-  margin-bottom: 2.5rem;
-  position: relative;
-}
-
-.sort-options select {
-  width: 100%;
-  padding: 1rem 3rem 1rem 1.25rem;
-  border: 1px solid #e5e5e5;
-  border-radius: 0.875rem;
-  background-color: white;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 1rem;
-  appearance: none;
-}
-
-.sort-options select:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-  outline: none;
-}
-
-.sort-options select::-ms-expand {
-  display: none;
-}
-
-.sort-options::after {
-  content: '';
-  position: absolute;
-  right: 1rem;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 0;
-  height: 0;
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  border-top: 5px solid #6b7280;
-  pointer-events: none;
-}
-
-.insurer-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-  gap: 2rem;
-  padding: 1rem;
-}
-
-.insurer-card {
-  background: white;
-  border-radius: 1.25rem;
-  padding: 1.75rem;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  border: 1px solid #e5e5e5;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  position: relative;
-  overflow: hidden;
-}
-
-.insurer-card.incomplete {
-  opacity: 0.5;
-  filter: saturate(0.7);
-}
-
-.insurer-card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-}
-
-.insurer-card.selected {
-  background: #f3f4f6;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
-  opacity: 1 !important;
-}
-
-.insurer-card.complete {
-  border-left: 4px solid #10b981;
-  opacity: 1 !important;
-}
-
-.insurer-info h3 {
-  font-size: 1.375rem;
-  font-weight: 600;
-  margin-bottom: 0.75rem;
-  color: #1f2937;
-  line-height: 1.2;
-}
-
-.status {
-  font-weight: 500;
-  padding: 0.5rem 1rem;
-  border-radius: 0.75rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-width: 120px;
-  justify-content: center;
-  text-align: center;
-  font-size: 0.875rem;
-}
-
-.status::before {
-  content: '';
-  display: inline-block;
-  width: 0.75rem;
-  height: 0.75rem;
-  border-radius: 50%;
-  margin-right: 0.5rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.status.yellow {
-  background-color: #fef9c3;
-  color: #713f12;
-}
-
-.status.yellow::before {
-  background-color: #fbbf24;
-  box-shadow: 0 2px 4px rgba(251, 191, 36, 0.3);
-}
-
-.status.red {
-  background-color: #fee2e2;
-  color: #991b1b;
-}
-
-.status.red::before {
-  background-color: #ef4444;
-  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.3);
-}
-
-.status.green {
-  background-color: #dcfce7;
-  color: #059669;
-}
-
-.status.green::before {
-  background-color: #10b981;
-  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
-}
-
-.insurer-details {
-  font-size: 0.875rem;
-  color: #4b5563;
-  margin-top: 1.5rem;
-  line-height: 1.5;
-}
-
-.insurer-details p {
-  margin: 0.75rem 0;
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-}
-
-.insurer-details .font-medium {
-  color: #6b7280;
-  min-width: 120px;
-}
-
-/* Loading state */
-.insurer-card.loading {
-  opacity: 0.7;
-  pointer-events: none;
-}
-
-.insurer-card.loading::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 2rem;
-  height: 2rem;
-  border: 3px solid #e5e5e5;
-  border-top-color: #3b82f6;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: translate(-50%, -50%) rotate(360deg);
-  }
-}
-
-/* Mobile responsiveness */
-@media (max-width: 768px) {
-  .status-summary {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-  
-  .content {
-    padding: 1.5rem;
-  }
-  
-  .insurer-grid {
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
-  }
-  
-  .insurer-card {
-    padding: 1.25rem;
-  }
-  
-  .insurer-info h3 {
-    font-size: 1.25rem;
-  }
-  
-  .status {
-    padding: 0.375rem 0.75rem;
-    font-size: 0.875rem;
-  }
-}
-
-/* Animations */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Transition animations */
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-
-.slide-in-right-enter-active,
-.slide-in-right-leave-active {
-  transition: transform 0.35s ease, opacity 0.25s ease;
-}
-
-.slide-in-right-enter-from,
-.slide-in-right-leave-to {
-  transform: translateX(100%);
-  opacity: 0;
-}
-
-.insurer-card {
-  animation: fadeIn 0.3s ease-out;
-}
-
-/* Dark mode support */
-@media (prefers-color-scheme: dark) {
-  .app-container {
-    background-color: #1f2937;
-    color: #f3f4f6;
-  }
-
-  .insurer-card {
-    background: #111827;
-    border-color: #374151;
-  }
-
-  .status-item,
-  .status-total {
-    background: #1f2937;
-  }
-
-  .status-dot {
-    filter: brightness(0.9);
-  }
-
-  .status {
-    color: #f3f4f6;
-  }
-
-  .status::before {
-    box-shadow: none;
-  }
-
-  .insurer-card:hover {
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-  }
-}
-
-/* Focus states */
-:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
-}
-
-/* High contrast mode */
-@media (forced-colors: active) {
-  .status-dot {
-    forced-color-adjust: none;
-  }
-
-  .status {
-    background: Highlight;
-    color: HighlightText;
-  }
-}
-
-.header-container {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  left: 0;
-  right: 0;
-  width: 100%;
-  background-color: white;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-  display: flex;
-  flex-direction: column;
-}
-
-.sticky-header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  left: 0;
-  right: 0;
-  width: 100%;
-  background-color: white;
-}
-
-.content {
-  padding-top: 1rem;
-}
-
-/* Overlay backdrop */
-.overlay-backdrop {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(2px);
-  z-index: 9;
-  cursor: pointer;
-}
-
-/* Detail panel */
-.insurer-detail {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 450px;
-  background: white;
-  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.insurer-detail-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 24px;
-  border-bottom: 1px solid #e5e7eb;
-  background-color: #f9fafb;
-}
-
-.insurer-detail-header h2 {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #111827;
-  margin: 0;
-}
-
-.insurer-detail-content {
-  flex: 1;
-  padding: 24px;
-  overflow-y: auto;
-}
-
-.insurer-detail h2 {
-  font-size: 1.5em;
-  margin-bottom: 20px;
-  color: var(--primary-color);
-}
-
-.insurer-detail .close-button {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  background: none;
-  border: none;
-  font-size: 1.5em;
-  cursor: pointer;
-  color: var(--gray-color);
-}
-
-.insurer-detail .close-button:hover {
-  color: var(--primary-color);
-}
-
-.insurer-detail .section {
-  margin-bottom: 20px;
-}
-
-.insurer-detail .section h3 {
-  font-size: 1.2em;
-  margin-bottom: 10px;
-  color: var(--primary-color);
-}
-
-.insurer-detail .form-group {
-  margin-bottom: 15px;
-}
-
-.insurer-detail label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: 500;
-  color: var(--primary-color);
-}
-
-.insurer-detail input,
-.insurer-detail select,
-.insurer-detail textarea {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  font-size: 1em;
-}
-
-.insurer-detail textarea {
-  height: 100px;
-  resize: vertical;
-}
-
-.insurer-detail button {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 8px;
-  background-color: var(--info-color);
-  color: white;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-}
-
-.insurer-detail button:hover {
-  background-color: #2980b9;
-}
-
-@media (max-width: 1024px) {
-  .insurer-detail {
-    width: 100%;
-    position: absolute;
-    top: 0;
-    left: 0;
-    height: 100vh;
-  }
-}
+/* Your CSS styles here */
 </style>

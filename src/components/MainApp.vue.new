@@ -1,0 +1,80 @@
+<template>
+  <div class="app-container">
+    <!-- Main Layout -->
+    <div class="min-h-screen bg-gray-50">
+      <!-- Header with Tabs -->
+      <header class="bg-white shadow-sm sticky top-0 z-10">
+        <div class="container mx-auto px-4">
+          <div class="flex justify-between items-center py-4">
+            <h1 class="text-xl font-semibold text-gray-900">Versicherungsübersicht</h1>
+            <div class="ml-auto">
+              <!-- Environment info will go here -->
+            </div>
+          </div>
+          
+          <div class="-mb-px">
+            <!-- Tabs will go here -->
+          </div>
+        </div>
+      </header>
+
+      <!-- Main Content -->
+      <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
+        <div v-if="activeTab === 'main'" class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <!-- Left Sidebar -->
+          <div class="lg:col-span-1 space-y-4">
+            <!-- Placeholder content -->
+          </div>
+          
+          <!-- Main Content Area -->
+          <div class="lg:col-span-3">
+            <div>
+              <!-- Placeholder for main content -->
+            </div>
+          </div>
+        </div>
+
+        <!-- History View -->
+        <div v-else-if="activeTab === 'history'" class="content p-4">
+          <!-- History content placeholder -->
+        </div>
+
+        <!-- Settings View -->
+        <div v-else-if="activeTab === 'settings'" class="content p-4">
+          <!-- Settings content placeholder -->
+        </div>
+      </main>
+    </div>
+  </div>
+</template>
+
+<script setup>
+// Vue and external library imports
+import { ref, computed, onMounted, watch, onUnmounted } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
+
+// Basic reactive state
+const router = useRouter();
+const route = useRoute();
+const activeTab = ref('main');
+const insurersData = ref([]);
+
+// Simple computed property example
+const filteredInsurers = computed(() => {
+  return insurersData.value;
+});
+
+// Mount logic
+onMounted(() => {
+  console.log('Component mounted');
+});
+
+// Cleanup
+onUnmounted(() => {
+  console.log('Component unmounted');
+});
+</script>
+
+<style>
+/* Your CSS styles here */
+</style>

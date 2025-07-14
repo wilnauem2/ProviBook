@@ -1,12 +1,11 @@
 <template>
   <div class="h-full flex flex-col">
     <div class="flex items-center justify-between mb-4">
-      <h2 class="text-lg font-semibold text-gray-800">
-        Versicherer
+      <div class="text-gray-800">
         <span class="ml-2 px-2 py-0.5 bg-gray-100 text-gray-600 text-xs font-medium rounded-full">
-          {{ insurers.length }}
+          {{ insurers.length }} Einträge
         </span>
-      </h2>
+      </div>
       <div class="flex items-center space-x-2">
         <button 
           v-if="selectedInsurer"

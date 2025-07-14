@@ -12,7 +12,7 @@
         <button
           v-for="env in environments"
           :key="env.id"
-          @click="$emit('update:currentEnvironment', env.id)"
+          @click="switchEnvironment(env.id)"
           :class="[
             'px-4 py-2 text-sm font-medium flex items-center transition-colors duration-150',
             currentEnvironment === env.id
@@ -43,7 +43,7 @@
       </div>
       <div class="h-6 border-l border-gray-200"></div>
       <button
-        @click="$emit('logout')"
+        @click="handleLogout"
         class="flex items-center text-sm text-gray-600 hover:text-red-600 transition-colors duration-150"
       >
         <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -55,28 +55,35 @@
   </div>
 </template>
 
-<script>
-export default {
-  name: 'EnvironmentUserInfo',
-  props: {
-    currentEnvironment: {
-      type: String,
-      required: true,
-      validator: (value) => ['production', 'test'].includes(value)
-    },
-    username: {
-      type: String,
-      required: true
-    }
+<script setup>
+import { defineProps, defineEmits } from 'vue';
+
+const props = defineProps({
+  currentEnvironment: {
+    type: String,
+    required: true,
+    validator: (value) => ['production', 'test'].includes(value)
   },
-  emits: ['update:currentEnvironment', 'logout'],
-  data() {
-    return {
-      environments: [
-        { id: 'production', label: 'Produktion' },
-        { id: 'test', label: 'Test' }
-      ]
-    }
+  username: {
+    type: String,
+    required: true,
+    default: 'Benutzer'
   }
-}
+});
+
+const emit = defineEmits(['update:currentEnvironment', 'logout']);
+
+const environments = [
+  { id: 'production', label: 'Produktion' },
+  { id: 'test', label: 'Test' }
+];
+
+const switchEnvironment = (envId) => {
+  console.log(`Switching environment to: ${envId}`);
+  emit('update:currentEnvironment', envId);
+};
+
+const handleLogout = () => {
+  emit('logout');
+};
 </script>

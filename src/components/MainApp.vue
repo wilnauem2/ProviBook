@@ -1,51 +1,105 @@
 <template>
   <div class="app-container">
-    <Tabs 
-      :activeTab="activeTab" 
-      :tabs="[
-        { id: 'main', label: 'Übersicht' },
-        { id: 'settings', label: 'Einstellungen' }
-      ]"
-      @update:activeTab="activeTab = $event" 
-    />
-    <div v-if="activeTab === 'main'" class="content">
-      <HeaderSection />
-  <div class="flex flex-col gap-2 px-4 py-3">
-    <EnvironmentUserInfo
-      :currentEnvironment="currentEnvironment"
-      :username="username"
-      @update:currentEnvironment="val => currentEnvironment = val"
-      @logout="logout"
-    />
-    <StatusSummary :statusCounts="statusCounts" />
-  </div>
-  <TestDateSimulator v-model="testDate" v-if="currentEnvironment === 'test' && activeTab === 'main'" @update:modelValue="handleDateUpdate" class="mt-4" />
-  <div class="insurer-list">
-    <SearchBar v-model="searchFilter" />
-    <template v-if="filteredInsurers.length > 0">
-      <InsurerList
-        :insurers="filteredInsurers"
-        :selectedInsurer="selectedInsurer"
-        @selectInsurer="insurer => selectedInsurer = insurer"
-      />
-    </template>
-    <template v-else>
-      <div class="text-center py-12 text-gray-500 text-lg">
-        Keine Versicherer gefunden.
-      </div>
-    </template>
+    <!-- Main Layout -->
+    <div class="min-h-screen bg-gray-50">
+      <!-- Header with Tabs -->
+      <header class="bg-white shadow-sm sticky top-0 z-10">
+        <div class="container mx-auto px-4">
+          <div class="flex justify-between items-center py-4">
+            <h1 class="text-xl font-semibold text-gray-900">Versicherungsübersicht</h1>
+            <EnvironmentUserInfo
+              :currentEnvironment="currentEnvironment"
+              :username="username"
+              @update:currentEnvironment="val => currentEnvironment = val"
+              @logout="logout"
+              class="ml-auto"
+            />
+          </div>
+          
+          <Tabs 
+            :activeTab="activeTab" 
+            :tabs="[
+              { id: 'main', label: 'Übersicht' },
+              { id: 'settings', label: 'Einstellungen' }
+            ]"
+            @update:activeTab="activeTab = $event"
+            class="-mb-px"
+          />
+        </div>
+      </header>
+
+      <!-- Main Content -->
+      <main class="container mx-auto px-4 py-6">
+        <div v-if="activeTab === 'main'" class="space-y-6">
+          <!-- Status Summary Cards -->
+          <StatusSummary :statusCounts="statusCounts" />
+          
+          <!-- Test Date Simulator -->
+          <TestDateSimulator 
+            v-if="currentEnvironment === 'test'" 
+            v-model="testDate" 
+            @update:modelValue="handleDateUpdate" 
+            class="bg-white rounded-lg shadow p-4"
+          />
+          
+          <!-- Search and Insurer List -->
+          <div class="bg-white rounded-lg shadow overflow-hidden">
+            <div class="p-4 border-b border-gray-200">
+              <SearchBar v-model="searchFilter" />
+            </div>
+            
+            <div class="divide-y divide-gray-200">
+              <template v-if="filteredInsurers.length > 0">
+                <InsurerList
+                  :insurers="filteredInsurers"
+                  :selectedInsurer="selectedInsurer"
+                  @selectInsurer="insurer => selectedInsurer = insurer"
+                />
+              </template>
+              <template v-else>
+                <div class="py-12 text-center text-gray-500">
+                  <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <h3 class="mt-2 text-sm font-medium text-gray-900">Keine Versicherer gefunden</h3>
+                  <p class="mt-1 text-sm text-gray-500">Versuchen Sie es mit einem anderen Suchbegriff.</p>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Settings Tab Content -->
+        <div v-else class="bg-white rounded-lg shadow p-6">
+          <h2 class="text-lg font-medium text-gray-900 mb-6">Einstellungen</h2>
+          <!-- Add settings content here -->
+        </div>
+      </main>
+    </div>
+
+    <!-- Insurer Detail Panel -->
     <!-- Backdrop overlay with fade transition -->
     <transition name="fade">
-      <div v-if="selectedInsurer" class="overlay-backdrop" @click="selectedInsurer = null"></div>
+      <div 
+        v-if="selectedInsurer" 
+        class="fixed inset-0 bg-black bg-opacity-50 z-20 transition-opacity duration-300"
+        @click="selectedInsurer = null"
+      ></div>
     </transition>
     
     <!-- Detail panel with slide transition -->
     <transition name="slide-in-right">
-      <div v-if="selectedInsurer" class="insurer-detail">
-        <div class="insurer-detail-header">
-          <h2>{{ selectedInsurer.name }}</h2>
-          <button class="close-button" @click="selectedInsurer = null" aria-label="Details schließen">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      <div v-if="selectedInsurer" class="fixed inset-y-0 right-0 w-full max-w-md bg-white shadow-xl z-30 transform transition-transform duration-300 ease-in-out">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+          <h2 class="text-lg font-medium text-gray-900">{{ selectedInsurer.name }}</h2>
+          <button 
+            @click="selectedInsurer = null" 
+            class="text-gray-400 hover:text-gray-500 focus:outline-none"
+            aria-label="Details schließen"
+          >
+            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
         <div class="insurer-detail-content">

@@ -1,16 +1,30 @@
 <template>
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
     <div 
       v-for="(count, status) in statusCounts" 
       :key="status"
-      class="flex items-center p-3 rounded-lg shadow transition-colors duration-150"
-      :class="getStatusClass(status)"
+      class="relative overflow-hidden rounded-xl p-5 transition-all duration-200 hover:shadow-md"
+      :class="getStatusCardClass(status)"
     >
-      <div class="flex-shrink-0 w-3 h-3 rounded-full mr-2 border"
-        :class="getStatusColor(status)"></div>
-      <div class="text-sm">
-        <div class="font-medium">{{ count }}</div>
-        <div class="text-xs text-gray-500">{{ getStatusText(status) }}</div>
+      <!-- Decorative element -->
+      <div class="absolute top-0 right-0 w-16 h-16 -mr-5 -mt-5 rounded-full opacity-20" 
+           :class="getStatusColor(status, 'bg')"></div>
+      
+      <div class="relative z-10">
+        <div class="flex items-center mb-2">
+          <div class="flex-shrink-0 w-3 h-3 rounded-full mr-2" 
+               :class="getStatusColor(status, 'bg')"></div>
+          <span class="text-xs font-medium uppercase tracking-wider" 
+                :class="getStatusTextColor(status)">
+            {{ getStatusText(status) }}
+          </span>
+        </div>
+        <div class="text-2xl font-bold" :class="getStatusTextColor(status, true)">
+          {{ count }}
+        </div>
+        <div class="mt-1 text-xs opacity-75" :class="getStatusTextColor(status)">
+          Versicherer
+        </div>
       </div>
     </div>
   </div>
@@ -32,33 +46,55 @@ export default {
     }
   },
   methods: {
-    getStatusColor(status) {
+    getStatusColor(status, type = 'text') {
       const colors = {
-        on_time: 'bg-green-500',
-        yellow: 'bg-yellow-500',
-        red: 'bg-red-500',
-        total: 'bg-blue-500',
-        unknown: 'bg-gray-400'
+        on_time: {
+          text: 'text-green-600',
+          bg: 'bg-green-500',
+          light: 'bg-green-50',
+          dark: 'bg-green-600',
+          border: 'border-green-200'
+        },
+        yellow: {
+          text: 'text-yellow-600',
+          bg: 'bg-yellow-500',
+          light: 'bg-yellow-50',
+          dark: 'bg-yellow-600',
+          border: 'border-yellow-200'
+        },
+        red: {
+          text: 'text-red-600',
+          bg: 'bg-red-500',
+          light: 'bg-red-50',
+          dark: 'bg-red-600',
+          border: 'border-red-200'
+        },
+        total: {
+          text: 'text-blue-600',
+          bg: 'bg-blue-500',
+          light: 'bg-blue-50',
+          dark: 'bg-blue-600',
+          border: 'border-blue-200'
+        },
+        unknown: {
+          text: 'text-gray-600',
+          bg: 'bg-gray-400',
+          light: 'bg-gray-50',
+          dark: 'bg-gray-600',
+          border: 'border-gray-200'
+        }
       }
-      return colors[status] || 'bg-gray-400'
+      const colorSet = colors[status] || colors.unknown
+      return colorSet[type] || colorSet.text
     },
-    getStatusBgColor(status) {
-      const colors = {
-        on_time: 'bg-green-50',
-        yellow: 'bg-yellow-50',
-        red: 'bg-red-50',
-        total: 'bg-blue-50',
-        unknown: 'bg-gray-50'
-      }
-      return colors[status] || 'bg-gray-50'
+    getStatusCardClass(status) {
+      const base = 'bg-white border shadow-sm hover:-translate-y-0.5';
+      const statusClass = this.getStatusColor(status, 'light') + ' ' + this.getStatusColor(status, 'border');
+      return `${base} ${statusClass}`;
     },
-    getStatusClass(status) {
-      if (status === 'yellow') return 'bg-yellow-100 text-yellow-800 border border-yellow-300 font-semibold';
-      if (status === 'red') return 'bg-red-100 text-red-800 border border-red-300 font-semibold';
-      if (status === 'total') return 'bg-blue-100 text-blue-800 border border-blue-300 font-semibold';
-      if (status === 'on_time') return 'bg-green-100 text-green-800 border border-green-300 font-semibold';
-      if (status === 'unknown') return 'bg-gray-100 text-gray-800 border border-gray-300';
-      return '';
+    getStatusTextColor(status, isBold = false) {
+      const textColor = this.getStatusColor(status, 'text');
+      return isBold ? `font-bold ${textColor}` : textColor;
     },
     getStatusText(status) {
       const texts = {

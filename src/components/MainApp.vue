@@ -47,7 +47,13 @@
       </header>
 
       <!-- Main Content -->
-      <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full relative">
+      <div class="relative">
+        <!-- Blurred background when detail is open -->
+        <div 
+          class="transition-all duration-300"
+          :class="{ 'filter blur-sm': selectedInsurer }"
+        >
+          <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full relative">
         <!-- Loading overlay -->
         <div v-if="isLoading" class="absolute inset-0 bg-white bg-opacity-80 flex items-center justify-center z-50">
           <div class="text-center">
@@ -143,9 +149,22 @@
           </div>
         </div>
 
+        <!-- Overlay that appears when detail view is open -->
+        <transition name="fade">
+          <div 
+            v-if="selectedInsurer" 
+            @click="selectedInsurer = null"
+            class="fixed inset-0 bg-black bg-opacity-50 z-20 transition-opacity duration-300"
+          ></div>
+        </transition>
+
         <!-- Insurer Detail Slide-out Panel -->
         <transition name="slide-in-right">
-          <div v-if="selectedInsurer" class="fixed inset-y-0 right-0 w-full max-w-2xl bg-white shadow-2xl z-30 transform transition-transform duration-300 ease-in-out border-l border-gray-100">
+          <div 
+            v-if="selectedInsurer" 
+            class="fixed inset-y-0 right-0 w-full max-w-2xl bg-white shadow-2xl z-30 transform transition-transform duration-300 ease-in-out border-l border-gray-100"
+            @click.stop
+          >
             <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100 bg-gray-50">
               <h2 class="text-lg font-medium text-gray-900">{{ selectedInsurer.name }}</h2>
               <button 
@@ -167,7 +186,46 @@
             </div>
           </div>
         </transition>
-      </main>
+          </main>
+        </div>
+
+        <!-- Overlay that appears when detail view is open -->
+        <transition name="fade">
+          <div 
+            v-if="selectedInsurer" 
+            @click="selectedInsurer = null"
+            class="fixed inset-0 bg-black bg-opacity-50 z-20 transition-opacity duration-300"
+          ></div>
+        </transition>
+
+        <!-- Insurer Detail Slide-out Panel -->
+        <transition name="slide-in-right">
+          <div 
+            v-if="selectedInsurer" 
+            class="fixed inset-y-0 right-0 w-full max-w-2xl bg-white shadow-2xl z-30 transform transition-transform duration-300 ease-in-out border-l border-gray-100"
+            @click.stop
+          >
+            <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100 bg-gray-50">
+              <h2 class="text-lg font-medium text-gray-900">{{ selectedInsurer.name }}</h2>
+              <button 
+                @click="selectedInsurer = null" 
+                class="text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-full"
+              >
+                <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div class="p-6 overflow-y-auto" style="height: calc(100vh - 80px);">
+              <InsurerDetail 
+                :insurer="selectedInsurer" 
+                :lastInvoices="lastInvoices[selectedInsurer.id] || []" 
+              />
+            </div>
+          </div>
+        </transition>
+      </div>
     </div>
   </div>
 </template>
@@ -428,5 +486,25 @@ onUnmounted(() => {
 </script>
 
 <style>
-/* Your CSS styles here */
+/* Animation for the slide-in panel */
+.slide-in-right-enter-active,
+.slide-in-right-leave-active {
+  transition: transform 0.3s ease-in-out;
+}
+
+.slide-in-right-enter-from,
+.slide-in-right-leave-to {
+  transform: translateX(100%);
+}
+
+/* Fade animation for the overlay */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
 </style>

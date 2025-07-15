@@ -5,13 +5,13 @@
   build_dir = "dist"
   publish_dir = "dist"
   NODE_VERSION = "18.17.1"
-  environment = {
-    NODE_ENV = "production",
-    VITE_APP_BASE_URL = "/",
-    NODE_OPTIONS = "--openssl-legacy-provider",
-    NPM_FLAGS = "--legacy-peer-deps",
-    CI = "false"
-  }
+  environment = [
+    { NODE_ENV = "production" },
+    { VITE_APP_BASE_URL = "/" },
+    { NODE_OPTIONS = "--openssl-legacy-provider" },
+    { NPM_FLAGS = "--legacy-peer-deps" },
+    { CI = "false" }
+  ]
 
 [dev]
   command = "npm run dev"

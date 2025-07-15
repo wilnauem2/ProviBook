@@ -1,10 +1,10 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { getFirestore, doc, updateDoc } from 'firebase/firestore';
-import { app } from '../firebase';
+import { db } from '../firebase';
 
-// Initialize Firestore
-const db = getFirestore(app);
+// Use the pre-initialized Firestore instance
+// No need to initialize Firestore again as it's already done in firebase.js
 
 export const useInsurerStore = defineStore('insurer', () => {
   // State

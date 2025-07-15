@@ -17,7 +17,7 @@ export default defineConfig(({ mode }) => {
     base: isProduction ? '/' : '/',
     publicDir: 'public',
     optimizeDeps: {
-      include: ['pinia', 'vue', 'vue-router'],
+      include: ['vue', 'pinia', 'vue-router', 'firebase/app', 'firebase/firestore'],
       exclude: []
     },
     esbuild: {
@@ -33,9 +33,13 @@ export default defineConfig(({ mode }) => {
       sourcemap: !isProduction,
       rollupOptions: {
         output: {
-          manualChunks: {
-            'vendor': ['vue', 'pinia', 'vue-router'],
-            'firebase': ['firebase/app', 'firebase/firestore'],
+          manualChunks: (id) => {
+            if (id.includes('node_modules')) {
+              if (id.includes('firebase')) {
+                return 'vendor-firebase';
+              }
+              return 'vendor';
+            }
           },
           entryFileNames: 'assets/[name]-[hash].js',
           chunkFileNames: 'assets/[name]-[hash].js',

@@ -1,0 +1,43 @@
+{
+  "name": "my-react-app",
+  "private": true,
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "packageManager": "npm@8.19.4",
+  "version": "0.0.0",
+  "type": "module",
+  "main": "src/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "netlify-build": "vite build --mode production",
+    "postinstall": "npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "overrides": {
+    "rollup": "^4.16.0"
+  },
+  "dependencies": {
+    "@types/file-saver": "^2.0.7",
+    "axios": "^1.6.7",
+    "date-fns": "^2.30.0",
+    "file-saver": "^2.0.5",
+    "pinia": "^2.1.7",
+    "vite": "^5.1.6",
+    "vue": "^3.4.21",
+    "vue-router": "^4.2.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^4.6.2",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.38",
+    "postcss-nesting": "^13.0.2",
+    "tailwindcss": "^3.4.3",
+    "terser": "^5.43.1"
+  },
+  "resolutions": {
+    "vite": "^5.1.6"
+  }
+}

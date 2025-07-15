@@ -14,8 +14,20 @@ export default defineConfig(({ mode }) => {
   const base = process.env.NODE_ENV === 'production' ? '/' : '/';
   
   return {
-    base: isProduction ? '/' : '/',
+    base: '/',  // Always use root path
     publicDir: 'public',
+    server: {
+      port: 3000,
+      strictPort: true,
+      hmr: {
+        protocol: 'ws',
+        host: 'localhost'
+      }
+    },
+    preview: {
+      port: 3000,
+      strictPort: true
+    },
     optimizeDeps: {
       include: ['vue', 'pinia', 'vue-router', 'firebase/app', 'firebase/firestore'],
       exclude: []

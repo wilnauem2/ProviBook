@@ -36,10 +36,14 @@ const initApp = async () => {
       await router.isReady()
       app.mount('#app')
       console.log('App mounted successfully')
+      // Dispatch event to hide loading spinner
+      window.dispatchEvent(new Event('app-mounted'))
     } catch (routerError) {
       console.error('Router initialization failed:', routerError)
       // Fallback mount without router
       app.mount('#app')
+      // Still dispatch the event even if router failed
+      window.dispatchEvent(new Event('app-mounted'))
     }
   } catch (error) {
     console.error('Critical error during app initialization:', error)

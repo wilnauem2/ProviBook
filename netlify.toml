@@ -9,15 +9,17 @@
   NODE_VERSION = "18.17.1"
   NPM_FLAGS = "--legacy-peer-deps"
   NODE_ENV = "production"
+  NODE_OPTIONS = "--openssl-legacy-provider"
+  CI = "false"
 
 # Required for SPA routing - redirect all requests to index.html
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
-  force = false
+  force = true
 
-# Required for proper MIME types
+# Security headers
 [[headers]]
   for = "/*"
   [headers.values]
@@ -26,8 +28,14 @@
     X-XSS-Protection = "1; mode=block"
     Referrer-Policy = "strict-origin-when-cross-origin"
 
+# MIME type headers
 [[headers]]
   for = "/*.js"
+  [headers.values]
+    Content-Type = "application/javascript"
+
+[[headers]]
+  for = "/*.mjs"
   [headers.values]
     Content-Type = "application/javascript"
 
@@ -41,46 +49,24 @@
   [headers.values]
     Content-Type = "application/json"
 
-[build.environment]
-  NODE_OPTIONS = "--openssl-legacy-provider"
-  NPM_FLAGS = "--legacy-peer-deps"
-  CI = "false"
-  NODE_ENV = "production"
+[[headers]]
+  for = "/*.wasm"
+  [headers.values]
+    Content-Type = "application/wasm"
 
 [dev]
   command = "npm run dev"
   port = 3000
   publish = "dist"
 
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-  force = true
-
-[[headers]]
-  for = "*.js"
-  [headers.values]
-    Content-Type = "application/javascript"
-
-[[headers]]
-  for = "*.mjs"
-  [headers.values]
-    Content-Type = "application/javascript"
-
-[[headers]]
-  for = "*.wasm"
-  [headers.values]
-    Content-Type = "application/wasm"
-
 [context.production]
-  command = "npm install --legacy-peer-deps && npm run netlify-build"
+  command = "npm install --legacy-peer-deps && npm run build"
   environment = { NODE_ENV = "production" }
 
 [context.deploy-preview]
-  command = "npm install --legacy-peer-deps && npm run netlify-build"
+  command = "npm install --legacy-peer-deps && npm run build"
   environment = { NODE_ENV = "production" }
 
 [context.branch-deploy]
-  command = "npm install --legacy-peer-deps && npm run netlify-build"
+  command = "npm install --legacy-peer-deps && npm run build"
   environment = { NODE_ENV = "production" }

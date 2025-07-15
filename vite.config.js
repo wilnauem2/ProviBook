@@ -32,8 +32,8 @@ export default defineConfig(({ mode }) => {
     base: '/',
     build: {
       target: 'es2020',
-      minify: 'esbuild',
-      sourcemap: false,
+      minify: isProduction ? 'esbuild' : false,
+      sourcemap: !isProduction,
       outDir: 'dist',
       assetsDir: 'assets',
       rollupOptions: {
@@ -41,11 +41,12 @@ export default defineConfig(({ mode }) => {
           main: resolve(__dirname, 'index.html'),
         },
         output: {
-          entryFileNames: 'assets/[name]-[hash].js',
-          chunkFileNames: 'assets/[name]-[hash].js',
-          assetFileNames: 'assets/[name]-[hash].[ext]'
+          entryFileNames: isProduction ? 'assets/[name]-[hash].js' : 'assets/[name].js',
+          chunkFileNames: isProduction ? 'assets/[name]-[hash].js' : 'assets/[name].js',
+          assetFileNames: isProduction ? 'assets/[name]-[hash].[ext]' : 'assets/[name].[ext]'
         }
-      }
+      },
+      manifest: isProduction
     },
     define: {
       'process.env.NODE_ENV': `"${mode}"`,

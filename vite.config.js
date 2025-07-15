@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import tailwindcss from 'tailwindcss';
 import autoprefixer from 'autoprefixer';
+import { resolve } from 'path';
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -28,12 +29,16 @@ export default defineConfig(({ mode }) => {
         ],
       },
     },
+    base: isProduction ? '' : '/',
     build: {
       target: 'es2020',
       minify: isProduction ? 'esbuild' : false,
       sourcemap: !isProduction,
       chunkSizeWarningLimit: 2000,
       rollupOptions: {
+        input: {
+          main: resolve(__dirname, 'index.html'),
+        },
         output: {
           manualChunks: (id) => {
             if (id.includes('node_modules')) {

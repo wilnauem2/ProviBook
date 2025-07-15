@@ -2,6 +2,44 @@
   command = "npm install --legacy-peer-deps && npm run build"
   publish = "dist"
   NODE_VERSION = "18.17.1"  # Use specific Node.js version for better compatibility
+  NPM_FLAGS = "--legacy-peer-deps"
+  NODE_ENV = "production"
+
+[build.environment]
+  NODE_VERSION = "18.17.1"
+  NPM_FLAGS = "--legacy-peer-deps"
+  NODE_ENV = "production"
+
+# Required for SPA routing - redirect all requests to index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  force = false
+
+# Required for proper MIME types
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+[[headers]]
+  for = "/*.js"
+  [headers.values]
+    Content-Type = "application/javascript"
+
+[[headers]]
+  for = "/*.css"
+  [headers.values]
+    Content-Type = "text/css"
+
+[[headers]]
+  for = "/*.json"
+  [headers.values]
+    Content-Type = "application/json"
 
 [build.environment]
   NODE_OPTIONS = "--openssl-legacy-provider"

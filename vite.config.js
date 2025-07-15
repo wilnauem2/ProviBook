@@ -10,8 +10,11 @@ export default defineConfig(({ mode }) => {
   // Ensure Vite knows this is a production build
   process.env.NODE_ENV = isProduction ? 'production' : 'development';
   
+  // For Netlify, we need to ensure the base is set correctly
+  const base = process.env.NODE_ENV === 'production' ? '/' : '/';
+  
   return {
-    base: isProduction ? '/' : '/',
+    base,
     publicDir: 'public',
     plugins: [
       vue({

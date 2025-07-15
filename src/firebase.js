@@ -8,26 +8,40 @@ let app;
 console.log('Initializing Firebase...');
 console.log('Environment:', import.meta.env.MODE);
 
+// Get environment variables with fallbacks
+const getEnv = (key, fallback = '') => {
+  const value = import.meta.env[key];
+  if (!value && !fallback) {
+    console.warn(`Environment variable ${key} is not set`);
+  }
+  return value || fallback;
+};
+
 // Log environment variables (without exposing sensitive data)
 console.log('Firebase config check:', {
-    hasApiKey: !!import.meta.env.VITE_FIREBASE_API_KEY,
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'MISSING',
-    appId: import.meta.env.VITE_FIREBASE_APP_ID || 'MISSING'
+  hasApiKey: !!getEnv('VITE_FIREBASE_API_KEY'),
+  projectId: getEnv('VITE_FIREBASE_PROJECT_ID', 'MISSING'),
+  appId: getEnv('VITE_FIREBASE_APP_ID', 'MISSING')
 });
 
 try {
-    const firebaseConfig = {
-        apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-        authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "beamtenprovi.firebaseapp.com",
-        projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "beamtenprovi",
-        storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "beamtenprovi.firebasestorage.app",
-        messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "719958136121",
-        appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:719958136121:web:74379fdb2c0c7c942384e8"
-    };
+  const firebaseConfig = {
+    apiKey: getEnv('VITE_FIREBASE_API_KEY'),
+    authDomain: getEnv('VITE_FIREBASE_AUTH_DOMAIN'),
+    projectId: getEnv('VITE_FIREBASE_PROJECT_ID'),
+    storageBucket: getEnv('VITE_FIREBASE_STORAGE_BUCKET'),
+    messagingSenderId: getEnv('VITE_FIREBASE_MESSAGING_SENDER_ID'),
+    appId: getEnv('VITE_FIREBASE_APP_ID')
+  };
 
-    if (!firebaseConfig.apiKey) {
-        throw new Error('Firebase API key is missing. Please check your environment variables.');
-    }
+  // Validate required fields
+  if (!firebaseConfig.apiKey) {
+    throw new Error('Firebase API key is missing. Please check your environment variables.');
+  }
+
+  if (!firebaseConfig.projectId) {
+    throw new Error('Firebase Project ID is missing. Please check your environment variables.');
+  }
 
     console.log('Initializing Firebase with config:', { 
         ...firebaseConfig, 

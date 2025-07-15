@@ -11,7 +11,8 @@ export default defineConfig(({ mode }) => {
   process.env.NODE_ENV = isProduction ? 'production' : 'development';
   
   return {
-    base: isProduction ? '/' : './',
+    base: isProduction ? '/' : '/',
+    publicDir: 'public',
     plugins: [
       vue({
         template: {
@@ -42,6 +43,9 @@ export default defineConfig(({ mode }) => {
           main: './index.html'
         },
         output: {
+          entryFileNames: 'assets/[name]-[hash].js',
+          chunkFileNames: 'assets/[name]-[hash].js',
+          assetFileNames: 'assets/[name]-[hash][extname]',
           manualChunks: (id) => {
             if (id.includes('node_modules')) {
               if (id.includes('vue')) {

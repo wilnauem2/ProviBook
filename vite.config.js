@@ -12,16 +12,6 @@ export default defineConfig(({ mode }) => {
   
   return {
     base: isProduction ? '/' : './',
-    build: {
-      outDir: 'dist',
-      assetsDir: 'assets',
-      assetsInlineLimit: 0, // Prevent inlining of assets
-      rollupOptions: {
-        input: {
-          main: './index.html'
-        }
-      }
-    },
     plugins: [
       vue({
         template: {
@@ -40,11 +30,17 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
+      outDir: 'dist',
+      assetsDir: 'assets',
+      assetsInlineLimit: 0, // Prevent inlining of assets
       target: 'es2020',
       minify: isProduction ? 'esbuild' : false,
       sourcemap: !isProduction,
       chunkSizeWarningLimit: 2000,
       rollupOptions: {
+        input: {
+          main: './index.html'
+        },
         output: {
           manualChunks: (id) => {
             if (id.includes('node_modules')) {

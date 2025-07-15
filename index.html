@@ -2,13 +2,21 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + Vue</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <meta name="description" content="ProviBook - Versicherungsverwaltung" />
+    <title>ProviBook - Versicherungsverwaltung</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <script>
+      if (import.meta.env.DEV) {
+        document.write(`<script src="https://cdn.tailwindcss.com"><\/script>`);
+        document.write(`<script type="module" src="/src/main.js"><\/script>`);
+      } else {
+        document.write(`<link rel="stylesheet" href="assets/index.css">`);
+        document.write(`<script type="module" src="assets/index.js"><\/script>`);
+      }
+    </script>
   </head>
   <body>
     <div id="app"></div>
-    <script type="module" src="/src/main.js"></script>
   </body>
 </html>

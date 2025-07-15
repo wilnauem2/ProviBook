@@ -11,6 +11,7 @@ export default defineConfig(({ mode }) => {
   process.env.NODE_ENV = isProduction ? 'production' : 'development';
   
   return {
+    base: isProduction ? '/' : './',
     plugins: [
       vue({
         template: {

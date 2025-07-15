@@ -1,9 +1,10 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-
-// Firebase imports (assuming you have a firebase.js file with your configuration)
-// If your Firebase setup is different, you'll need to adjust these imports
 import { getFirestore, doc, updateDoc } from 'firebase/firestore';
+import { app } from '../firebase';
+
+// Initialize Firestore
+const db = getFirestore(app);
 
 export const useInsurerStore = defineStore('insurer', () => {
   // State

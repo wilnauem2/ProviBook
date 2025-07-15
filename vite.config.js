@@ -16,9 +16,32 @@ export default defineConfig(({ mode }) => {
   return {
     base: isProduction ? '/' : '/',
     publicDir: 'public',
+    optimizeDeps: {
+      include: ['pinia', 'vue', 'vue-router'],
+      exclude: []
+    },
     esbuild: {
-      // Ensure JSX is handled correctly
-      jsxInject: `import { h } from 'vue'`
+      jsx: 'automatic',
+      jsxImportSource: 'vue',
+      jsxFactory: 'h',
+      jsxFragment: 'Fragment',
+      target: 'es2020'
+    },
+    build: {
+      target: 'es2020',
+      minify: isProduction ? 'esbuild' : false,
+      sourcemap: !isProduction,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor': ['vue', 'pinia', 'vue-router'],
+            'firebase': ['firebase/app', 'firebase/firestore'],
+          },
+          entryFileNames: 'assets/[name]-[hash].js',
+          chunkFileNames: 'assets/[name]-[hash].js',
+          assetFileNames: 'assets/[name]-[hash][extname]'
+        }
+      }
     },
     plugins: [
       vue({

@@ -1,38 +1,59 @@
-import { createApp } from 'vue'
+import { createApp, h } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 import './input.css'
 
-// Create Pinia instance first
-const pinia = createPinia()
+// Create a function to initialize the app
+const initApp = async () => {
+  try {
+    // Create Pinia instance first
+    const pinia = createPinia()
 
-// Create the app instance
-const app = createApp(App)
+    // Create the app instance
+    const app = createApp({
+      render: () => h(App)
+    })
 
-// Apply plugins in the correct order
-app.use(pinia)  // Pinia first
-app.use(router) // Then router
+    // Apply plugins in the correct order
+    app.use(pinia)
+    app.use(router)
 
-// Add global error handler
-app.config.errorHandler = (err, instance, info) => {
-  console.error('Vue Error:', err)
-  console.error('Error in component:', instance?.$options?.name || 'Unknown')
-  console.error('Error info:', info)
-  
-  // You might want to show a user-friendly error message here
-  // or send the error to an error tracking service
+    // Global error handler
+    app.config.errorHandler = (err, instance, info) => {
+      console.error('Vue Error:', err)
+      console.error('Error in component:', instance?.$options?.name || 'Unknown')
+      console.error('Error info:', info)
+    }
+
+    // Handle unhandled promise rejections
+    window.addEventListener('unhandledrejection', (event) => {
+      console.error('Unhandled promise rejection:', event.reason)
+    })
+
+    // Wait for router to be ready before mounting
+    try {
+      await router.isReady()
+      app.mount('#app')
+      console.log('App mounted successfully')
+    } catch (routerError) {
+      console.error('Router initialization failed:', routerError)
+      // Fallback mount without router
+      app.mount('#app')
+    }
+  } catch (error) {
+    console.error('Critical error during app initialization:', error)
+    // Create a minimal error app to show the error
+    const errorApp = createApp({
+      render: () => h('div', { class: 'p-4 text-red-600' }, [
+        h('h1', 'Application Error'),
+        h('p', 'A critical error occurred while loading the application.'),
+        h('pre', error.toString())
+      ])
+    })
+    errorApp.mount('#app')
+  }
 }
 
-// Global error handler for unhandled promise rejections
-window.addEventListener('unhandledrejection', (event) => {
-  console.error('Unhandled promise rejection:', event.reason)
-  // Optionally show error to user
-})
-
-// Mount the app only when everything is ready
-router.isReady().then(() => {
-  app.mount('#app')
-}).catch(error => {
-  console.error('Router initialization failed:', error)
-})
+// Start the application
+initApp()

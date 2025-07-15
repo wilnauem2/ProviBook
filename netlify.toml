@@ -1,9 +1,6 @@
 [build]
   command = "npm install --legacy-peer-deps && npm run build"
   publish = "dist"
-  NODE_VERSION = "18.17.1"  # Use specific Node.js version for better compatibility
-  NPM_FLAGS = "--legacy-peer-deps"
-  NODE_ENV = "production"
 
 [build.environment]
   NODE_VERSION = "18.17.1"
@@ -11,6 +8,14 @@
   NODE_ENV = "production"
   NODE_OPTIONS = "--openssl-legacy-provider"
   CI = "false"
+  
+  # Firebase Configuration
+  VITE_FIREBASE_API_KEY = "YOUR_API_KEY_HERE"  # Replace with your actual Firebase API key
+  VITE_FIREBASE_AUTH_DOMAIN = "beamtenprovi.firebaseapp.com"
+  VITE_FIREBASE_PROJECT_ID = "beamtenprovi"
+  VITE_FIREBASE_STORAGE_BUCKET = "beamtenprovi.firebasestorage.app"
+  VITE_FIREBASE_MESSAGING_SENDER_ID = "719958136121"
+  VITE_FIREBASE_APP_ID = "1:719958136121:web:74379fdb2c0c7c942384e8"
 
 # Required for SPA routing - redirect all requests to index.html
 [[redirects]]

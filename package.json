@@ -9,11 +9,11 @@
   "type": "module",
   "main": "src/main.js",
   "scripts": {
+    "clean": "rm -rf dist",
     "dev": "vite",
-    "build": "vite build",
+    "build": "npm run clean && vite build",
     "preview": "vite preview",
-    "netlify-build": "vite build --mode production",
-    "postinstall": "npm run build",
+    "netlify-build": "npm run clean && npm run build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "overrides": {

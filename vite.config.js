@@ -29,33 +29,23 @@ export default defineConfig(({ mode }) => {
         ],
       },
     },
-    base: isProduction ? '' : '/',
+    base: '/',
     build: {
       target: 'es2020',
-      minify: isProduction ? 'esbuild' : false,
-      sourcemap: !isProduction,
-      chunkSizeWarningLimit: 2000,
+      minify: 'esbuild',
+      sourcemap: false,
+      outDir: 'dist',
+      assetsDir: 'assets',
       rollupOptions: {
         input: {
           main: resolve(__dirname, 'index.html'),
         },
         output: {
-          manualChunks: (id) => {
-            if (id.includes('node_modules')) {
-              if (id.includes('vue')) {
-                return 'vendor-vue';
-              }
-              if (id.includes('firebase')) {
-                return 'vendor-firebase';
-              }
-              return 'vendor';
-            }
-          },
-        },
-      },
-      commonjsOptions: {
-        transformMixedEsModules: true,
-      },
+          entryFileNames: 'assets/[name]-[hash].js',
+          chunkFileNames: 'assets/[name]-[hash].js',
+          assetFileNames: 'assets/[name]-[hash].[ext]'
+        }
+      }
     },
     define: {
       'process.env.NODE_ENV': `"${mode}"`,

@@ -1,17 +1,20 @@
 [build]
   command = "npm install --legacy-peer-deps && npm run netlify-build"
   publish = "dist"
-  NODE_VERSION = "18.17.1"  # Use specific Node.js version for better compatibility
   base = "/"
   build_dir = "dist"
   publish_dir = "dist"
+  NODE_VERSION = "18.17.1"
+  environment = {
+    NODE_ENV = "production",
+    VITE_APP_BASE_URL = "/"
+  }
 
 [build.environment]
   NODE_OPTIONS = "--openssl-legacy-provider"
   NPM_FLAGS = "--legacy-peer-deps"
   CI = "false"
   NODE_ENV = "production"
-  VITE_BASE = ""
 
 [dev]
   command = "npm run dev"
@@ -62,12 +65,12 @@
 
 [context.production]
   command = "npm install --legacy-peer-deps && npm run netlify-build"
-  environment = { NODE_ENV = "production" }
+  environment = { NODE_ENV = "production", VITE_APP_BASE_URL = "/" }
 
 [context.deploy-preview]
   command = "npm install --legacy-peer-deps && npm run netlify-build"
-  environment = { NODE_ENV = "production" }
+  environment = { NODE_ENV = "production", VITE_APP_BASE_URL = "/" }
 
 [context.branch-deploy]
   command = "npm install --legacy-peer-deps && npm run netlify-build"
-  environment = { NODE_ENV = "production" }
+  environment = { NODE_ENV = "production", VITE_APP_BASE_URL = "/" }

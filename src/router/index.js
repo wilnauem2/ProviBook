@@ -3,7 +3,7 @@ import Login from '../components/Login.vue'
 import MainApp from '../components/MainApp.vue'
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.VITE_APP_BASE_URL || '/'),
   routes: [
     {
       path: '/login',

@@ -4,22 +4,35 @@ import App from './App.vue'
 import router from './router'
 import './input.css'
 
-// Create the app instance with error handler
+// Create Pinia instance first
+const pinia = createPinia()
+
+// Create the app instance
 const app = createApp(App)
 
-// Create and use Pinia for state management
-const pinia = createPinia()
-app.use(pinia)
+// Apply plugins in the correct order
+app.use(pinia)  // Pinia first
+app.use(router) // Then router
 
 // Add global error handler
 app.config.errorHandler = (err, instance, info) => {
   console.error('Vue Error:', err)
-  console.info('Vue Component:', instance)
-  console.info('Error Info:', info)
+  console.error('Error in component:', instance?.$options?.name || 'Unknown')
+  console.error('Error info:', info)
+  
+  // You might want to show a user-friendly error message here
+  // or send the error to an error tracking service
 }
 
-// Use router
-app.use(router)
+// Global error handler for unhandled promise rejections
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Unhandled promise rejection:', event.reason)
+  // Optionally show error to user
+})
 
-// Mount the app
-app.mount('#app')
+// Mount the app only when everything is ready
+router.isReady().then(() => {
+  app.mount('#app')
+}).catch(error => {
+  console.error('Router initialization failed:', error)
+})

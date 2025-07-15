@@ -14,8 +14,12 @@ export default defineConfig(({ mode }) => {
   const base = process.env.NODE_ENV === 'production' ? '/' : '/';
   
   return {
-    base,
+    base: isProduction ? '/' : '/',
     publicDir: 'public',
+    esbuild: {
+      // Ensure JSX is handled correctly
+      jsxInject: `import { h } from 'vue'`
+    },
     plugins: [
       vue({
         template: {

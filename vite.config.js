@@ -12,6 +12,16 @@ export default defineConfig(({ mode }) => {
   
   return {
     base: isProduction ? '/' : './',
+    build: {
+      outDir: 'dist',
+      assetsDir: 'assets',
+      assetsInlineLimit: 0, // Prevent inlining of assets
+      rollupOptions: {
+        input: {
+          main: './index.html'
+        }
+      }
+    },
     plugins: [
       vue({
         template: {

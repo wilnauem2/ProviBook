@@ -112,14 +112,10 @@ const handleDateSubmit = async (date) => {
     if (!props.isProductionBranch) console.log('Created last_invoice object:', JSON.stringify(lastInvoice, null, 2));
     
     try {
-      // 1. Update the data using Pinia store
-      if (props.insurer && props.insurer.id) {
-        if (!props.isProductionBranch) console.log('Updating insurer data via Pinia store');
-        await insurerStore.updateInsurerLastInvoice(props.insurer.id, lastInvoice);
-        if (!props.isProductionBranch) console.log('Insurer data updated successfully via Pinia');
-      }
-      
-      // 2. Also emit the event for backward compatibility
+      // The 'settlement-completed' event is handled by the parent component to create a new invoice entry.
+      // The direct update to the insurer document has been removed to avoid data duplication.
+
+      // Emit the event for the parent component to handle
       const eventData = {
         insurer: props.insurer,
         newDate: parsedDate,

@@ -2,7 +2,7 @@
   <div class="abrechnungen-history p-4">
     <!-- Debug info -->
         <!-- Debug info -->
-    <div v-if="!props.isMainBranch" class="bg-blue-50 p-4 mb-6 rounded-lg text-sm">
+    <div v-if="!props.isProductionBranch" class="bg-blue-50 p-4 mb-6 rounded-lg text-sm">
       <h3 class="font-medium mb-2">Debug Information</h3>
       <p>Anzahl der Abrechnungen: {{ props.abrechnungen ? props.abrechnungen.length : 0 }}</p>
       <p>Gefilterte Abrechnungen: {{ filteredAbrechnungen.length }}</p>
@@ -404,7 +404,7 @@ const props = defineProps({
     type: Array,
     default: () => []
   },
-  isMainBranch: {
+  isProductionBranch: {
     type: Boolean,
     default: true
   }

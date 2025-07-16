@@ -3,11 +3,11 @@
     <!-- Main Layout -->
     <div class="min-h-screen bg-gray-50">
       <!-- Header with Tabs -->
-      <header class="bg-white shadow-sm sticky top-0 z-10" :class="{ 'bg-yellow-100': !isMainBranch }">
+      <header class="bg-white shadow-sm sticky top-0 z-10" :class="{ 'bg-yellow-100': !isProductionBranch }">
         <div class="container mx-auto px-4">
           <div class="flex justify-between items-center py-4">
             <h1 class="text-xl font-semibold text-gray-900">Versicherungsübersicht</h1>
-            <div v-if="!isMainBranch" class="ml-auto">
+            <div v-if="!isProductionBranch" class="ml-auto">
               <EnvironmentUserInfo 
                 :currentEnvironment="dataMode" 
                 :username="'Admin'"
@@ -87,7 +87,7 @@
             
                         <!-- TestDateSimulator for non-production branches -->
             <TestDateSimulator 
-              v-if="!isMainBranch"
+              v-if="!isProductionBranch"
               v-model="simulatedDate"
             />
           </div>
@@ -172,7 +172,7 @@
           :class="{ 'filter blur-sm': selectedInsurer }"
         >
           <div v-if="formattedAbrechnungen && formattedAbrechnungen.length > 0">
-            <AbrechnungenHistory :abrechnungen="formattedAbrechnungen" :is-main-branch="isMainBranch" />
+            <AbrechnungenHistory :abrechnungen="formattedAbrechnungen" :is-production-branch="isProductionBranch" />
           </div>
           <div v-else class="bg-white shadow rounded-lg p-6">
             <p class="text-gray-500 text-center">Keine Abrechnungen verfügbar.</p>
@@ -265,8 +265,9 @@ const statusFilter = ref('all'); // 'all', 'warning', 'critical', 'on_time'
 const dataMode = ref('production'); // 'production' or 'test'
 const simulatedDate = ref(new Date()); // For the date simulator
 
-const isMainBranch = computed(() => {
-  return import.meta.env.VITE_GIT_BRANCH === 'main';
+const isProductionBranch = computed(() => {
+  const branch = import.meta.env.VITE_GIT_BRANCH;
+  return branch === 'main' || branch === 'staging';
 });
 
 
@@ -339,7 +340,7 @@ const statusCounts = computed(() => {
 // Get current date (real or simulated)
 const getCurrentDate = () => {
   // Use simulated date if we are not on the main branch and a date is set
-  if (!isMainBranch.value && simulatedDate.value) {
+  if (!isProductionBranch.value && simulatedDate.value) {
     return simulatedDate.value;
   }
   return new Date();

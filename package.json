@@ -23,7 +23,7 @@
     "date-fns": "^4.1.0",
     "file-saver": "^2.0.5",
     "firebase": "10.12.2",
-    "firebase-admin": "^13.4.0",
+
     "pinia": "^2.1.7",
     "vue": "^3.4.21",
     "vue-router": "^4.2.5"

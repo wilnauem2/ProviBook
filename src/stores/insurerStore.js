@@ -23,6 +23,21 @@ export const useInsurerStore = defineStore('insurer', () => {
   });
 
   // Actions
+  const fetchInsurers = async () => {
+    console.log('Fetching insurers from Firestore...');
+    try {
+      const db = getFirestore();
+      const insurersCollection = collection(db, 'insurers');
+      const insurerSnapshot = await getDocs(insurersCollection);
+      const insurersList = insurerSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setInsurers(insurersList);
+      console.log(`Successfully fetched ${insurersList.length} insurers.`);
+    } catch (error) {
+      console.error('Error fetching insurers:', error);
+      // Optionally, set an error state here
+    }
+  };
+
   function setInsurers(insurersList) {
     console.log('Setting insurers in store. Count:', insurersList?.length || 0);
     if (insurersList) {
@@ -89,9 +104,7 @@ export const useInsurerStore = defineStore('insurer', () => {
         const { saveInvoices, fetchInvoices } = await import('../firebaseInvoices');
         
         // Get the current environment
-        const { currentEnvironment } = await import('../config/environment');
-        const env = typeof currentEnvironment === 'function' ? currentEnvironment() : 
-                   (currentEnvironment.value || 'test');
+        const env = import.meta.env.MODE;
         
         // Get current invoices data
         const currentInvoices = await fetchInvoices(env) || {};
@@ -163,6 +176,7 @@ export const useInsurerStore = defineStore('insurer', () => {
     testFirestoreConnection,
     
     // Actions
+    fetchInsurers,
     setInsurers,
     setSelectedInsurer,
     setLastInvoices,

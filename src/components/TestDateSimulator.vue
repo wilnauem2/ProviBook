@@ -37,7 +37,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { currentEnvironment } from '../config/environment'
+const currentEnvironment = import.meta.env.MODE;
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
 

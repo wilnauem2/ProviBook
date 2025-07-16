@@ -248,7 +248,7 @@ import InsurerDetail from './InsurerDetail.vue';
 import TestDateSimulator from './TestDateSimulator.vue';
 
 // Utility and configuration imports
-import { currentEnvironment, getInsurersData } from '../config/environment';
+
 import { calculateDaysOverdue, isOverdue, getStatusColor, getStatusText, formatLastInvoiceDate } from '../utils/insurerUtils';
 import { fetchInvoices, saveInvoices, subscribeInvoices } from '../firebaseInvoices';
 
@@ -465,21 +465,24 @@ watch(activeTab, (newTab, oldTab) => {
   console.log(`Tab changed from ${oldTab} to ${newTab}`);
 });
 
+// Environment state
+const activeEnvironment = ref(import.meta.env.MODE);
+
 // Handle environment switching
 const switchEnvironment = async (newEnvironment) => {
-  console.log(`Switching environment from ${currentEnvironment.value} to ${newEnvironment}`);
+  console.log(`Switching environment from ${activeEnvironment.value} to ${newEnvironment}`);
   
   // Set loading state
   isLoading.value = true;
   insurerStore.setSelectedInsurer(null); // Clear selected insurer
   
   // Update environment
-  currentEnvironment.value = newEnvironment;
+  activeEnvironment.value = newEnvironment;
   
   try {
     // Reload data for the new environment
     await loadData();
-    console.log(`Environment switched to ${currentEnvironment.value}`);
+    console.log(`Environment switched to ${activeEnvironment.value}`);
   } catch (error) {
     console.error('Error switching environment:', error);
   } finally {
@@ -529,10 +532,9 @@ const filteredInsurers = computed(() => {
 const loadInsurersData = async () => {
   isLoading.value = true;
   try {
-    const data = await getInsurersData(currentEnvironment.value);
-    // Update the Pinia store with the fetched data
-    insurerStore.setInsurers(data);
-    console.log(`Loaded ${insurersData.value.length} insurers for ${currentEnvironment.value}`);
+    // Fetch insurers using the store action
+    await insurerStore.fetchInsurers();
+    console.log(`Loaded ${insurersData.value.length} insurers for ${activeEnvironment.value}`);
   } catch (error) {
     console.error('Error loading insurers:', error);
   } finally {
@@ -558,7 +560,7 @@ const loadLastInvoices = async () => {
 const loadData = async () => {
   await loadInsurersData();
   loadLastInvoices();
-  console.log('Environment:', currentEnvironment.value);
+  console.log('Environment:', activeEnvironment.value);
 };
 
 // Format last invoices for the history view

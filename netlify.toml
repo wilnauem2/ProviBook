@@ -68,4 +68,4 @@
 [context.branch-deploy]
   command = "npm install --legacy-peer-deps && npm run build"
   environment = { NODE_ENV = "production" }
->>>>>>> fix-development-and-production
+

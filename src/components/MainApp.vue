@@ -168,7 +168,7 @@
           :class="{ 'filter blur-sm': selectedInsurer }"
         >
           <div v-if="formattedAbrechnungen && formattedAbrechnungen.length > 0">
-            <AbrechnungenHistory :abrechnungen="formattedAbrechnungen" />
+            <AbrechnungenHistory :abrechnungen="formattedAbrechnungen" :is-main-branch="isMainBranch" />
           </div>
           <div v-else class="bg-white shadow rounded-lg p-6">
             <p class="text-gray-500 text-center">Keine Abrechnungen verfügbar.</p>

@@ -1,13 +1,13 @@
 <template>
   <div class="abrechnungen-history p-4">
     <!-- Debug info -->
-    <div v-if="showDebugInfo" class="bg-blue-50 p-4 mb-6 rounded-lg text-sm">
+        <!-- Debug info -->
+    <div v-if="!props.isMainBranch" class="bg-blue-50 p-4 mb-6 rounded-lg text-sm">
       <h3 class="font-medium mb-2">Debug Information</h3>
       <p>Anzahl der Abrechnungen: {{ props.abrechnungen ? props.abrechnungen.length : 0 }}</p>
       <p>Gefilterte Abrechnungen: {{ filteredAbrechnungen.length }}</p>
       <p>Sortierfeld: {{ sortField }} ({{ sortAscending ? 'aufsteigend' : 'absteigend' }})</p>
       <p>Aktuelle Seite: {{ currentPage }} / {{ totalPages }}</p>
-      <button @click="showDebugInfo = false" class="text-xs bg-blue-500 text-white px-2 py-1 rounded mt-2">Debug ausblenden</button>
     </div>
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
       <div>
@@ -403,6 +403,10 @@ const props = defineProps({
   abrechnungen: {
     type: Array,
     default: () => []
+  },
+  isMainBranch: {
+    type: Boolean,
+    default: true
   }
 });
 
@@ -419,7 +423,7 @@ const showDetailsModal = ref(false);
 const selectedAbrechnung = ref(null);
 const filterDocumentType = ref('');
 const filterStatus = ref('');
-const showDebugInfo = ref(true); // Show debug info by default to help troubleshoot
+ // Show debug info by default to help troubleshoot
 
 // Document types and statuses for filters
 const documentTypes = computed(() => {

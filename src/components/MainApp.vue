@@ -462,10 +462,13 @@ const handleSettlementCompleted = async (event) => {
       return;
     }
     
+    // Format the date to YYYY-MM-DD to remove the time component.
+    const formattedDate = newDate.toISOString().split('T')[0];
+
     const lastInvoice = last_invoice || {
       display: displayDate,
       timestamp: newDate.getTime(),
-      date: newDate.toISOString()
+      date: formattedDate // Use the formatted date
     };
     
     console.log('Using last_invoice object:', JSON.stringify(lastInvoice, null, 2));

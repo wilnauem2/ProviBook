@@ -112,12 +112,13 @@ export async function saveInvoice(insurerId, insurerName, lastInvoice, environme
       savedAt: new Date().toISOString(),
     };
 
-    // We are creating a new document for each invoice inside a subcollection for the insurer
-    const insurerInvoicesRef = collection(db, COLLECTION_NAME, insurerId, 'history');
-    const newInvoiceRef = doc(insurerInvoicesRef);
-    await setDoc(newInvoiceRef, newInvoiceEntry);
+    // Update the data for this insurer within the single document
+    invoicesData[insurerName] = newInvoiceEntry;
 
-    console.log('[DEBUG] New invoice document created successfully in subcollection');
+    // Save the entire updated document back
+    await setDoc(invoicesRef, invoicesData);
+
+    console.log(`[DEBUG] Document '${DOC_NAME}' updated successfully for insurer '${insurerName}'`);
 
     return true;
   } catch (error) {

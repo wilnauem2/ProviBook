@@ -3,11 +3,11 @@
     <!-- Main Layout -->
     <div class="min-h-screen bg-gray-50">
       <!-- Header with Tabs -->
-      <header class="bg-white shadow-sm sticky top-0 z-10" :class="{ 'bg-yellow-100': !isProduction }">
+      <header class="bg-white shadow-sm sticky top-0 z-10" :class="{ 'bg-yellow-100': dataMode !== 'production' }">
         <div class="container mx-auto px-4">
           <div class="flex justify-between items-center py-4">
             <h1 class="text-xl font-semibold text-gray-900">Versicherungsübersicht</h1>
-            <div class="ml-auto">
+            <div v-if="dataMode !== 'production'" class="ml-auto">
               <EnvironmentUserInfo 
                 :currentEnvironment="dataMode" 
                 :username="'Admin'"
@@ -259,13 +259,7 @@ const sortOption = ref('name');
 const statusFilter = ref('all'); // 'all', 'warning', 'critical', 'on_time'
 const dataMode = ref('production'); // 'production' or 'test'
 
-const isProduction = computed(() => {
-  const netlifyContext = import.meta.env.VITE_NETLIFY_CONTEXT;
-  if (netlifyContext) {
-    return netlifyContext === 'production';
-  }
-  return import.meta.env.MODE === 'production';
-});
+
 
 // Function to switch data mode, called by EnvironmentUserInfo component
 const switchEnvironment = (newEnv) => {

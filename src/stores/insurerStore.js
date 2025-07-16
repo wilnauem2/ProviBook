@@ -3,9 +3,7 @@ console.log('=== insurerStore.js: Initializing store ===');
 import { defineStore } from 'pinia';
 import { ref, computed, onMounted } from 'vue';
 import { getFirestore, doc, updateDoc, getDoc, collection, getDocs } from 'firebase/firestore';
-import { db, app } from '../firebase';
-
-console.log('Firebase app initialized in store:', !!app);
+import { db } from '../firebase';
 console.log('Firestore instance in store:', db ? 'Available' : 'Not available');
 
 // Use the pre-initialized Firestore instance

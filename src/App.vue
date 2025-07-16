@@ -1,8 +1,248 @@
-<template>
+<template> 
   <div class="app">
-    <router-view></router-view>
+    <!-- Debug Panel (only shown in development) -->
+    <div v-if="isDevelopment" class="debug-panel">
+      <div class="debug-header" @click="toggleDebug">
+        <span>Debug Panel ({{ isOpen ? '▼' : '▶' }})</span>
+        <span class="debug-status" :class="{ 'status-ok': isFirebaseConnected, 'status-error': !isFirebaseConnected }">
+          {{ isFirebaseConnected ? 'Firebase: Connected' : 'Firebase: Disconnected' }}
+        </span>
+      </div>
+      
+      <div v-if="isOpen" class="debug-content">
+        <div class="debug-section">
+          <h4>App State</h4>
+          <pre>Environment: {{ environment }}</pre>
+          <pre>Loading: {{ isLoading }}</pre>
+          <pre v-if="error" class="error">Error: {{ error }}</pre>
+        </div>
+        
+        <div class="debug-section">
+          <h4>Actions</h4>
+          <button @click="testFirebase">Test Firebase Connection</button>
+          <button @click="showStoreState">Show Store State</button>
+          <button @click="clearError">Clear Error</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Error Boundary -->
+    <div v-if="hasError" class="error-boundary">
+      <h2>Something went wrong</h2>
+      <p>{{ errorMessage }}</p>
+      <button @click="reloadApp">Reload App</button>
+    </div>
+    
+    <!-- Main App Content -->
+    <router-view v-else></router-view>
   </div>
 </template>
+
+<script>
+import { ref, onMounted, onErrorCaptured } from 'vue';
+import { useRouter } from 'vue-router';
+import { useInsurerStore } from './stores/insurerStore';
+
+// Error handling component
+const ErrorBoundary = {
+  setup() {
+    const hasError = ref(false);
+    const errorMessage = ref('');
+
+    onErrorCaptured((err) => {
+      console.error('Error captured in component:', err);
+      hasError.value = true;
+      errorMessage.value = err.message;
+      return false; // Prevent the error from propagating further
+    });
+
+    const reloadApp = () => {
+      window.location.reload();
+    };
+
+    return {
+      hasError,
+      errorMessage,
+      reloadApp
+    };
+  }
+};
+
+export default {
+  name: 'App',
+  
+  components: {
+    ErrorBoundary
+  },
+  
+  setup() {
+    const router = useRouter();
+    const store = useInsurerStore();
+    
+    const isDevelopment = import.meta.env.DEV;
+    const isOpen = ref(isDevelopment);
+    const isFirebaseConnected = ref(false);
+    const error = ref(null);
+    const isLoading = ref(false);
+    const environment = import.meta.env.MODE;
+
+    const toggleDebug = () => {
+      isOpen.value = !isOpen.value;
+    };
+
+    const testFirebase = async () => {
+      try {
+        isLoading.value = true;
+        error.value = null;
+        isFirebaseConnected.value = await store.testFirestoreConnection();
+      } catch (err) {
+        console.error('Firebase test failed:', err);
+        error.value = err.message;
+      } finally {
+        isLoading.value = false;
+      }
+    };
+
+    const showStoreState = () => {
+      store.debugStoreState();
+    };
+
+    const clearError = () => {
+      error.value = null;
+    };
+
+    // Test Firebase connection on component mount
+    onMounted(async () => {
+      if (isDevelopment) {
+        console.log('App mounted in development mode');
+        try {
+          isFirebaseConnected.value = await store.testFirestoreConnection();
+        } catch (err) {
+          console.error('Initial Firebase test failed:', err);
+        }
+      }
+    });
+
+    return {
+      isDevelopment,
+      isOpen,
+      isFirebaseConnected,
+      environment,
+      error,
+      isLoading,
+      toggleDebug,
+      testFirebase,
+      showStoreState,
+      clearError
+    };
+  }
+};
+</script>
+
+<style scoped>
+.debug-panel {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.9);
+  color: #fff;
+  font-family: monospace;
+  z-index: 9999;
+  font-size: 14px;
+  max-height: 50vh;
+  overflow-y: auto;
+  border-top: 2px solid #444;
+}
+
+.debug-header {
+  background: #333;
+  padding: 8px 16px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.debug-status {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 12px;
+}
+
+.status-ok {
+  background: #10b981;
+  color: white;
+}
+
+.status-error {
+  background: #ef4444;
+  color: white;
+}
+
+.debug-content {
+  padding: 12px;
+}
+
+.debug-section {
+  margin-bottom: 16px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+debug-section h4 {
+  margin: 0 0 8px 0;
+  color: #60a5fa;
+}
+
+pre {
+  margin: 4px 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+button {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  margin: 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+button:hover {
+  background: #2563eb;
+}
+
+.error {
+  color: #f87171;
+}
+
+.error-boundary {
+  max-width: 800px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.error-boundary h2 {
+  color: #b91c1c;
+  margin-bottom: 1rem;
+}
+
+.error-boundary button {
+  margin-top: 1rem;
+  padding: 0.5rem 1.5rem;
+  font-size: 1rem;
+}
+</style>
 
 <style>
 :root {

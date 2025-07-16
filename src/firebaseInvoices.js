@@ -2,18 +2,20 @@
 import { db } from './firebase';
 import { collection, doc, getDoc, setDoc, onSnapshot, getDocs, updateDoc } from 'firebase/firestore';
 
-function getFirestoreNames(environment = 'production') {
-  const IS_TEST = environment === 'test';
+function getFirestoreNames() {
+  // This function now ALWAYS returns production names.
+  // The environment switching logic was causing '400 Bad Request' errors in production
+  // because the test collections do not exist or are not configured.
   return {
-    COLLECTION_NAME: IS_TEST ? 'invoices_test' : 'invoices',
-    DOC_NAME: IS_TEST ? 'last_invoices_test' : 'last_invoices',
-    INSURERS_COLLECTION: IS_TEST ? 'insurers_test' : 'insurers',
+    COLLECTION_NAME: 'invoices',
+    DOC_NAME: 'last_invoices',
+    INSURERS_COLLECTION: 'insurers',
   };
 }
 
 // Fetch invoices JSON from Firestore
-export async function fetchInvoices(environment = 'production') {
-  const { COLLECTION_NAME, DOC_NAME } = getFirestoreNames(environment);
+export async function fetchInvoices() {
+  const { COLLECTION_NAME, DOC_NAME } = getFirestoreNames();
   const docRef = doc(collection(db, COLLECTION_NAME), DOC_NAME);
   const docSnap = await getDoc(docRef);
   if (docSnap.exists()) {
@@ -24,12 +26,12 @@ export async function fetchInvoices(environment = 'production') {
 }
 
 // Save invoices JSON to Firestore
-export async function saveInvoices(data, environment = 'production') {
+export async function saveInvoices(data) {
   try {
-    console.log('[DEBUG] saveInvoices called with environment:', environment);
+    console.log('[DEBUG] saveInvoices called.');
     console.log('[DEBUG] Data to save:', JSON.stringify(data, null, 2));
     
-    const { COLLECTION_NAME, DOC_NAME } = getFirestoreNames(environment);
+    const { COLLECTION_NAME, DOC_NAME } = getFirestoreNames();
     console.log(`[DEBUG] Using collection: ${COLLECTION_NAME}, document: ${DOC_NAME}`);
     
     const docRef = doc(collection(db, COLLECTION_NAME), DOC_NAME);
@@ -58,8 +60,8 @@ export async function saveInvoices(data, environment = 'production') {
 }
 
 // Subscribe to real-time updates for invoices
-export function subscribeInvoices(callback, environment = 'production') {
-  const { COLLECTION_NAME, DOC_NAME } = getFirestoreNames(environment);
+export function subscribeInvoices(callback) {
+  const { COLLECTION_NAME, DOC_NAME } = getFirestoreNames();
   const docRef = doc(collection(db, COLLECTION_NAME), DOC_NAME);
   return onSnapshot(docRef, (docSnap) => {
     if (docSnap.exists()) {
@@ -71,28 +73,28 @@ export function subscribeInvoices(callback, environment = 'production') {
 }
 
 // Fetch all insurers from Firestore
-export async function fetchInsurers(environment = 'production') {
-  const { INSURERS_COLLECTION } = getFirestoreNames(environment);
+export async function fetchInsurers() {
+  const { INSURERS_COLLECTION } = getFirestoreNames();
   const insurersCol = collection(db, INSURERS_COLLECTION);
   const snapshot = await getDocs(insurersCol);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
 
 // Save or update an insurer in Firestore (optional, for admin use)
-export async function saveInsurer(insurer, environment = 'production') {
+export async function saveInsurer(insurer) {
   if (!insurer || !insurer.name) throw new Error('Insurer must have a name');
-  const { INSURERS_COLLECTION } = getFirestoreNames(environment);
+  const { INSURERS_COLLECTION } = getFirestoreNames();
   const insurerDoc = doc(collection(db, INSURERS_COLLECTION), insurer.name);
   await setDoc(insurerDoc, insurer);
 }
 
 // Update an insurer's last invoice date in both collections
-export async function updateInsurerLastInvoiceDate(insurerId, insurerName, lastInvoice, environment = 'production') {
+export async function updateInsurerLastInvoiceDate(insurerId, insurerName, lastInvoice) {
   console.log('[DEBUG] updateInsurerLastInvoiceDate called with:', { insurerId, insurerName, lastInvoice, environment });
   
   try {
     // 1. Update the insurer document
-    const { INSURERS_COLLECTION, COLLECTION_NAME, DOC_NAME } = getFirestoreNames(environment);
+        const { INSURERS_COLLECTION, COLLECTION_NAME, DOC_NAME } = getFirestoreNames();
     
     // Make sure we have valid data
     if (!insurerId) throw new Error('Insurer ID is required');

@@ -1,9 +1,13 @@
-import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+console.log('=== insurerStore.js: Initializing store ===');
 
-// Firebase imports (assuming you have a firebase.js file with your configuration)
-// If your Firebase setup is different, you'll need to adjust these imports
-import { getFirestore, doc, updateDoc } from 'firebase/firestore';
+import { defineStore } from 'pinia';
+import { ref, computed, onMounted } from 'vue';
+import { getFirestore, doc, updateDoc, getDoc, collection, getDocs } from 'firebase/firestore';
+import { db } from '../firebase';
+console.log('Firestore instance in store:', db ? 'Available' : 'Not available');
+
+// Use the pre-initialized Firestore instance
+// No need to initialize Firestore again as it's already done in firebase.js
 
 export const useInsurerStore = defineStore('insurer', () => {
   // State
@@ -19,9 +23,27 @@ export const useInsurerStore = defineStore('insurer', () => {
   });
 
   // Actions
+  const fetchInsurers = async () => {
+    console.log('Fetching insurers from Firestore...');
+    try {
+      const db = getFirestore();
+      const insurersCollection = collection(db, 'insurers');
+      const insurerSnapshot = await getDocs(insurersCollection);
+      const insurersList = insurerSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setInsurers(insurersList);
+      console.log(`Successfully fetched ${insurersList.length} insurers.`);
+    } catch (error) {
+      console.error('Error fetching insurers:', error);
+      // Optionally, set an error state here
+    }
+  };
+
   function setInsurers(insurersList) {
-    console.log('Setting insurers in store:', insurersList);
-    insurers.value = insurersList;
+    console.log('Setting insurers in store. Count:', insurersList?.length || 0);
+    if (insurersList) {
+      console.log('Sample insurer data:', JSON.stringify(insurersList[0] || {}, null, 2));
+    }
+    insurers.value = insurersList || [];
   }
 
   function setSelectedInsurer(insurer) {
@@ -82,9 +104,7 @@ export const useInsurerStore = defineStore('insurer', () => {
         const { saveInvoices, fetchInvoices } = await import('../firebaseInvoices');
         
         // Get the current environment
-        const { currentEnvironment } = await import('../config/environment');
-        const env = typeof currentEnvironment === 'function' ? currentEnvironment() : 
-                   (currentEnvironment.value || 'test');
+        const env = import.meta.env.MODE;
         
         // Get current invoices data
         const currentInvoices = await fetchInvoices(env) || {};
@@ -115,6 +135,31 @@ export const useInsurerStore = defineStore('insurer', () => {
     }
   }
 
+  // Debug function to check store state
+  function debugStoreState() {
+    console.log('=== Store State ===');
+    console.log('Insurers count:', insurers.value.length);
+    console.log('Selected Insurer:', selectedInsurer.value);
+    console.log('Last Invoices count:', Object.keys(lastInvoices.value).length);
+    console.log('Is Loading:', isLoading.value);
+    console.log('Error:', error.value);
+    console.log('===================');
+  }
+
+  // Add a function to test Firestore connection
+  async function testFirestoreConnection() {
+    console.log('Testing Firestore connection...');
+    try {
+      const testDoc = await getDoc(doc(db, 'test', 'test'));
+      console.log('Firestore test query successful');
+      return true;
+    } catch (err) {
+      console.error('Firestore test query failed:', err);
+      error.value = `Firestore connection failed: ${err.message}`;
+      return false;
+    }
+  }
+
   return {
     // State
     insurers,
@@ -126,7 +171,12 @@ export const useInsurerStore = defineStore('insurer', () => {
     // Getters
     getInsurerById,
     
+    // Debug
+    debugStoreState,
+    testFirestoreConnection,
+    
     // Actions
+    fetchInsurers,
     setInsurers,
     setSelectedInsurer,
     setLastInvoices,

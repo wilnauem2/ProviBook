@@ -261,7 +261,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { useInsurerStore } from '../stores/insurerStore';
 import { isOverdue, getStatusColor, calculateDaysOverdue, getStatusText } from '../utils/insurerUtils';
-import { currentEnvironment } from '../config/environment';
+const currentEnvironment = import.meta.env.MODE;
 
 const props = defineProps({
   insurers: {
@@ -356,7 +356,7 @@ const formatDate = (dateString) => {
 // Check if insurer is in production environment and has complete: false status
 const isProductionIncomplete = (insurer) => {
   // Only apply this logic in production environment
-  if (currentEnvironment.value !== 'production') return false;
+  if (currentEnvironment !== 'production') return false;
   
   // Check if the insurer has a complete property set to false
   return insurer.complete === false;

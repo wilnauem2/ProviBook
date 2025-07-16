@@ -8,13 +8,7 @@
           <div class="flex justify-between items-center py-4">
             <h1 class="text-xl font-semibold text-gray-900">Versicherungsübersicht</h1>
             <div v-if="!isProductionBranch" class="text-xs text-blue-500 font-mono ml-4">Branch: {{ gitBranch }}</div>
-            <div v-if="!isProductionBranch" class="ml-auto">
-              <EnvironmentUserInfo 
-                :currentEnvironment="dataMode" 
-                :username="'Admin'"
-                @update:currentEnvironment="switchEnvironment"
-              />
-            </div>
+
           </div>
           
           <!-- Simple fixed tabs -->
@@ -216,12 +210,7 @@
                 :is-production-branch="isProductionBranch"
                 @settlement-completed="handleSettlementCompleted"
               />
-              <!-- Debug output -->
-              <div v-if="selectedInsurer && !isProductionBranch" class="mt-4 p-3 bg-gray-100 rounded text-xs">
-                <div><strong>Debug - Selected Insurer:</strong></div>
-                <div>ID: {{ selectedInsurer.id }}</div>
-                <div>Last Invoice: {{ JSON.stringify(selectedInsurer.last_invoice) }}</div>
-              </div>
+
             </div>
           </div>
         </transition>
@@ -240,7 +229,6 @@ import { de } from 'date-fns/locale';
 // Component imports
 import AbrechnungenHistory from './AbrechnungenHistory.vue';
 import HeaderSection from './HeaderSection.vue';
-import EnvironmentUserInfo from './EnvironmentUserInfo.vue';
 import StatusSummary from './StatusSummary.vue';
 import SearchBar from './SearchBar.vue';
 import InsurerList from './InsurerList.vue';

@@ -11,11 +11,7 @@ export default defineConfig(({ mode }) => {
   return {
     base: isProduction ? '/' : '/',  // Use absolute paths for both dev and prod
     publicDir: 'public',
-    define: {
-      'process.env.NODE_ENV': `"${mode}"`,
-      'import.meta.env.PROD': isProduction,
-      'import.meta.env.DEV': !isProduction,
-    },
+
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url))

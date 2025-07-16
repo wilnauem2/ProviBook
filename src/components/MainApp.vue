@@ -210,12 +210,13 @@
             <div class="p-6 overflow-y-auto" style="height: calc(100vh - 80px);">
               <InsurerDetail 
                 :insurer="selectedInsurer" 
-                :lastInvoices="lastInvoices[selectedInsurer.id] || []" 
-                :currentDate="getCurrentDate()"
+                :last-invoices="lastInvoices[selectedInsurer.id] || []" 
+                :current-date="getCurrentDate()"
+                :is-production-branch="isProductionBranch"
                 @settlement-completed="handleSettlementCompleted"
               />
               <!-- Debug output -->
-              <div v-if="selectedInsurer" class="mt-4 p-3 bg-gray-100 rounded text-xs">
+              <div v-if="selectedInsurer && !isProductionBranch" class="mt-4 p-3 bg-gray-100 rounded text-xs">
                 <div><strong>Debug - Selected Insurer:</strong></div>
                 <div>ID: {{ selectedInsurer.id }}</div>
                 <div>Last Invoice: {{ JSON.stringify(selectedInsurer.last_invoice) }}</div>

@@ -20,9 +20,9 @@ onMounted(() => {
   selectedDate.value = `${year}-${month}-${day}`
   
   // Debug logs
-  console.log('Insurer data:', props.insurer);
+  if (!props.isProductionBranch) console.log('Insurer data:', props.insurer);
   if (props.insurer) {
-    console.log('Dokumentenart:', props.insurer.dokumentenart);
+    if (!props.isProductionBranch) console.log('Dokumentenart:', props.insurer.dokumentenart);
   }
 })
 
@@ -38,6 +38,10 @@ const props = defineProps({
   currentDate: {
     type: [Date, String],
     required: true
+  },
+  isProductionBranch: {
+    type: Boolean,
+    default: true
   }
 })
 
@@ -57,20 +61,20 @@ const openDatePicker = () => {
 }
 
 const handleDateSubmit = async (date) => {
-  console.log('=== handleDateSubmit ===');
+  if (!props.isProductionBranch) console.log('=== handleDateSubmit ===');
   
   try {
-    console.log('Starting handleDateSubmit with date:', date);
+    if (!props.isProductionBranch) console.log('Starting handleDateSubmit with date:', date);
     
     // Use the provided date or default to today
     const dateToUse = date || selectedDate.value;
     
     if (!dateToUse) {
-      console.error('No date provided');
+      if (!props.isProductionBranch) console.error('No date provided');
       return;
     }
     
-    console.log('Input date:', dateToUse);
+    if (!props.isProductionBranch) console.log('Input date:', dateToUse);
     
     // Parse the date string to a Date object
     const parsedDate = new Date(dateToUse);
@@ -90,7 +94,7 @@ const handleDateSubmit = async (date) => {
     
     const displayDate = `${formattedDay}.${formattedMonth}.${formattedYear}, ${hours}:${minutes}`;
     
-    console.log('Creating date object:', {
+    if (!props.isProductionBranch) console.log('Creating date object:', {
       inputDate: dateToUse,
       parsedDate: parsedDate.toString(),
       isoString: parsedDate.toISOString(),
@@ -105,14 +109,14 @@ const handleDateSubmit = async (date) => {
       date: parsedDate.toISOString()
     };
     
-    console.log('Created last_invoice object:', JSON.stringify(lastInvoice, null, 2));
+    if (!props.isProductionBranch) console.log('Created last_invoice object:', JSON.stringify(lastInvoice, null, 2));
     
     try {
       // 1. Update the data using Pinia store
       if (props.insurer && props.insurer.id) {
-        console.log('Updating insurer data via Pinia store');
+        if (!props.isProductionBranch) console.log('Updating insurer data via Pinia store');
         await insurerStore.updateInsurerLastInvoice(props.insurer.id, lastInvoice);
-        console.log('Insurer data updated successfully via Pinia');
+        if (!props.isProductionBranch) console.log('Insurer data updated successfully via Pinia');
       }
       
       // 2. Also emit the event for backward compatibility
@@ -123,23 +127,23 @@ const handleDateSubmit = async (date) => {
         last_invoice: lastInvoice
       };
       
-      console.log('Emitting settlement-completed event with data:', JSON.stringify(eventData, null, 2));
+      if (!props.isProductionBranch) console.log('Emitting settlement-completed event with data:', JSON.stringify(eventData, null, 2));
       emit('settlement-completed', eventData);
-      console.log('settlement-completed event emitted successfully');
+      if (!props.isProductionBranch) console.log('settlement-completed event emitted successfully');
     } catch (error) {
-      console.error('Error updating insurer data:', error);
+      if (!props.isProductionBranch) console.error('Error updating insurer data:', error);
       throw error; // Re-throw to be caught by the outer catch
     }
     
-    console.log('Date picker closed');
+    if (!props.isProductionBranch) console.log('Date picker closed');
     showDatePicker.value = false;
   } catch (error) {
-    console.error('Error in handleDateSubmit:', error);
+    if (!props.isProductionBranch) console.error('Error in handleDateSubmit:', error);
     // Log additional error details
     if (error instanceof Error) {
-      console.error('Error name:', error.name);
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
+      if (!props.isProductionBranch) console.error('Error name:', error.name);
+      if (!props.isProductionBranch) console.error('Error message:', error.message);
+      if (!props.isProductionBranch) console.error('Error stack:', error.stack);
     }
     // Re-throw to ensure the error is not silently swallowed
     throw error;
@@ -161,10 +165,10 @@ const handleUpdateLastInvoice = (newDate) => {
 }
 
 const formattedLastInvoice = computed(() => {
-  console.log('formattedLastInvoice called with:', props.insurer.last_invoice);
+  if (!props.isProductionBranch) console.log('formattedLastInvoice called with:', props.insurer.last_invoice);
   
   if (!props.insurer.last_invoice) {
-    console.log('No last_invoice, returning empty string');
+    if (!props.isProductionBranch) console.log('No last_invoice, returning empty string');
     return '';
   }
   
@@ -173,11 +177,11 @@ const formattedLastInvoice = computed(() => {
   
   // Handle the object format with display property
   if (typeof lastInvoice === 'object' && lastInvoice !== null) {
-    console.log('last_invoice is an object with keys:', Object.keys(lastInvoice));
+    if (!props.isProductionBranch) console.log('last_invoice is an object with keys:', Object.keys(lastInvoice));
     
     // If we have a date property that's an ISO string
     if (lastInvoice.date) {
-      console.log('Using date property (ISO):', lastInvoice.date);
+      if (!props.isProductionBranch) console.log('Using date property (ISO):', lastInvoice.date);
       const date = new Date(lastInvoice.date);
       if (!isNaN(date.getTime())) {
         dateStr = date.toLocaleDateString('de-DE', {
@@ -185,18 +189,18 @@ const formattedLastInvoice = computed(() => {
           month: '2-digit',
           year: 'numeric'
         });
-        console.log('Formatted date from ISO string:', dateStr);
+        if (!props.isProductionBranch) console.log('Formatted date from ISO string:', dateStr);
       }
     }
     // Fall back to display property
     else if (lastInvoice.display) {
-      console.log('Using display property:', lastInvoice.display);
+      if (!props.isProductionBranch) console.log('Using display property:', lastInvoice.display);
       dateStr = lastInvoice.display.split(',')[0].trim();
-      console.log('Extracted date from display:', dateStr);
+      if (!props.isProductionBranch) console.log('Extracted date from display:', dateStr);
     } 
     // Fall back to timestamp
     else if (lastInvoice.timestamp) {
-      console.log('Using timestamp property:', lastInvoice.timestamp);
+      if (!props.isProductionBranch) console.log('Using timestamp property:', lastInvoice.timestamp);
       const date = new Date(Number(lastInvoice.timestamp));
       if (!isNaN(date.getTime())) {
         dateStr = date.toLocaleDateString('de-DE', {
@@ -204,13 +208,13 @@ const formattedLastInvoice = computed(() => {
           month: '2-digit',
           year: 'numeric'
         });
-        console.log('Formatted date from timestamp:', dateStr);
+        if (!props.isProductionBranch) console.log('Formatted date from timestamp:', dateStr);
       }
     }
   } 
   // Handle string format (backward compatibility)
   else if (typeof lastInvoice === 'string' && lastInvoice.trim() !== '') {
-    console.log('last_invoice is a string:', lastInvoice);
+    if (!props.isProductionBranch) console.log('last_invoice is a string:', lastInvoice);
     // If it's an ISO date string
     if (lastInvoice.includes('T') && !isNaN(Date.parse(lastInvoice))) {
       const date = new Date(lastInvoice);
@@ -219,21 +223,21 @@ const formattedLastInvoice = computed(() => {
         month: '2-digit',
         year: 'numeric'
       });
-      console.log('Formatted ISO date string:', dateStr);
+      if (!props.isProductionBranch) console.log('Formatted ISO date string:', dateStr);
     } else {
       // Try to extract date part from other string formats
       dateStr = lastInvoice.split(',')[0].trim();
-      console.log('Extracted date from string:', dateStr);
+      if (!props.isProductionBranch) console.log('Extracted date from string:', dateStr);
     }
   }
   
   // If we don't have a date string, return empty
   if (!dateStr) {
-    console.log('No date string extracted, returning empty string');
+    if (!props.isProductionBranch) console.log('No date string extracted, returning empty string');
     return '';
   }
   
-  console.log('Final date string to format:', dateStr);
+  if (!props.isProductionBranch) console.log('Final date string to format:', dateStr);
   
   // Try to parse the date in different formats
   try {
@@ -243,7 +247,7 @@ const formattedLastInvoice = computed(() => {
       const date = new Date(year, month - 1, day);
       
       if (isNaN(date.getTime())) {
-        console.log('Invalid date from DD.MM.YYYY format, returning as is');
+        if (!props.isProductionBranch) console.log('Invalid date from DD.MM.YYYY format, returning as is');
         return dateStr;
       }
       
@@ -254,7 +258,7 @@ const formattedLastInvoice = computed(() => {
         year: 'numeric'
       });
       
-      console.log('Formatted date from DD.MM.YYYY:', formatted);
+      if (!props.isProductionBranch) console.log('Formatted date from DD.MM.YYYY:', formatted);
       return formatted;
     }
     
@@ -266,18 +270,18 @@ const formattedLastInvoice = computed(() => {
         month: '2-digit',
         year: 'numeric'
       });
-      console.log('Formatted date from Date object:', formatted);
+      if (!props.isProductionBranch) console.log('Formatted date from Date object:', formatted);
       return formatted;
     }
     
-    console.log('Could not parse date, returning as is:', dateStr);
+    if (!props.isProductionBranch) console.log('Could not parse date, returning as is:', dateStr);
     return dateStr;
     
   } catch (e) {
-    console.error('Error formatting date:', e);
+    if (!props.isProductionBranch) console.error('Error formatting date:', e);
     // Return the original string without time part if possible
     const result = dateStr.split(' ')[0].split(',')[0].trim();
-    console.log('Error case, returning:', result);
+    if (!props.isProductionBranch) console.log('Error case, returning:', result);
     return result;
   }
 });

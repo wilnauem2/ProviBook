@@ -10,30 +10,45 @@ export default defineConfig(({ mode }) => {
   // Ensure Vite knows this is a production build
   process.env.NODE_ENV = isProduction ? 'production' : 'development';
   
-  // For Netlify, we need to ensure the base is set correctly
-  const base = process.env.NODE_ENV === 'production' ? '/' : '/';
-  
   return {
-    base: './',  // Use relative paths for assets
+    base: isProduction ? './' : '/',
     publicDir: 'public',
     define: {
-      'process.env': {}
+      'process.env.NODE_ENV': `"${mode}"`,
+      'import.meta.env.PROD': isProduction,
+      'import.meta.env.DEV': !isProduction,
     },
     server: {
-      port: 3000,
+      port: 3001,
       strictPort: true,
       hmr: {
         protocol: 'ws',
-        host: 'localhost'
-      }
+        host: 'localhost',
+        port: 3001
+      },
+      fs: {
+        strict: true,
+      },
     },
     preview: {
-      port: 3000,
-      strictPort: true
+      port: 3001,
+      strictPort: true,
     },
     optimizeDeps: {
-      include: ['vue', 'pinia', 'vue-router', 'firebase/app', 'firebase/firestore'],
-      exclude: []
+      include: [
+        'vue', 
+        'pinia', 
+        'vue-router', 
+        'firebase/app', 
+        'firebase/firestore',
+        '@vitejs/plugin-vue'
+      ],
+      esbuildOptions: {
+        target: 'es2020',
+        supported: { 
+          bigint: true 
+        },
+      },
     },
     esbuild: {
       jsx: 'automatic',
@@ -43,43 +58,6 @@ export default defineConfig(({ mode }) => {
       target: 'es2020'
     },
     build: {
-      target: 'es2020',
-      minify: isProduction ? 'esbuild' : false,
-      sourcemap: !isProduction,
-      rollupOptions: {
-        output: {
-          manualChunks: (id) => {
-            if (id.includes('node_modules')) {
-              if (id.includes('firebase')) {
-                return 'vendor-firebase';
-              }
-              return 'vendor';
-            }
-          },
-          entryFileNames: 'assets/[name]-[hash].js',
-          chunkFileNames: 'assets/[name]-[hash].js',
-          assetFileNames: 'assets/[name]-[hash][extname]'
-        }
-      }
-    },
-    plugins: [
-      vue({
-        template: {
-          compilerOptions: {
-            isCustomElement: (tag) => ['content', 'template'].includes(tag),
-          },
-        },
-      }),
-    ],
-    css: {
-      postcss: {
-        plugins: [
-          tailwindcss,
-          autoprefixer,
-        ],
-      },
-    },
-    build: {
       outDir: 'dist',
       assetsDir: 'assets',
       assetsInlineLimit: 0, // Prevent inlining of assets
@@ -87,6 +65,9 @@ export default defineConfig(({ mode }) => {
       minify: isProduction ? 'esbuild' : false,
       sourcemap: !isProduction,
       chunkSizeWarningLimit: 2000,
+      commonjsOptions: {
+        transformMixedEsModules: true,
+      },
       rollupOptions: {
         input: {
           main: './index.html'
@@ -108,34 +89,23 @@ export default defineConfig(({ mode }) => {
           },
         },
       },
-      commonjsOptions: {
-        transformMixedEsModules: true,
-      },
     },
-    define: {
-      'process.env.NODE_ENV': `"${mode}"`,
-      'import.meta.env.PROD': isProduction,
-      'import.meta.env.DEV': !isProduction,
-    },
-    optimizeDeps: {
-      include: ['@vitejs/plugin-vue'],
-      esbuildOptions: {
-        target: 'es2020',
-        supported: { 
-          bigint: true 
+    plugins: [
+      vue({
+        template: {
+          compilerOptions: {
+            isCustomElement: (tag) => ['content', 'template'].includes(tag),
+          },
         },
+      }),
+    ],
+    css: {
+      postcss: {
+        plugins: [
+          tailwindcss,
+          autoprefixer,
+        ],
       },
-    },
-    server: {
-      port: 3000,
-      strictPort: true,
-      fs: {
-        strict: true,
-      },
-    },
-    preview: {
-      port: 8080,
-      strictPort: true,
     },
     clearScreen: false,
   };

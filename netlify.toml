@@ -10,12 +10,21 @@
   CI = "false"
   
   # Firebase Configuration - These should be set in Netlify's environment variables
+  # Using both VITE_ prefixed and non-prefixed for compatibility
   VITE_FIREBASE_API_KEY = "${FIREBASE_API_KEY}"
   VITE_FIREBASE_AUTH_DOMAIN = "${FIREBASE_AUTH_DOMAIN}"
   VITE_FIREBASE_PROJECT_ID = "${FIREBASE_PROJECT_ID}"
   VITE_FIREBASE_STORAGE_BUCKET = "${FIREBASE_STORAGE_BUCKET}"
   VITE_FIREBASE_MESSAGING_SENDER_ID = "${FIREBASE_MESSAGING_SENDER_ID}"
   VITE_FIREBASE_APP_ID = "${FIREBASE_APP_ID}"
+  
+  # Non-prefixed versions for direct access
+  FIREBASE_API_KEY = "${FIREBASE_API_KEY}"
+  FIREBASE_AUTH_DOMAIN = "${FIREBASE_AUTH_DOMAIN}"
+  FIREBASE_PROJECT_ID = "${FIREBASE_PROJECT_ID}"
+  FIREBASE_STORAGE_BUCKET = "${FIREBASE_STORAGE_BUCKET}"
+  FIREBASE_MESSAGING_SENDER_ID = "${FIREBASE_MESSAGING_SENDER_ID}"
+  FIREBASE_APP_ID = "${FIREBASE_APP_ID}"
 
 # Required for SPA routing - redirect all requests to index.html
 [[redirects]]

@@ -16,6 +16,7 @@ export const useInsurerStore = defineStore('insurer', () => {
   const lastInvoices = ref({});
   const isLoading = ref(false);
   const error = ref(null);
+  const currentCollection = ref('insurers'); // To track the current collection ('insurers' or 'insurers_test')
 
   // Getters
   const getInsurerById = computed(() => {
@@ -23,20 +24,26 @@ export const useInsurerStore = defineStore('insurer', () => {
   });
 
   // Actions
-  const fetchInsurers = async () => {
-    console.log('Fetching insurers from Firestore...');
+  const fetchInsurers = async (collectionName = 'insurers') => {
+    console.log(`Fetching insurers from Firestore collection: ${collectionName}...`);
+    isLoading.value = true;
     try {
       const db = getFirestore();
-      const insurersCollection = collection(db, 'insurers');
+      const insurersCollection = collection(db, collectionName);
       const insurerSnapshot = await getDocs(insurersCollection);
       const insurersList = insurerSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setInsurers(insurersList);
-      console.log(`Successfully fetched ${insurersList.length} insurers.`);
-    } catch (error) {
-      console.error('Error fetching insurers:', error);
-      // Optionally, set an error state here
+      currentCollection.value = collectionName; // Track the current collection
+      console.log(`Successfully fetched ${insurersList.length} insurers from ${collectionName}.`);
+    } catch (err) {
+      console.error(`Error fetching insurers from ${collectionName}:`, err);
+      error.value = err.message;
+    } finally {
+      isLoading.value = false;
     }
   };
+
+
 
   function setInsurers(insurersList) {
     console.log('Setting insurers in store. Count:', insurersList?.length || 0);
@@ -91,34 +98,26 @@ export const useInsurerStore = defineStore('insurer', () => {
 
       // Update in Firebase (if needed)
       try {
-        // 1. Update the insurer document
         const db = getFirestore();
-        const insurerRef = doc(db, 'insurers', insurerId);
-        
+        const insurerCollectionName = currentCollection.value;
+        const invoiceCollectionName = insurerCollectionName.replace('insurers', 'invoices');
+
+        console.log(`Updating document in '${insurerCollectionName}' and '${invoiceCollectionName}'`);
+
+        // 1. Update the insurer document in the correct collection
+        const insurerRef = doc(db, insurerCollectionName, insurerId);
         await updateDoc(insurerRef, {
           last_invoice: lastInvoice
         });
-        
-        // 2. Also update the last_invoices document in the invoices collection
-        // Import the necessary functions
-        const { saveInvoices, fetchInvoices } = await import('../firebaseInvoices');
-        
-        // Get the current environment
-        const env = import.meta.env.MODE;
-        
-        // Get current invoices data
-        const currentInvoices = await fetchInvoices(env) || {};
-        
-        // Update the invoice for this insurer
-        const updatedInvoices = {
-          ...currentInvoices,
+
+        // 2. Update the corresponding invoices document
+        const invoicesDocRef = doc(db, invoiceCollectionName, 'last_invoices');
+        await updateDoc(invoicesDocRef, {
           [updatedInsurer.name]: lastInvoice
-        };
-        
-        // Save back to Firebase
-        await saveInvoices(updatedInvoices, env);
-        
-        console.log('Firebase updates successful (both insurer and invoices)');
+        });
+
+        console.log('Firebase updates successful for both collections.');
+
       } catch (firebaseError) {
         console.error('Firebase update failed:', firebaseError);
         // We don't throw here to keep the UI updated even if Firebase fails

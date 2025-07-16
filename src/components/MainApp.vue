@@ -41,6 +41,18 @@
               >
                 Abrechnungen
               </button>
+              <button
+                v-if="currentEnvironment !== 'production'"
+                @click="activeTab = 'test'"
+                :class="[
+                  'py-4 px-1 border-b-2 font-medium text-sm focus:outline-none',
+                  activeTab === 'test'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ]"
+              >
+                Test
+              </button>
             </nav>
           </div>
         </div>
@@ -85,15 +97,7 @@
               </div>
             </div>
             
-            <!-- Test date simulator -->
-            <div class="bg-white rounded-lg shadow overflow-hidden">
-              <div class="p-4">
-                <TestDateSimulator 
-                  :date="testDate" 
-                  @update:date="handleDateUpdate"
-                />
-              </div>
-            </div>
+            <!-- TestDateSimulator moved to Test tab -->
           </div>
           
           <!-- Main Content Area -->
@@ -165,6 +169,23 @@
               </div>
             </div>
           </div>
+        </div>
+
+        <!-- Test Tab -->
+        <div v-else-if="activeTab === 'test'" class="w-full">
+            <div class="bg-white rounded-lg shadow overflow-hidden">
+              <div class="p-4">
+                <h2 class="text-lg font-medium text-gray-900 mb-4">Testmodus</h2>
+                <p class="text-sm text-gray-600 mb-4">
+                  In diesem Modus werden Mock-Daten anstelle der Live-Daten aus Firebase verwendet.
+                  Verwenden Sie den Datumssimulator, um die überfälligen Status zu testen.
+                </p>
+                <TestDateSimulator 
+                  :date="testDate" 
+                  @update:date="handleDateUpdate"
+                />
+              </div>
+            </div>
         </div>
 
         <!-- History Tab -->
@@ -266,6 +287,16 @@ const isLoading = ref(false);
 const sortOption = ref('name');
 const testDate = ref(new Date());
 const statusFilter = ref('all'); // 'all', 'warning', 'critical', 'on_time'
+const currentEnvironment = ref(import.meta.env.MODE);
+
+// Watch for tab changes to load data accordingly
+watch(activeTab, (newTab) => {
+  if (newTab === 'test') {
+    insurerStore.fetchInsurers('insurers_test');
+  } else if (newTab === 'main') {
+    insurerStore.fetchInsurers('insurers'); // Explicitly fetch from production collection
+  }
+});
 
 // Data - use store references
 const insurersData = computed(() => insurerStore.insurers);

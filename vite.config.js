@@ -10,7 +10,15 @@ import { fileURLToPath, URL } from 'url';
 export default defineConfig(({ mode }) => {
   const isProduction = mode === 'production';
 
+  // For Netlify builds, use Netlify's BRANCH env var.
+  // For local dev, Vite will load VITE_GIT_BRANCH from .env.development.
+  // Fallback to 'main' as a safeguard.
+  const gitBranch = process.env.BRANCH || process.env.VITE_GIT_BRANCH || 'main';
+
   return {
+    define: {
+      'import.meta.env.VITE_GIT_BRANCH': JSON.stringify(gitBranch),
+    },
     base: isProduction ? '/' : '/',  // Use absolute paths for both dev and prod
     publicDir: 'public',
 

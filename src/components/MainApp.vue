@@ -3,7 +3,7 @@
     <!-- Main Layout -->
     <div class="min-h-screen bg-gray-50">
       <!-- Header with Tabs -->
-      <header class="bg-white shadow-sm sticky top-0 z-10">
+      <header class="bg-white shadow-sm sticky top-0 z-10" :class="{ 'bg-yellow-100': currentEnvironment !== 'production' }">
         <div class="container mx-auto px-4">
           <div class="flex justify-between items-center py-4">
             <h1 class="text-xl font-semibold text-gray-900">Versicherungsübersicht</h1>

@@ -381,6 +381,43 @@ const handleClearSelection = () => {
   insurerStore.setSelectedInsurer(null);
 };
 
+// Main filtered insurers list
+const filteredInsurers = computed(() => {
+  if (!insurersData.value) return [];
+  
+  const now = getCurrentDate();
+  let filtered = [...insurersData.value];
+  
+  // Apply search filter
+  if (searchFilter.value.trim()) {
+    const searchTerm = searchFilter.value.toLowerCase().trim();
+    filtered = filtered.filter(insurer => 
+      insurer.name.toLowerCase().includes(searchTerm) ||
+      (insurer.id && insurer.id.toLowerCase().includes(searchTerm))
+    );
+  }
+  
+  // Apply status filter
+  if (statusFilter.value !== 'all') {
+    filtered = filtered.filter(insurer => {
+      const daysOverdue = calculateDaysOverdue(insurer, now);
+      
+      switch (statusFilter.value) {
+        case 'warning':
+          return daysOverdue > 0 && daysOverdue <= 5;
+        case 'critical':
+          return daysOverdue > 5;
+        case 'on_time':
+          return daysOverdue <= 0;
+        default:
+          return true;
+      }
+    });
+  }
+  
+  return filtered;
+});
+
 // Handle settlement completion from the detail view
 const handleSettlementCompleted = async (event) => {
   console.log('=== handleSettlementCompleted ===');
@@ -420,12 +457,11 @@ const handleSettlementCompleted = async (event) => {
 
     const { updateInsurerLastInvoiceDate } = await import('../firebaseInvoices');
     
-    // Get the current environment
-    const env = currentEnvironment.value || 'test';
-    console.log(`Current environment: ${env}`);
+    // Use the reactive dataMode to determine the environment
+    console.log(`Current environment: ${dataMode.value}`);
     
     // Update both the insurer document and the invoices collection
-    await updateInsurerLastInvoiceDate(insurer.id, insurer.name, lastInvoice, env);
+    await updateInsurerLastInvoiceDate(insurer.id, insurer.name, lastInvoice, dataMode.value);
     console.log('Firebase update completed for both collections');
     
     // Also update the local store
@@ -598,20 +634,7 @@ const debugInsurerStatus = () => {
   console.log('===== END DEBUG =====');
 };
 
-// Initial data loading and cleanup
-onMounted(() => {
-  loadData();
-  // Run debug after data is loaded
-  setTimeout(() => {
-    debugInsurerStatus();
-  }, 2000);
-});
 
-onUnmounted(() => {
-  if (unsubscribeInvoices) {
-    unsubscribeInvoices();
-  }
-});
 </script>
 
 <style>

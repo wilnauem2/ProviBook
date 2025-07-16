@@ -89,10 +89,7 @@ const handleDateSubmit = async (date) => {
     const formattedDay = String(parsedDate.getDate()).padStart(2, '0');
     const formattedMonth = String(parsedDate.getMonth() + 1).padStart(2, '0');
     const formattedYear = parsedDate.getFullYear();
-    const hours = String(parsedDate.getHours()).padStart(2, '0');
-    const minutes = String(parsedDate.getMinutes()).padStart(2, '0');
-    
-    const displayDate = `${formattedDay}.${formattedMonth}.${formattedYear}, ${hours}:${minutes}`;
+    const displayDate = `${formattedDay}.${formattedMonth}.${formattedYear}`;
     
     if (!props.isProductionBranch) console.log('Creating date object:', {
       inputDate: dateToUse,

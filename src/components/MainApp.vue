@@ -7,6 +7,7 @@
         <div class="container mx-auto px-4">
           <div class="flex justify-between items-center py-4">
             <h1 class="text-xl font-semibold text-gray-900">Versicherungsübersicht</h1>
+            <div v-if="!isProductionBranch" class="text-xs text-blue-500 font-mono ml-4">Branch: {{ gitBranch }}</div>
             <div v-if="!isProductionBranch" class="ml-auto">
               <EnvironmentUserInfo 
                 :currentEnvironment="dataMode" 
@@ -270,6 +271,10 @@ const isProductionBranch = computed(() => {
   const branch = import.meta.env.VITE_GIT_BRANCH;
   return branch === 'main' || branch === 'staging';
 });
+
+const gitBranch = computed(() => import.meta.env.VITE_GIT_BRANCH);
+
+
 
 
 

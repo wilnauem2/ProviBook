@@ -5,39 +5,17 @@ import { getFirestore } from 'firebase/firestore';
 let db;
 let app;
 
-console.log('Initializing Firebase...');
-console.log('Environment:', import.meta.env.MODE);
-
-// Get environment variables with fallbacks - try both VITE_ prefixed and non-prefixed
-const getEnv = (key, fallback = '') => {
-  // First try with VITE_ prefix
-  const viteKey = key.startsWith('VITE_') ? key : `VITE_${key}`;
-  const value = import.meta.env[viteKey] || import.meta.env[key];
-  
-  if (!value && !fallback) {
-    console.warn(`Environment variable ${key} or ${viteKey} is not set`);
-  } else if (!value && fallback) {
-    console.warn(`Environment variable ${key} or ${viteKey} is not set, using fallback`);
-  }
-  
-  return value || fallback;
-};
-
-// Log environment variables (without exposing sensitive data)
-console.log('Firebase config check:', {
-  hasApiKey: !!getEnv('FIREBASE_API_KEY') || !!getEnv('VITE_FIREBASE_API_KEY'),
-  projectId: getEnv('FIREBASE_PROJECT_ID', getEnv('VITE_FIREBASE_PROJECT_ID', 'MISSING')),
-  appId: getEnv('FIREBASE_APP_ID', getEnv('VITE_FIREBASE_APP_ID', 'MISSING'))
-});
+console.log('Initializing Firebase for environment:', import.meta.env.MODE);
 
 try {
+  // Vite exposes environment variables prefixed with VITE_ on the `import.meta.env` object.
   const firebaseConfig = {
-    apiKey: getEnv('FIREBASE_API_KEY') || getEnv('VITE_FIREBASE_API_KEY'),
-    authDomain: getEnv('FIREBASE_AUTH_DOMAIN') || getEnv('VITE_FIREBASE_AUTH_DOMAIN'),
-    projectId: getEnv('FIREBASE_PROJECT_ID') || getEnv('VITE_FIREBASE_PROJECT_ID'),
-    storageBucket: getEnv('FIREBASE_STORAGE_BUCKET') || getEnv('VITE_FIREBASE_STORAGE_BUCKET'),
-    messagingSenderId: getEnv('FIREBASE_MESSAGING_SENDER_ID') || getEnv('VITE_FIREBASE_MESSAGING_SENDER_ID'),
-    appId: getEnv('FIREBASE_APP_ID') || getEnv('VITE_FIREBASE_APP_ID')
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID
   };
 
   // Validate required fields

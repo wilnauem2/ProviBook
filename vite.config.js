@@ -6,12 +6,13 @@ import { fileURLToPath, URL } from 'url';
 import { execSync } from 'child_process';
 
 // Get current git branch. Use Netlify's env var in production, otherwise use local git command.
-const gitBranch = process.env.BRANCH || execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
-
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const isProduction = mode === 'production';
-  
+
+  // Get current git branch. Use Netlify's env var in production, otherwise use local git command.
+  const gitBranch = process.env.BRANCH || execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
+
   return {
     define: {
       'import.meta.env.VITE_GIT_BRANCH': JSON.stringify(gitBranch),

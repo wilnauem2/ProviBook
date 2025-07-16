@@ -85,7 +85,11 @@
               </div>
             </div>
             
-            <!-- TestDateSimulator moved to Test tab -->
+                        <!-- TestDateSimulator for non-production branches -->
+            <TestDateSimulator 
+              v-if="!isMainBranch"
+              v-model="simulatedDate"
+            />
           </div>
           
           <!-- Main Content Area -->
@@ -239,6 +243,7 @@ import StatusSummary from './StatusSummary.vue';
 import SearchBar from './SearchBar.vue';
 import InsurerList from './InsurerList.vue';
 import InsurerDetail from './InsurerDetail.vue';
+import TestDateSimulator from './TestDateSimulator.vue';
 
 // Utility and configuration imports
 import { calculateDaysOverdue, isOverdue, getStatusColor, getStatusText, formatLastInvoiceDate } from '../utils/insurerUtils';
@@ -258,6 +263,7 @@ const isLoading = ref(false);
 const sortOption = ref('name');
 const statusFilter = ref('all'); // 'all', 'warning', 'critical', 'on_time'
 const dataMode = ref('production'); // 'production' or 'test'
+const simulatedDate = ref(new Date()); // For the date simulator
 
 const isMainBranch = computed(() => {
   return import.meta.env.VITE_GIT_BRANCH === 'main';
@@ -332,7 +338,11 @@ const statusCounts = computed(() => {
 
 // Get current date (real or simulated)
 const getCurrentDate = () => {
-  return new Date(); // We removed the date simulator
+  // Use simulated date if we are not on the main branch and a date is set
+  if (!isMainBranch.value && simulatedDate.value) {
+    return simulatedDate.value;
+  }
+  return new Date();
 };
 
 // Get a human-readable label for the status filter

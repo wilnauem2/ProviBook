@@ -1,5 +1,5 @@
 <template>
-  <div class="test-date-simulator bg-white rounded-lg border border-gray-200 p-3 shadow-sm" v-if="currentEnvironment === 'test'">
+  <div class="test-date-simulator bg-white rounded-lg border border-gray-200 p-3 shadow-sm">
     <div class="flex flex-col space-y-2">
       <div class="flex items-center justify-between">
         <span class="text-xs font-medium text-gray-500 uppercase tracking-wider">Test Datum</span>
@@ -37,7 +37,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-const currentEnvironment = import.meta.env.MODE;
+
 import { format } from 'date-fns'
 import { de } from 'date-fns/locale'
 

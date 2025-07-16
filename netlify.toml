@@ -23,6 +23,13 @@
   to = "/index.html"
   status = 200
   force = true
+  
+# Handle 404s
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 404
+  force = true
 
 # Security headers
 [[headers]]

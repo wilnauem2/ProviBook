@@ -14,8 +14,11 @@ export default defineConfig(({ mode }) => {
   const base = process.env.NODE_ENV === 'production' ? '/' : '/';
   
   return {
-    base: '/',  // Always use root path
+    base: './',  // Use relative paths for assets
     publicDir: 'public',
+    define: {
+      'process.env': {}
+    },
     server: {
       port: 3000,
       strictPort: true,

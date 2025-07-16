@@ -24,7 +24,7 @@
     "axios": "^1.6.7",
     "date-fns": "^4.1.0",
     "file-saver": "^2.0.5",
-    "firebase": "^10.13.2",
+    "firebase": "10.12.2",
     "firebase-admin": "^13.4.0",
     "pinia": "^2.1.7",
     "vue": "^3.4.21",
@@ -40,7 +40,12 @@
     "vite": "^4.5.0"
   },
   "resolutions": {
-    "vite": "^5.1.6"
+    "vite": "^5.1.6",
+    "@firebase/app": "10.12.2",
+    "@firebase/auth": "10.12.2",
+    "@firebase/firestore": "10.12.2",
+    "@firebase/functions": "10.12.2",
+    "@firebase/storage": "10.12.2"
   },
   "netlify": {
     "build": {

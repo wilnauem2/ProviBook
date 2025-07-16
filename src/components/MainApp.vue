@@ -9,7 +9,7 @@
             <h1 class="text-xl font-semibold text-gray-900">Versicherungsübersicht</h1>
             <div class="ml-auto">
               <EnvironmentUserInfo 
-                :currentEnvironment="currentEnvironment" 
+                :currentEnvironment="dataMode" 
                 :username="'Admin'"
                 @update:currentEnvironment="switchEnvironment"
               />
@@ -41,18 +41,6 @@
               >
                 Abrechnungen
               </button>
-              <button
-                v-if="!isProduction"
-                @click="activeTab = 'test'"
-                :class="[
-                  'py-4 px-1 border-b-2 font-medium text-sm focus:outline-none',
-                  activeTab === 'test'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                ]"
-              >
-                Test
-              </button>
             </nav>
           </div>
         </div>
@@ -68,7 +56,7 @@
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
             <p class="text-lg font-medium text-gray-700">Daten werden geladen...</p>
-            <p class="text-sm text-gray-500">{{ currentEnvironment === 'production' ? 'Produktionsumgebung' : 'Testumgebung' }}</p>
+            <p class="text-sm text-gray-500">{{ dataMode === 'production' ? 'Produktionsumgebung' : 'Testumgebung' }}</p>
           </div>
         </div>
         
@@ -171,22 +159,7 @@
           </div>
         </div>
 
-        <!-- Test Tab -->
-        <div v-else-if="activeTab === 'test'" class="w-full">
-            <div class="bg-white rounded-lg shadow overflow-hidden">
-              <div class="p-4">
-                <h2 class="text-lg font-medium text-gray-900 mb-4">Testmodus</h2>
-                <p class="text-sm text-gray-600 mb-4">
-                  In diesem Modus werden Mock-Daten anstelle der Live-Daten aus Firebase verwendet.
-                  Verwenden Sie den Datumssimulator, um die überfälligen Status zu testen.
-                </p>
-                <TestDateSimulator 
-                  :date="testDate" 
-                  @update:date="handleDateUpdate"
-                />
-              </div>
-            </div>
-        </div>
+
 
         <!-- History Tab -->
         <div 
@@ -252,7 +225,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick, watch, onUnmounted } from 'vue';
+import { ref, computed, onMounted, watch, onUnmounted } from 'vue';
 import { useInsurerStore } from '../stores/insurerStore';
 import { useRouter, useRoute } from 'vue-router';
 import { format } from 'date-fns';
@@ -266,10 +239,8 @@ import StatusSummary from './StatusSummary.vue';
 import SearchBar from './SearchBar.vue';
 import InsurerList from './InsurerList.vue';
 import InsurerDetail from './InsurerDetail.vue';
-import TestDateSimulator from './TestDateSimulator.vue';
 
 // Utility and configuration imports
-
 import { calculateDaysOverdue, isOverdue, getStatusColor, getStatusText, formatLastInvoiceDate } from '../utils/insurerUtils';
 import { fetchInvoices, saveInvoices, subscribeInvoices } from '../firebaseInvoices';
 
@@ -285,12 +256,10 @@ const searchFilter = ref('');
 const activeTab = ref('main');
 const isLoading = ref(false);
 const sortOption = ref('name');
-const testDate = ref(new Date());
 const statusFilter = ref('all'); // 'all', 'warning', 'critical', 'on_time'
+const dataMode = ref('production'); // 'production' or 'test'
+
 const isProduction = computed(() => {
-  // VITE_NETLIFY_CONTEXT is set in netlify.toml and will be 'production' for the main site,
-  // and 'branch-deploy' or 'deploy-preview' for other builds.
-  // import.meta.env.MODE is Vite's local environment ('development' or 'production').
   const netlifyContext = import.meta.env.VITE_NETLIFY_CONTEXT;
   if (netlifyContext) {
     return netlifyContext === 'production';
@@ -298,28 +267,35 @@ const isProduction = computed(() => {
   return import.meta.env.MODE === 'production';
 });
 
+// Function to switch data mode, called by EnvironmentUserInfo component
+const switchEnvironment = (newEnv) => {
+  console.log(`Switching environment to: ${newEnv}`);
+  dataMode.value = newEnv;
+};
 
-
-// Lifecycle hooks
-onMounted(async () => {
-  console.log('MainApp component mounted');
+// Watch for data mode changes to load data accordingly
+watch(dataMode, async (newMode) => {
+  console.log(`Data mode changed to: ${newMode}. Fetching data...`);
   isLoading.value = true;
   try {
-    // Fetch initial data based on the environment
-    const initialCollection = isProduction.value ? 'insurers' : 'insurers_test';
-    console.log(`Initial data fetch from: ${initialCollection}`);
-    await insurerStore.fetchInsurers(initialCollection);
-    console.log('Initial data fetch completed.');
+    const collection = newMode === 'production' ? 'insurers' : 'insurers_test';
+    await insurerStore.fetchInsurers(collection);
   } catch (error) {
-    console.error('Error during initial data fetch:', error);
+    console.error(`Error fetching data for mode ${newMode}:`, error);
   } finally {
     isLoading.value = false;
   }
+}, { immediate: true }); // Use immediate: true to run the watcher on component mount
+
+// Lifecycle hooks
+onMounted(() => {
+  console.log('MainApp component mounted');
+  // The 'watch' with 'immediate: true' now handles the initial data load.
 });
 
 onUnmounted(() => {
-  // Cleanup listeners if any were set up
   console.log('MainApp component unmounted');
+  insurerStore.setSelectedInsurer(null);
 });
 
 // Data - use store references
@@ -327,11 +303,9 @@ const insurersData = computed(() => insurerStore.insurers);
 const selectedInsurer = computed(() => insurerStore.selectedInsurer);
 const lastInvoices = computed(() => insurerStore.lastInvoices);
 
-
-
 // Status counts for dashboard
 const statusCounts = computed(() => {
-  const now = getCurrentDate();
+  const now = new Date(); // Always use real time for status calculation
   const counts = {
     warning: 0,
     critical: 0,
@@ -341,9 +315,7 @@ const statusCounts = computed(() => {
   
   if (insurersData.value) {
     insurersData.value.forEach(insurer => {
-      // Count all insurers
       counts.total++;
-      
       const daysOverdue = calculateDaysOverdue(insurer, now);
       if (daysOverdue > 0) {
         if (daysOverdue <= 5) {
@@ -362,12 +334,7 @@ const statusCounts = computed(() => {
 
 // Get current date (real or simulated)
 const getCurrentDate = () => {
-  return testDate.value || new Date();
-};
-
-// Handle date changes from the simulator
-const handleDateUpdate = (newDate) => {
-  testDate.value = newDate;
+  return new Date(); // We removed the date simulator
 };
 
 // Get a human-readable label for the status filter
@@ -393,12 +360,9 @@ const clearStatusFilter = () => {
 // Handle status button clicks from StatusSummary component
 const handleStatusClicked = (data) => {
   console.log(`Status clicked: ${data.status}`);
-  
-  // If the same status is clicked again, clear the filter
   if (statusFilter.value === data.status) {
     clearStatusFilter();
   } else {
-    // Otherwise, set the filter to the clicked status
     statusFilter.value = data.status;
     console.log(`Filtering insurers by status: ${data.status}`);
   }
@@ -417,28 +381,6 @@ const handleClearSelection = () => {
   insurerStore.setSelectedInsurer(null);
 };
 
-// Lifecycle hooks
-onMounted(async () => {
-  console.log('MainApp component mounted');
-  isLoading.value = true;
-  try {
-    // Fetch initial data based on the environment
-    const initialCollection = isProduction.value ? 'insurers' : 'insurers_test';
-    console.log(`Initial data fetch from: ${initialCollection}`);
-    await insurerStore.fetchInsurers(initialCollection);
-    console.log('Initial data fetch completed.');
-  } catch (error) {
-    console.error('Error during initial data fetch:', error);
-  } finally {
-    isLoading.value = false;
-  }
-});
-
-onUnmounted(() => {
-  // Cleanup listeners if any were set up, e.g., in a sub-component or utility
-  insurerStore.setSelectedInsurer(null);
-});
-
 // Handle settlement completion from the detail view
 const handleSettlementCompleted = async (event) => {
   console.log('=== handleSettlementCompleted ===');
@@ -451,7 +393,6 @@ const handleSettlementCompleted = async (event) => {
       throw new Error('No event object received');
     }
     
-    // Destructure with defaults to prevent errors if properties are missing
     const { insurer, newDate, displayDate, last_invoice } = event;
     
     if (!insurer) {
@@ -460,18 +401,15 @@ const handleSettlementCompleted = async (event) => {
     
     console.log('Processing settlement for insurer:', insurer.id || insurer.name);
     
-    // Log the incoming data
     console.log('Processing insurer data:', JSON.stringify(insurer, null, 2));
     console.log('New date object:', newDate);
     console.log('Last invoice from event:', JSON.stringify(last_invoice, null, 2));
     
-    // Ensure newDate is a valid Date object
     if (!(newDate instanceof Date) || isNaN(newDate.getTime())) {
       console.error('Invalid date provided:', newDate);
       return;
     }
     
-    // Use the last_invoice from the event if available, otherwise create a new one
     const lastInvoice = last_invoice || {
       display: displayDate,
       timestamp: newDate.getTime(),
@@ -479,8 +417,7 @@ const handleSettlementCompleted = async (event) => {
     };
     
     console.log('Using last_invoice object:', JSON.stringify(lastInvoice, null, 2));
-    
-    // Import the new function to update both collections
+
     const { updateInsurerLastInvoiceDate } = await import('../firebaseInvoices');
     
     // Get the current environment

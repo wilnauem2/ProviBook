@@ -113,7 +113,7 @@ export const useInsurerStore = defineStore('insurer', () => {
         // 2. Update the corresponding invoices document
         const invoicesDocRef = doc(db, invoiceCollectionName, 'last_invoices');
         await updateDoc(invoicesDocRef, {
-          [updatedInsurer.name]: lastInvoice
+          [insurerId]: lastInvoice
         });
 
         console.log('Firebase updates successful for both collections.');

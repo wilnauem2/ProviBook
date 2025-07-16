@@ -298,13 +298,28 @@ const isProduction = computed(() => {
   return import.meta.env.MODE === 'production';
 });
 
-// Watch for tab changes to load data accordingly
-watch(activeTab, (newTab) => {
-  if (newTab === 'test') {
-    insurerStore.fetchInsurers('insurers_test');
-  } else if (newTab === 'main') {
-    insurerStore.fetchInsurers('insurers'); // Explicitly fetch from production collection
+
+
+// Lifecycle hooks
+onMounted(async () => {
+  console.log('MainApp component mounted');
+  isLoading.value = true;
+  try {
+    // Fetch initial data based on the environment
+    const initialCollection = isProduction.value ? 'insurers' : 'insurers_test';
+    console.log(`Initial data fetch from: ${initialCollection}`);
+    await insurerStore.fetchInsurers(initialCollection);
+    console.log('Initial data fetch completed.');
+  } catch (error) {
+    console.error('Error during initial data fetch:', error);
+  } finally {
+    isLoading.value = false;
   }
+});
+
+onUnmounted(() => {
+  // Cleanup listeners if any were set up
+  console.log('MainApp component unmounted');
 });
 
 // Data - use store references
@@ -401,6 +416,28 @@ const handleClearSelection = () => {
   console.log('=== handleClearSelection ===');
   insurerStore.setSelectedInsurer(null);
 };
+
+// Lifecycle hooks
+onMounted(async () => {
+  console.log('MainApp component mounted');
+  isLoading.value = true;
+  try {
+    // Fetch initial data based on the environment
+    const initialCollection = isProduction.value ? 'insurers' : 'insurers_test';
+    console.log(`Initial data fetch from: ${initialCollection}`);
+    await insurerStore.fetchInsurers(initialCollection);
+    console.log('Initial data fetch completed.');
+  } catch (error) {
+    console.error('Error during initial data fetch:', error);
+  } finally {
+    isLoading.value = false;
+  }
+});
+
+onUnmounted(() => {
+  // Cleanup listeners if any were set up, e.g., in a sub-component or utility
+  insurerStore.setSelectedInsurer(null);
+});
 
 // Handle settlement completion from the detail view
 const handleSettlementCompleted = async (event) => {
@@ -581,6 +618,27 @@ const loadInsurersData = async () => {
     isLoading.value = false;
   }
 };
+
+// Lifecycle hooks
+onMounted(async () => {
+  console.log('MainApp component mounted');
+  isLoading.value = true;
+  try {
+    // Fetch initial data based on the environment
+    if (!isProduction.value) {
+      console.log('Non-production environment detected, fetching test data.');
+      await insurerStore.fetchInsurers('insurers_test');
+    } else {
+      console.log('Production environment detected, fetching production data.');
+      await insurerStore.fetchInsurers('insurers');
+    }
+    console.log('Initial data fetch completed.');
+  } catch (error) {
+    console.error('Error during initial data fetch:', error);
+  } finally {
+    isLoading.value = false;
+  }
+});
 
 // Set up real-time listener for invoices
 let unsubscribeInvoices = null;

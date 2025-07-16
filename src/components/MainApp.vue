@@ -470,18 +470,19 @@ const handleSettlementCompleted = async (event) => {
     
     console.log('Using last_invoice object:', JSON.stringify(lastInvoice, null, 2));
 
-    const { updateInsurerLastInvoiceDate } = await import('../firebaseInvoices');
-    
+    const { saveInvoice } = await import('../firebaseInvoices');
+
     // Use the reactive dataMode to determine the environment
     console.log(`Current environment: ${dataMode.value}`);
-    
-    // Update both the insurer document and the invoices collection
-    await updateInsurerLastInvoiceDate(insurer.id, insurer.name, lastInvoice, dataMode.value);
-    console.log('Firebase update completed for both collections');
-    
-    // Also update the local store
+
+    // 1. Save the new invoice to the 'invoices' or 'invoices_test' collection.
+    await saveInvoice(insurer.id, insurer.name, lastInvoice, dataMode.value);
+    console.log('New invoice saved to Firebase');
+
+    // 2. Update the local Pinia store to trigger an immediate UI refresh.
+    // This updates the 'last_invoice' field on the specific insurer object.
     await insurerStore.updateInsurerLastInvoice(insurer.id, lastInvoice);
-    console.log('Insurer data updated via Pinia store');
+    console.log('Local insurer data updated in Pinia store');
     
     // Force a UI update
     await nextTick();

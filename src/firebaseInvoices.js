@@ -2,14 +2,12 @@
 import { db } from './firebase';
 import { collection, doc, getDoc, setDoc, onSnapshot, getDocs, updateDoc } from 'firebase/firestore';
 
-function getFirestoreNames() {
-  // This function now ALWAYS returns production names.
-  // The environment switching logic was causing '400 Bad Request' errors in production
-  // because the test collections do not exist or are not configured.
+function getFirestoreNames(environment = 'production') {
+  const isProduction = environment === 'production';
   return {
-    COLLECTION_NAME: 'invoices',
+    COLLECTION_NAME: isProduction ? 'invoices' : 'invoices_test',
     DOC_NAME: 'last_invoices',
-    INSURERS_COLLECTION: 'insurers',
+    INSURERS_COLLECTION: isProduction ? 'insurers' : 'insurers_test',
   };
 }
 
@@ -88,49 +86,42 @@ export async function saveInsurer(insurer) {
   await setDoc(insurerDoc, insurer);
 }
 
-// Update an insurer's last invoice date in both collections
-export async function updateInsurerLastInvoiceDate(insurerId, insurerName, lastInvoice) {
-  console.log('[DEBUG] updateInsurerLastInvoiceDate called with:', { insurerId, insurerName, lastInvoice, environment });
-  
+// Saves a new invoice record to the appropriate invoices collection.
+export async function saveInvoice(insurerId, insurerName, lastInvoice, environment = 'production') {
+  console.log('[DEBUG] saveInvoice called with:', { insurerId, insurerName, lastInvoice, environment });
+
   try {
-    // 1. Update the insurer document
-        const { INSURERS_COLLECTION, COLLECTION_NAME, DOC_NAME } = getFirestoreNames();
-    
-    // Make sure we have valid data
+    const { COLLECTION_NAME, DOC_NAME } = getFirestoreNames(environment);
+
     if (!insurerId) throw new Error('Insurer ID is required');
     if (!insurerName) throw new Error('Insurer name is required');
     if (!lastInvoice) throw new Error('Last invoice data is required');
-    
-    console.log(`[DEBUG] Updating insurer ${insurerId} in ${INSURERS_COLLECTION}`);
-    const insurerRef = doc(db, INSURERS_COLLECTION, insurerId);
-    await updateDoc(insurerRef, { last_invoice: lastInvoice });
-    console.log('[DEBUG] Insurer document updated successfully');
-    
-    // 2. Update the invoices collection
+
     console.log(`[DEBUG] Updating invoices for ${insurerName} in ${COLLECTION_NAME}/${DOC_NAME}`);
     const invoicesRef = doc(db, COLLECTION_NAME, DOC_NAME);
-    
-    // First get the current data
+
     const invoicesDoc = await getDoc(invoicesRef);
-    let invoicesData = {};
-    
-    if (invoicesDoc.exists()) {
-      invoicesData = invoicesDoc.data();
-      console.log('[DEBUG] Existing invoices data:', invoicesData);
-    } else {
-      console.log('[DEBUG] No existing invoices document, creating new one');
-    }
-    
-    // Update the data for this insurer
-    invoicesData[insurerName] = lastInvoice;
-    
-    // Save it back
-    await setDoc(invoicesRef, invoicesData);
-    console.log('[DEBUG] Invoices document updated successfully');
-    
+    let invoicesData = invoicesDoc.exists() ? invoicesDoc.data() : {};
+
+    // Add or update the invoice history for the insurer.
+    // This creates a new entry in the invoices document.
+    const newInvoiceEntry = {
+      ...lastInvoice,
+      insurerId: insurerId,
+      insurerName: insurerName,
+      savedAt: new Date().toISOString(),
+    };
+
+    // We are creating a new document for each invoice inside a subcollection for the insurer
+    const insurerInvoicesRef = collection(db, COLLECTION_NAME, insurerId, 'history');
+    const newInvoiceRef = doc(insurerInvoicesRef);
+    await setDoc(newInvoiceRef, newInvoiceEntry);
+
+    console.log('[DEBUG] New invoice document created successfully in subcollection');
+
     return true;
   } catch (error) {
-    console.error('[DEBUG] Error in updateInsurerLastInvoiceDate:', error);
+    console.error('[DEBUG] Error in saveInvoice:', error);
     throw error;
   }
 }

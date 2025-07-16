@@ -112,8 +112,8 @@ export async function saveInvoice(insurerId, insurerName, lastInvoice, environme
       savedAt: new Date().toISOString(),
     };
 
-    // Update the data for this insurer within the single document
-    invoicesData[insurerName] = newInvoiceEntry;
+    // Use the unique insurerId as the key to prevent case-sensitivity issues.
+    invoicesData[insurerId] = newInvoiceEntry;
 
     // Save the entire updated document back
     await setDoc(invoicesRef, invoicesData);

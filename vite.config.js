@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import tailwindcss from 'tailwindcss';
 import autoprefixer from 'autoprefixer';
@@ -8,12 +8,17 @@ import { fileURLToPath, URL } from 'url';
 // Get current git branch. Use Netlify's env var in production, otherwise use local git command.
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  const isProduction = mode === 'production';
+  let gitBranch;
 
-  // For Netlify builds, use Netlify's BRANCH env var.
-  // For local dev, Vite will load VITE_GIT_BRANCH from .env.development.
-  // Fallback to 'main' as a safeguard.
-  const gitBranch = process.env.BRANCH || process.env.VITE_GIT_BRANCH || 'main';
+  if (mode === 'development') {
+    // For local development, always use a testing branch name
+    gitBranch = 'testing-features';
+  } else {
+    // For production builds (like on Netlify), use the BRANCH environment variable
+    gitBranch = process.env.BRANCH || 'main';
+  }
+
+  const isProduction = mode === 'production';
 
   return {
     define: {

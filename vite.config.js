@@ -2,21 +2,24 @@ import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import tailwindcss from 'tailwindcss';
 import autoprefixer from 'autoprefixer';
+import { fileURLToPath, URL } from 'url';
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const isProduction = mode === 'production';
   
-  // Ensure Vite knows this is a production build
-  process.env.NODE_ENV = isProduction ? 'production' : 'development';
-  
   return {
-    base: isProduction ? './' : '/',
+    base: isProduction ? '/' : '/',  // Use absolute paths for both dev and prod
     publicDir: 'public',
     define: {
       'process.env.NODE_ENV': `"${mode}"`,
       'import.meta.env.PROD': isProduction,
       'import.meta.env.DEV': !isProduction,
+    },
+    resolve: {
+      alias: {
+        '@': fileURLToPath(new URL('./src', import.meta.url))
+      }
     },
     server: {
       port: 3001,
@@ -34,51 +37,16 @@ export default defineConfig(({ mode }) => {
       port: 3001,
       strictPort: true,
     },
-    optimizeDeps: {
-      include: [
-        'vue', 
-        'pinia', 
-        'vue-router', 
-        'firebase/app', 
-        'firebase/firestore',
-        '@vitejs/plugin-vue'
-      ],
-      esbuildOptions: {
-        target: 'es2020',
-        supported: { 
-          bigint: true 
-        },
-      },
-    },
-    esbuild: {
-      jsx: 'automatic',
-      jsxImportSource: 'vue',
-      jsxFactory: 'h',
-      jsxFragment: 'Fragment',
-      target: 'es2020'
-    },
     build: {
-      outDir: 'dist',
-      assetsDir: 'assets',
-      assetsInlineLimit: 0, // Prevent inlining of assets
-      target: 'es2020',
-      minify: isProduction ? 'esbuild' : false,
+      target: 'esnext',
+      minify: 'terser',
       sourcemap: !isProduction,
-      chunkSizeWarningLimit: 2000,
-      commonjsOptions: {
-        transformMixedEsModules: true,
-      },
+      emptyOutDir: true,
       rollupOptions: {
-        input: {
-          main: './index.html'
-        },
         output: {
-          entryFileNames: 'assets/[name]-[hash].js',
-          chunkFileNames: 'assets/[name]-[hash].js',
-          assetFileNames: 'assets/[name]-[hash][extname]',
           manualChunks: (id) => {
             if (id.includes('node_modules')) {
-              if (id.includes('vue')) {
+              if (id.includes('vue') || id.includes('pinia') || id.includes('vue-router')) {
                 return 'vendor-vue';
               }
               if (id.includes('firebase')) {

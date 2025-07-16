@@ -3,7 +3,7 @@
     <!-- Main Layout -->
     <div class="min-h-screen bg-gray-50">
       <!-- Header with Tabs -->
-      <header class="bg-white shadow-sm sticky top-0 z-10" :class="{ 'bg-yellow-100': currentEnvironment !== 'production' }">
+      <header class="bg-white shadow-sm sticky top-0 z-10" :class="{ 'bg-yellow-100': !isProduction }">
         <div class="container mx-auto px-4">
           <div class="flex justify-between items-center py-4">
             <h1 class="text-xl font-semibold text-gray-900">Versicherungsübersicht</h1>
@@ -42,7 +42,7 @@
                 Abrechnungen
               </button>
               <button
-                v-if="currentEnvironment !== 'production'"
+                v-if="!isProduction"
                 @click="activeTab = 'test'"
                 :class="[
                   'py-4 px-1 border-b-2 font-medium text-sm focus:outline-none',
@@ -287,7 +287,16 @@ const isLoading = ref(false);
 const sortOption = ref('name');
 const testDate = ref(new Date());
 const statusFilter = ref('all'); // 'all', 'warning', 'critical', 'on_time'
-const currentEnvironment = ref(import.meta.env.MODE);
+const isProduction = computed(() => {
+  // VITE_NETLIFY_CONTEXT is set in netlify.toml and will be 'production' for the main site,
+  // and 'branch-deploy' or 'deploy-preview' for other builds.
+  // import.meta.env.MODE is Vite's local environment ('development' or 'production').
+  const netlifyContext = import.meta.env.VITE_NETLIFY_CONTEXT;
+  if (netlifyContext) {
+    return netlifyContext === 'production';
+  }
+  return import.meta.env.MODE === 'production';
+});
 
 // Watch for tab changes to load data accordingly
 watch(activeTab, (newTab) => {

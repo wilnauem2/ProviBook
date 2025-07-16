@@ -3,11 +3,11 @@
     <!-- Main Layout -->
     <div class="min-h-screen bg-gray-50">
       <!-- Header with Tabs -->
-      <header class="bg-white shadow-sm sticky top-0 z-10" :class="{ 'bg-yellow-100': dataMode !== 'production' }">
+      <header class="bg-white shadow-sm sticky top-0 z-10" :class="{ 'bg-yellow-100': !isMainBranch }">
         <div class="container mx-auto px-4">
           <div class="flex justify-between items-center py-4">
             <h1 class="text-xl font-semibold text-gray-900">Versicherungsübersicht</h1>
-            <div v-if="dataMode !== 'production'" class="ml-auto">
+            <div v-if="!isMainBranch" class="ml-auto">
               <EnvironmentUserInfo 
                 :currentEnvironment="dataMode" 
                 :username="'Admin'"
@@ -258,6 +258,10 @@ const isLoading = ref(false);
 const sortOption = ref('name');
 const statusFilter = ref('all'); // 'all', 'warning', 'critical', 'on_time'
 const dataMode = ref('production'); // 'production' or 'test'
+
+const isMainBranch = computed(() => {
+  return import.meta.env.VITE_GIT_BRANCH === 'main';
+});
 
 
 

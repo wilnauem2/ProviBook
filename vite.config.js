@@ -3,12 +3,19 @@ import vue from '@vitejs/plugin-vue';
 import tailwindcss from 'tailwindcss';
 import autoprefixer from 'autoprefixer';
 import { fileURLToPath, URL } from 'url';
+import { execSync } from 'child_process';
+
+// Get current git branch
+const gitBranch = execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const isProduction = mode === 'production';
   
   return {
+    define: {
+      'import.meta.env.VITE_GIT_BRANCH': JSON.stringify(gitBranch),
+    },
     base: isProduction ? '/' : '/',  // Use absolute paths for both dev and prod
     publicDir: 'public',
 

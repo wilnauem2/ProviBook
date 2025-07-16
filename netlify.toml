@@ -70,3 +70,7 @@
   command = "npm install --legacy-peer-deps && npm run build"
   environment = { NODE_ENV = "production" }
 
+[context.staging]
+  command = "npm install --legacy-peer-deps && npm run build"
+  environment = { NODE_ENV = "production", FORCE_REFRESH = "true" }
+

@@ -75,5 +75,5 @@
   environment = { NODE_ENV = "production", VITE_GIT_BRANCH = "staging" }
 
 [context.testing]
-  command = "npm install --legacy-peer-deps && npm run build"
+  command = "npm install --legacy-peer-deps && npm run build:development"
   environment = { NODE_ENV = "development", VITE_GIT_BRANCH = "testing" }

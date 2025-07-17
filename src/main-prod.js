@@ -1,3 +1,6 @@
+// Set a global flag to identify the production environment. This is the most reliable way.
+window.IS_PRODUCTION = true;
+
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'

@@ -72,5 +72,5 @@
 
 [context.staging]
   command = "npm install --legacy-peer-deps && npm run build -- --force"
-  environment = { NODE_ENV = "production", FORCE_REFRESH = "true" }
+  environment = { NODE_ENV = "production", VITE_GIT_BRANCH = "staging" }
 

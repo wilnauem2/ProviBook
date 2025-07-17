@@ -4,26 +4,14 @@ import tailwindcss from 'tailwindcss';
 import autoprefixer from 'autoprefixer';
 import { fileURLToPath, URL } from 'url';
 
-
-// Get current git branch. Use Netlify's env var in production, otherwise use local git command.
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  let gitBranch;
-
-  if (mode === 'development') {
-    // For local development, always use a testing branch name
-    gitBranch = 'testing-features';
-  } else {
-    // For production builds (like on Netlify), use the BRANCH environment variable
-    gitBranch = process.env.BRANCH || 'main';
-  }
+  // Load env variables based on the mode (development, production)
+  const env = loadEnv(mode, process.cwd());
 
   const isProduction = mode === 'production';
 
   return {
-    define: {
-      'import.meta.env.VITE_GIT_BRANCH': JSON.stringify(gitBranch),
-    },
     base: isProduction ? '/' : '/',  // Use absolute paths for both dev and prod
     publicDir: 'public',
 
@@ -53,6 +41,7 @@ export default defineConfig(({ mode }) => {
       minify: 'terser',
       sourcemap: !isProduction,
       emptyOutDir: true,
+      outDir: 'publish',
       rollupOptions: {
         output: {
           manualChunks: (id) => {

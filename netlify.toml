@@ -72,7 +72,7 @@
 
 [context.staging]
   command = "git clean -fdx && npm install --legacy-peer-deps && npm run build"
-  environment = { NODE_ENV = "production", VITE_GIT_BRANCH = "staging" }
+  environment = { NODE_ENV = "development", VITE_GIT_BRANCH = "staging" }
 
 [context.testing]
   command = "git clean -fdx && npm install --legacy-peer-deps && npm run build"

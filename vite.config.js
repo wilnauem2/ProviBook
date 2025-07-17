@@ -9,8 +9,7 @@ import { fileURLToPath, URL } from 'url';
 export default defineConfig(({ mode }) => {
   
   const isProduction = mode === 'production';
-  const branch = process.env.VITE_GIT_BRANCH;
-  const useDevEntry = branch === 'testing' || branch === 'staging';
+  
   // Load env variables based on the mode (development, production)
   const env = loadEnv(mode, process.cwd());
 
@@ -47,7 +46,7 @@ export default defineConfig(({ mode }) => {
       outDir: 'publish',
       rollupOptions: {
         input: {
-          main: fileURLToPath(new URL(useDevEntry ? './index.html' : './index.prod.html', import.meta.url))
+          main: fileURLToPath(new URL('./index.html', import.meta.url))
         },
         output: {
           manualChunks: (id) => {

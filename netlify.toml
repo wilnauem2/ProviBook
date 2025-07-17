@@ -71,7 +71,7 @@
   environment = { NODE_ENV = "production" }
 
 [context.staging]
-  command = "npm install --legacy-peer-deps && npm run build -- --force"
+  command = "git clean -fdx && npm install --legacy-peer-deps && npm run build"
   environment = { NODE_ENV = "production", VITE_GIT_BRANCH = "staging" }
 
 [context.testing]

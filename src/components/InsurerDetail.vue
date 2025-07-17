@@ -416,16 +416,7 @@ const formattedTurnus = computed(() => {
       <div v-if="insurer.last_invoice" class="mb-6">
         <h3 class="text-lg font-semibold text-gray-900 mb-4">Letzte Abrechnung</h3>
         <div class="p-4 bg-green-50 rounded-lg border border-green-200">
-          <!-- Debug Info -->
-          <div class="text-xs text-gray-500 mb-2 p-2 bg-gray-100 rounded">
-            <div>Debug - last_invoice type: {{ typeof insurer.last_invoice }}</div>
-            <div>Debug - last_invoice: {{ JSON.stringify(insurer.last_invoice) }}</div>
-            <div v-if="typeof insurer.last_invoice === 'object'">
-              <div>Debug - has display: {{ 'display' in insurer.last_invoice }}</div>
-              <div>Debug - has date: {{ 'date' in insurer.last_invoice }}</div>
-              <div>Debug - has timestamp: {{ 'timestamp' in insurer.last_invoice }}</div>
-            </div>
-          </div>
+
           
           <div class="flex items-center mb-2">
             <svg class="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

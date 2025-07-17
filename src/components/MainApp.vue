@@ -3,11 +3,11 @@
     <!-- Main Layout -->
     <div class="min-h-screen bg-gray-50">
       <!-- Header with Tabs -->
-      <header class="bg-white shadow-sm sticky top-0 z-10" :class="{ 'bg-yellow-100': !isProduction }">
+      <header class="bg-white shadow-sm sticky top-0 z-10" :class="{ 'bg-yellow-100': !isProductionBranch }">
         <div class="container mx-auto px-4">
           <div class="flex justify-between items-center py-4">
             <h1 class="text-xl font-semibold text-gray-900">Versicherungsübersicht</h1>
-            <div v-if="!isProduction" class="text-xs text-blue-500 font-mono ml-4">Branch: {{ gitBranch }}</div>
+            <div v-if="!isProductionBranch" class="text-xs text-blue-500 font-mono ml-4">Branch: {{ gitBranch }}</div>
 
           </div>
           
@@ -82,7 +82,7 @@
             
                         <!-- TestDateSimulator for non-production branches -->
             <TestDateSimulator 
-              v-if="!isProduction"
+              v-if="!isProductionBranch"
               v-model="simulatedDate"
             />
           </div>
@@ -167,7 +167,7 @@
           :class="{ 'filter blur-sm': selectedInsurer }"
         >
           <div v-if="formattedAbrechnungen && formattedAbrechnungen.length > 0">
-            <AbrechnungenHistory :abrechnungen="formattedAbrechnungen" :is-production="isProduction" />
+            <AbrechnungenHistory :abrechnungen="formattedAbrechnungen" :is-production-branch="isProductionBranch" />
           </div>
           <div v-else class="bg-white shadow rounded-lg p-6">
             <p class="text-gray-500 text-center">Keine Abrechnungen verfügbar.</p>
@@ -207,7 +207,7 @@
                 :insurer="selectedInsurer" 
                 :last-invoices="lastInvoices[selectedInsurer.id] || []" 
                 :current-date="getCurrentDate()"
-                :is-production="isProduction"
+                :is-production-branch="isProductionBranch"
                 @settlement-completed="handleSettlementCompleted"
               />
 
@@ -255,13 +255,7 @@ const statusFilter = ref('all'); // 'all', 'warning', 'critical', 'on_time'
 const dataMode = ref('production'); // 'production' or 'test'
 const simulatedDate = ref(new Date()); // For the date simulator
 
-const instance = getCurrentInstance();
-const isProduction = computed(() => {
-  // Check for the global flag from main-prod.js for production builds
-  if (instance.appContext.config.globalProperties.$isProduction) {
-    return true;
-  }
-  // Fallback for dev/staging environments that use Vite's env vars
+const isProductionBranch = computed(() => {
   const branch = import.meta.env.VITE_GIT_BRANCH;
   return branch === 'main' || branch === 'staging';
 });
@@ -340,7 +334,7 @@ const statusCounts = computed(() => {
 // Get current date (real or simulated)
 const getCurrentDate = () => {
   // Use simulated date if we are not on the main branch and a date is set
-  if (!isProduction.value && simulatedDate.value) {
+  if (!isProductionBranch.value && simulatedDate.value) {
     return simulatedDate.value;
   }
   return new Date();

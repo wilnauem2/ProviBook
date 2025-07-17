@@ -220,7 +220,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, onUnmounted } from 'vue';
+import { ref, computed, onMounted, watch, onUnmounted, nextTick } from 'vue';
 import { useInsurerStore } from '../stores/insurerStore';
 import { useRouter, useRoute } from 'vue-router';
 import { format } from 'date-fns';

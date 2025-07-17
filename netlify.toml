@@ -1,6 +1,6 @@
 [build]
   command = "npm install --legacy-peer-deps && npm run build"
-  publish = "dist"
+  publish = "publish"
 
 [build.environment]
   VITE_NETLIFY_CONTEXT = "$CONTEXT"
@@ -56,7 +56,7 @@
 [dev]
   command = "npm run dev"
   port = 3000
-  publish = "dist"
+  publish = "publish"
 
 [context.production]
   command = "npm install --legacy-peer-deps && npm run build"

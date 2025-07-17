@@ -434,11 +434,7 @@ const formattedTurnus = computed(() => {
               Keine Abrechnung vorhanden
             </div>
             
-            <!-- Debug output -->
-            <div class="mt-2 p-2 bg-gray-100 rounded text-xs">
-              <div><strong>Debug:</strong></div>
-              <div>last_invoice: {{ JSON.stringify(props.insurer.last_invoice) }}</div>
-            </div>
+
           </div>
         </div>
       </div>

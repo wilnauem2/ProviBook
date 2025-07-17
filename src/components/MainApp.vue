@@ -85,6 +85,13 @@
               v-if="!isProduction"
               v-model="simulatedDate"
             />
+
+            <!-- Environment Switcher -->
+            <EnvironmentUserInfo 
+              v-if="!isProduction"
+              :current-mode="dataMode"
+              @switch-mode="switchEnvironment"
+            />
           </div>
           
           <!-- Main Content Area -->
@@ -234,6 +241,7 @@ import SearchBar from './SearchBar.vue';
 import InsurerList from './InsurerList.vue';
 import InsurerDetail from './InsurerDetail.vue';
 import TestDateSimulator from './TestDateSimulator.vue';
+import EnvironmentUserInfo from './EnvironmentUserInfo.vue';
 
 // Utility and configuration imports
 import { calculateDaysOverdue, isOverdue, getStatusColor, getStatusText, formatLastInvoiceDate } from '../utils/insurerUtils';

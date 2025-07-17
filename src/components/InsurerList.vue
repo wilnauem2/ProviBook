@@ -258,7 +258,7 @@
 </style>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, nextTick } from 'vue';
 import { useInsurerStore } from '../stores/insurerStore';
 import { isOverdue, getStatusColor, calculateDaysOverdue, getStatusText } from '../utils/insurerUtils';
 const currentEnvironment = import.meta.env.MODE;

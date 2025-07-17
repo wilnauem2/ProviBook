@@ -77,4 +77,3 @@
 [context.testing]
   command = "npm install --legacy-peer-deps && npm run build"
   environment = { NODE_ENV = "development", VITE_GIT_BRANCH = "testing" }
-

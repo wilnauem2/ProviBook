@@ -256,15 +256,16 @@ const dataMode = ref('production'); // 'production' or 'test'
 const simulatedDate = ref(new Date()); // For the date simulator
 
 const isProduction = computed(() => {
-  // Check for the global flag set in main-prod.js for production builds.
-  // This is the most reliable method for production.
+  // The build process for the 'main' branch sets this global flag.
   if (window.IS_PRODUCTION) {
     return true;
   }
 
-  // Fallback for dev/staging environments that use Vite's env vars.
+  // For other environments (like staging, testing, dev), rely on the git branch.
   const branch = import.meta.env.VITE_GIT_BRANCH;
-  return branch === 'staging'; // Only staging should be treated like prod in dev builds
+  // Staging should behave like production (no debug tools).
+  // All other branches (e.g., 'testing', local 'dev') are considered development.
+  return branch === 'staging';
 });
 
 const gitBranch = computed(() => import.meta.env.VITE_GIT_BRANCH);

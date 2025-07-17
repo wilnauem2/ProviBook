@@ -256,16 +256,9 @@ const dataMode = ref('production'); // 'production' or 'test'
 const simulatedDate = ref(new Date()); // For the date simulator
 
 const isProduction = computed(() => {
-  // The build process for the 'main' branch sets this global flag.
-  if (window.IS_PRODUCTION) {
-    return true;
-  }
-
-  // For other environments (like staging, testing, dev), rely on the git branch.
-  const branch = import.meta.env.VITE_GIT_BRANCH;
-  // Staging should behave like production (no debug tools).
-  // All other branches (e.g., 'testing', local 'dev') are considered development.
-  return branch === 'staging';
+  // This global flag is set to true only in `main-prod.js`, which is used for production builds.
+  // For any other build (dev, testing), this flag will be undefined, and the expression will be false.
+  return !!window.IS_PRODUCTION;
 });
 
 const gitBranch = computed(() => import.meta.env.VITE_GIT_BRANCH);

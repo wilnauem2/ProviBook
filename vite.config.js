@@ -7,6 +7,7 @@ import { fileURLToPath, URL } from 'url';
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
+  
   const isProduction = mode === 'production';
   const isTesting = process.env.VITE_GIT_BRANCH === 'testing';
   // Load env variables based on the mode (development, production)

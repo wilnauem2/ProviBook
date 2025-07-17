@@ -8,6 +8,7 @@ import { fileURLToPath, URL } from 'url';
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const isProduction = mode === 'production';
+  const isTesting = process.env.VITE_GIT_BRANCH === 'testing';
   // Load env variables based on the mode (development, production)
   const env = loadEnv(mode, process.cwd());
 
@@ -44,8 +45,7 @@ export default defineConfig(({ mode }) => {
       outDir: 'publish',
       rollupOptions: {
         input: {
-          app: fileURLToPath(new URL('./index.html', import.meta.url)),
-          ...(isProduction && { prod: fileURLToPath(new URL('./index.prod.html', import.meta.url)) })
+          main: fileURLToPath(new URL(isTesting ? './index.html' : './index.prod.html', import.meta.url))
         },
         output: {
           manualChunks: (id) => {

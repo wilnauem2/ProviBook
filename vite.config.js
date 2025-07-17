@@ -3,7 +3,7 @@ import vue from '@vitejs/plugin-vue';
 import tailwindcss from 'tailwindcss';
 import autoprefixer from 'autoprefixer';
 import { fileURLToPath, URL } from 'url';
-import { createHtmlPlugin } from 'vite-plugin-html';
+
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -43,6 +43,10 @@ export default defineConfig(({ mode }) => {
       emptyOutDir: true,
       outDir: 'publish',
       rollupOptions: {
+        input: {
+          app: fileURLToPath(new URL('./index.html', import.meta.url)),
+          ...(isProduction && { prod: fileURLToPath(new URL('./index.prod.html', import.meta.url)) })
+        },
         output: {
           manualChunks: (id) => {
             if (id.includes('node_modules')) {
@@ -63,15 +67,6 @@ export default defineConfig(({ mode }) => {
         template: {
           compilerOptions: {
             isCustomElement: (tag) => ['content', 'template'].includes(tag),
-          },
-        },
-      }),
-      createHtmlPlugin({
-        minify: true,
-        inject: {
-          data: {
-            version: new Date().getTime(),
-            mainScript: isProduction ? './src/main-prod.js' : './src/main-dev.js',
           },
         },
       }),

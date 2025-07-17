@@ -71,7 +71,7 @@ export default defineConfig(({ mode }) => {
         inject: {
           data: {
             version: new Date().getTime(),
-            mainScript: isProduction ? '/src/main-prod.js' : '/src/main-dev.js',
+            mainScript: isProduction ? './src/main-prod.js' : './src/main-dev.js',
           },
         },
       }),

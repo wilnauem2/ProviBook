@@ -43,7 +43,6 @@ export default defineConfig(({ mode }) => {
       emptyOutDir: true,
       outDir: 'publish',
       rollupOptions: {
-        input: isProduction ? 'src/main-prod.js' : 'src/main.js',
         output: {
           manualChunks: (id) => {
             if (id.includes('node_modules')) {
@@ -72,6 +71,7 @@ export default defineConfig(({ mode }) => {
         inject: {
           data: {
             version: new Date().getTime(),
+            mainScript: isProduction ? '/src/main-prod.js' : '/src/main.js',
           },
         },
       }),

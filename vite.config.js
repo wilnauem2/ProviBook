@@ -7,10 +7,9 @@ import { createHtmlPlugin } from 'vite-plugin-html';
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
+  const isProduction = mode === 'production';
   // Load env variables based on the mode (development, production)
   const env = loadEnv(mode, process.cwd());
-
-  const isProduction = mode === 'production';
 
   return {
     base: isProduction ? '/' : '/',  // Use absolute paths for both dev and prod
@@ -44,6 +43,7 @@ export default defineConfig(({ mode }) => {
       emptyOutDir: true,
       outDir: 'publish',
       rollupOptions: {
+        input: isProduction ? 'src/main-prod.js' : 'src/main.js',
         output: {
           manualChunks: (id) => {
             if (id.includes('node_modules')) {

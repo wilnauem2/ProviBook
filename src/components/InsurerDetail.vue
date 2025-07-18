@@ -1,12 +1,11 @@
 <template>
-  <div class="fixed inset-0 bg-gray-800 bg-opacity-60 flex justify-center items-start pt-10 z-40" @click.self="emit('close')">
-    <div class="relative max-w-2xl w-full bg-white rounded-lg shadow-xl transform transition-all duration-300 m-4">
-      <!-- Close Button -->
-      <button @click="emit('close')" class="absolute top-3 right-3 text-gray-400 hover:text-gray-600 focus:outline-none">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-      </button>
+  <div class="relative w-full bg-white h-full">
+    <!-- Close Button -->
+    <button @click="emit('close')" class="absolute top-3 right-3 text-gray-400 hover:text-gray-600 focus:outline-none z-10">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+    </button>
 
-      <div class="p-6">
+    <div class="p-6">
         <!-- Header -->
         <div class="mb-6 border-b pb-4 border-gray-200">
           <h2 class="text-2xl font-bold text-gray-900">{{ insurer.name }}</h2>
@@ -102,7 +101,7 @@
           <button @click="openDatePicker" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
             Abrechnung erfolgt
           </button>
-          <button @click="emit('close')" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none">
+                    <button @click="handleClose" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none">
             Schliessen
           </button>
         </div>
@@ -119,7 +118,6 @@
           </div>
         </div>
       </div>
-    </div>
   </div>
 </template>
 
@@ -171,6 +169,10 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['close', 'settlement-completed']);
+
+const handleClose = () => {
+  emit('close');
+};
 
 const openDatePicker = () => {
   showDatePicker.value = true;

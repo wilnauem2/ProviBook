@@ -197,27 +197,14 @@
             class="fixed inset-y-0 right-0 w-full max-w-2xl bg-white shadow-2xl z-30 transform transition-transform duration-300 ease-in-out border-l border-gray-100"
             @click.stop
           >
-            <div class="flex items-center justify-between px-6 py-5 border-b border-gray-100 bg-gray-50">
-              <h2 class="text-lg font-medium text-gray-900">{{ selectedInsurer.name }}</h2>
-              <button 
-                @click="handleClearSelection()" 
-                class="text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-full"
-              >
-                <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            
-            <div class="p-6 overflow-y-auto" style="height: calc(100vh - 80px);">
+            <div class="p-6 overflow-y-auto" style="height: 100vh;">
               <InsurerDetail 
                 :insurer="selectedInsurer" 
-                :last-invoices="lastInvoices[selectedInsurer.id] || []" 
                 :current-date="getCurrentDate()"
                 :is-production="isProduction"
                 @settlement-completed="handleSettlementCompleted"
+                @close="handleClearSelection"
               />
-
             </div>
           </div>
         </transition>
@@ -306,223 +293,149 @@ onUnmounted(() => {
   insurerStore.setSelectedInsurer(null);
 });
 
-// Data - use store references
+// Data from Pinia store
 const insurersData = computed(() => insurerStore.insurers);
-const selectedInsurer = computed(() => insurerStore.selectedInsurer);
 const lastInvoices = computed(() => insurerStore.lastInvoices);
+const selectedInsurer = computed(() => insurerStore.selectedInsurer);
 
-// Status counts for dashboard
+// Status counts for summary
 const statusCounts = computed(() => {
-  const now = new Date(); // Always use real time for status calculation
-  const counts = {
-    warning: 0,
-    critical: 0,
-    total: 0,
-    on_time: 0
-  };
-  
-  if (insurersData.value) {
-    insurersData.value.forEach(insurer => {
-      counts.total++;
-      const daysOverdue = calculateDaysOverdue(insurer, now);
-      if (daysOverdue > 0) {
-        if (daysOverdue <= 5) {
-          counts.warning++;
-        } else {
-          counts.critical++;
-        }
-      } else {
-        counts.on_time++;
-      }
-    });
-  }
-  
+  const counts = { on_time: 0, warning: 0, critical: 0 };
+  if (!insurersData.value) return counts;
+
+  insurersData.value.forEach(insurer => {
+    const days = calculateDaysOverdue(insurer, lastInvoices.value[insurer.id], getCurrentDate());
+    if (days > 5) {
+      counts.critical++;
+    } else if (days > 0) {
+      counts.warning++;
+    } else {
+      counts.on_time++;
+    }
+  });
   return counts;
 });
 
 // Get current date (real or simulated)
 const getCurrentDate = () => {
-  // Use simulated date if we are not on the main branch and a date is set
   if (!isProduction.value && simulatedDate.value) {
-    return simulatedDate.value;
+    return new Date(simulatedDate.value);
   }
   return new Date();
 };
 
 // Get a human-readable label for the status filter
 const getStatusFilterLabel = (status) => {
-  switch (status) {
-    case 'warning':
-      return 'Warnung (1-5 Tage überfällig)';
-    case 'critical':
-      return 'Kritisch (>5 Tage überfällig)';
-    case 'on_time':
-      return 'Pünktlich';
-    default:
-      return status;
-  }
+  const labels = {
+    warning: 'Mahnung',
+    critical: 'Kritisch',
+    on_time: 'Im Zeitplan'
+  };
+  return labels[status] || 'Alle';
 };
 
 // Clear the status filter
 const clearStatusFilter = () => {
   statusFilter.value = 'all';
-  console.log('Status filter cleared');
 };
 
 // Handle status button clicks from StatusSummary component
 const handleStatusClicked = (data) => {
-  console.log(`Status clicked: ${data.status}`);
+  console.log('Status clicked:', data);
   if (statusFilter.value === data.status) {
-    clearStatusFilter();
+    statusFilter.value = 'all'; // Toggle off if already active
   } else {
     statusFilter.value = data.status;
-    console.log(`Filtering insurers by status: ${data.status}`);
   }
 };
 
 // Handle insurer selection
 const handleInsurerSelection = (insurer) => {
-  console.log('=== handleInsurerSelection ===');
-  console.log('Selected insurer:', insurer);
+  console.log('Insurer selected:', insurer.name);
   insurerStore.setSelectedInsurer(insurer);
 };
 
 // Handle clearing insurer selection
 const handleClearSelection = () => {
-  console.log('=== handleClearSelection ===');
-  insurerStore.setSelectedInsurer(null);
+  console.log('Clearing selection');
+  insurerStore.clearSelectedInsurer();
 };
 
 // Main filtered insurers list
 const filteredInsurers = computed(() => {
   if (!insurersData.value) return [];
   
-  const now = getCurrentDate();
-  let filtered = [...insurersData.value];
-  
+  let filtered = insurersData.value;
+
   // Apply search filter
-  if (searchFilter.value.trim()) {
-    const searchTerm = searchFilter.value.toLowerCase().trim();
+  if (searchFilter.value) {
+    const lowerCaseFilter = searchFilter.value.toLowerCase();
     filtered = filtered.filter(insurer => 
-      insurer.name.toLowerCase().includes(searchTerm) ||
-      (insurer.id && insurer.id.toLowerCase().includes(searchTerm))
+      insurer.name.toLowerCase().includes(lowerCaseFilter)
     );
   }
-  
+
   // Apply status filter
   if (statusFilter.value !== 'all') {
     filtered = filtered.filter(insurer => {
-      const daysOverdue = calculateDaysOverdue(insurer, now);
-      
-      switch (statusFilter.value) {
-        case 'warning':
-          return daysOverdue > 0 && daysOverdue <= 5;
-        case 'critical':
-          return daysOverdue > 5;
-        case 'on_time':
-          return daysOverdue <= 0;
-        default:
-          return true;
-      }
+      const days = calculateDaysOverdue(insurer, lastInvoices.value[insurer.id], getCurrentDate());
+      if (statusFilter.value === 'critical') return days > 5;
+      if (statusFilter.value === 'warning') return days > 0 && days <= 5;
+      if (statusFilter.value === 'on_time') return days <= 0;
+      return false;
     });
   }
-  
+
   return filtered;
 });
 
 // Handle settlement completion from the detail view
 const handleSettlementCompleted = async (event) => {
-  console.log('=== handleSettlementCompleted ===');
-  console.log('Event received in MainApp.vue:', event);
-  console.log('Event handler is running in MainApp.vue');
-  
+  console.log('Settlement completed event received in MainApp:', event);
+  const { insurerId, newInvoiceDate, note } = event;
+
+  if (!insurerId || !newInvoiceDate) {
+    console.error('Invalid settlement data received:', event);
+    return;
+  }
+
+  isLoading.value = true;
   try {
-    if (!event) {
-      console.error('No event object received');
-      throw new Error('No event object received');
-    }
-    
-    const { insurer, newDate, displayDate, last_invoice } = event;
-    
+    // Find the insurer to get their name
+    const insurer = insurersData.value.find(i => i.id === insurerId);
     if (!insurer) {
-      throw new Error('No insurer data in event');
-    }
-    
-    console.log('Processing settlement for insurer:', insurer.id || insurer.name);
-    
-    console.log('Processing insurer data:', JSON.stringify(insurer, null, 2));
-    console.log('New date object:', newDate);
-    console.log('Last invoice from event:', JSON.stringify(last_invoice, null, 2));
-    
-    if (!(newDate instanceof Date) || isNaN(newDate.getTime())) {
-      console.error('Invalid date provided:', newDate);
+      console.error('Could not find insurer with ID:', insurerId);
       return;
     }
-    
-    // Format the date to YYYY-MM-DD to remove the time component.
-    const formattedDate = newDate.toISOString().split('T')[0];
 
-    const lastInvoice = last_invoice || {
-      display: displayDate,
-      timestamp: newDate.getTime(),
-      date: formattedDate // Use the formatted date
-    };
-    
-    console.log('Using last_invoice object:', JSON.stringify(lastInvoice, null, 2));
-
-    const { saveInvoice } = await import('../firebaseInvoices');
-
-    // Use the reactive dataMode to determine the environment
-    console.log(`Current environment: ${dataMode.value}`);
-
-    // 1. Save the new invoice to the 'invoices' or 'invoices_test' collection.
-    await saveInvoice(insurer.id, insurer.name, lastInvoice, dataMode.value);
-    console.log('New invoice saved to Firebase');
-
-    // 2. Update the local Pinia store to trigger an immediate UI refresh.
-    // This updates the 'last_invoice' field on the specific insurer object.
-    await insurerStore.updateInsurerLastInvoice(insurer.id, lastInvoice);
-    console.log('Local insurer data updated in Pinia store');
-    
-    // Force a UI update
-    await nextTick();
-    console.log('UI updated via nextTick');
-    
-    // Create a new invoice entry for the history
-    const invoiceId = `invoice-${Date.now()}`;
+    // Create the new invoice object
     const newInvoice = {
-      id: invoiceId,
-      date: newDate,
-      display: lastInvoice.display || displayDate,
-      timestamp: lastInvoice.timestamp || newDate.getTime(),
-      amount: insurer.amount || '0.00',
-      status: 'Erfolgreich',
-      documentType: 'Rechnung'
+      date: newInvoiceDate,
+      amount: '0', // Amount is not captured in this simplified flow
+      note: note || '',
+      createdAt: new Date().toISOString()
     };
-    
-    console.log('Created new invoice entry:', JSON.stringify(newInvoice, null, 2));
-    
-    // Update the lastInvoices object
-    const updatedLastInvoices = {
-      ...lastInvoices.value,
-      [insurer.id]: [
-        newInvoice,
-        ...(lastInvoices.value[insurer.id] || []).slice(0, 4) // Keep only the 5 most recent
-      ]
-    };
-    
-    // Update the Pinia store with the new invoices
-    insurerStore.setLastInvoices(updatedLastInvoices);
-    
-    console.log('Updated lastInvoices in store');
-    
-    console.log('=== Settlement completed successfully ===');
-    
-    // Force a re-render of the components
-    await nextTick();
-    
+
+    // Save the new invoice to Firebase
+    const invoiceCollectionName = dataMode.value === 'production' ? 'invoices' : 'invoices_test';
+    await saveInvoices(insurerId, [newInvoice], invoiceCollectionName);
+    console.log(`New invoice for ${insurer.name} saved successfully.`);
+
+    // Update the local lastInvoices store to reflect the change immediately
+    insurerStore.addInvoice(insurerId, newInvoice);
+
+    // Optionally, refetch all data to ensure consistency
+    // await insurerStore.fetchInsurers(dataMode.value === 'production' ? 'insurers' : 'insurers_test');
+
+    console.log('Local store updated with new invoice.');
+
+    // Close the detail panel
+    handleClearSelection();
+
   } catch (error) {
     console.error('Error in handleSettlementCompleted:', error);
+  } finally {
+    isLoading.value = false;
   }
 };
 
@@ -556,7 +469,8 @@ const formattedAbrechnungen = computed(() => {
           date: invoice.date ? new Date(invoice.date) : null,
           amount: invoice.amount,
           note: invoice.note,
-          id: invoice.id
+          id: invoice.id,
+          abrechnungsweg: insurer.abrechnungsweg
         });
       });
     }
@@ -584,7 +498,7 @@ const getSampleAbrechnungen = () => {
       insurerName: 'Allianz',
       date: new Date(2025, 5, 15), // June 15, 2025
       amount: '1250.00',
-      documentType: 'Rechnung',
+      abrechnungsweg: 'Portal',
       status: 'Erfolgreich',
       id: 'sample-invoice-1'
     },
@@ -593,7 +507,7 @@ const getSampleAbrechnungen = () => {
       insurerName: 'AXA',
       date: new Date(2025, 5, 10), // June 10, 2025
       amount: '980.50',
-      documentType: 'Gutschrift',
+      abrechnungsweg: 'E-Mail',
       status: 'Erfolgreich',
       id: 'sample-invoice-2'
     },
@@ -602,8 +516,8 @@ const getSampleAbrechnungen = () => {
       insurerName: 'Generali',
       date: new Date(2025, 4, 28), // May 28, 2025
       amount: '1560.75',
-      documentType: 'Rechnung',
-      status: 'Ausstehend',
+      abrechnungsweg: 'E-Mail',
+      status: 'Bezahlt',
       id: 'sample-invoice-3'
     },
     {
@@ -611,6 +525,7 @@ const getSampleAbrechnungen = () => {
       insurerName: 'HUK-Coburg',
       date: new Date(2025, 4, 20), // May 20, 2025
       amount: '2100.00',
+      abrechnungsweg: 'Portal',
       documentType: 'Rechnung',
       status: 'Fehlgeschlagen',
       id: 'sample-invoice-4'
@@ -629,32 +544,45 @@ const getSampleAbrechnungen = () => {
 
 // Debug function to check insurer data and overdue status
 const debugInsurerStatus = () => {
-  console.log('===== DEBUG INSURER STATUS =====');
-  const now = getCurrentDate();
-  
-  if (insurersData.value && insurersData.value.length > 0) {
-    insurersData.value.forEach(insurer => {
-      const daysOverdue = calculateDaysOverdue(insurer, now);
-      console.log(`Insurer: ${insurer.name}`);
-      console.log(`  Last Invoice: ${JSON.stringify(insurer.last_invoice)}`);
-      console.log(`  Turnus: ${insurer.turnus}`);
-      console.log(`  Days Overdue: ${daysOverdue}`);
-      console.log(`  Status Color: ${getStatusColor(insurer)}`);
-      console.log('-------------------------');
-    });
-  } else {
-    console.log('No insurers data available');
-  }
-  
-  console.log('Status counts:', statusCounts.value);
-  console.log('===== END DEBUG =====');
+  console.log('--- Insurer Status Debug ---');
+  insurersData.value.forEach(insurer => {
+    const lastInv = lastInvoices.value[insurer.id];
+    const daysOverdue = calculateDaysOverdue(insurer, lastInv, getCurrentDate());
+    console.log(
+      `${insurer.name}: ` +
+      `Last Invoice: ${lastInv ? format(new Date(lastInv[0].date), 'dd.MM.yyyy') : 'N/A'}, ` +
+      `Turnus: ${insurer.turnus}, ` +
+      `Days Overdue: ${daysOverdue}, ` +
+      `Status: ${getStatusText(daysOverdue)}`
+    );
+  });
+  console.log('--------------------------');
 };
 
 
 </script>
 
 <style>
-/* Animation for the slide-in panel */
+.app-container {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.form-select {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.5rem center;
+  background-repeat: no-repeat;
+  background-size: 1.5em 1.5em;
+  padding-right: 2.5rem;
+  -webkit-print-color-adjust: exact;
+  color-adjust: exact;
+}
+
+.filter.blur-sm {
+  filter: blur(4px);
+  transition: filter 0.3s ease-in-out;
+}
+
 .slide-in-right-enter-active,
 .slide-in-right-leave-active {
   transition: transform 0.3s ease-in-out;
@@ -665,10 +593,9 @@ const debugInsurerStatus = () => {
   transform: translateX(100%);
 }
 
-/* Fade animation for the overlay */
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.3s ease;
+  transition: opacity 0.3s ease-in-out;
 }
 
 .fade-enter-from,

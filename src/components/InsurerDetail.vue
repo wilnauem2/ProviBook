@@ -64,32 +64,20 @@
         </div>
 
         <!-- Abrechnungshistorie -->
-        <div v-if="lastInvoices.length > 0" class="mb-6">
+        <div v-if="settlementHistory.length > 0" class="mb-6">
           <h3 class="text-lg font-semibold text-gray-900 mb-4">Abrechnungshistorie</h3>
           <div class="overflow-x-auto rounded-lg border border-gray-200">
             <table class="min-w-full divide-y divide-gray-200">
               <thead class="bg-gray-50">
                 <tr>
                   <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Datum</th>
-                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dokumentenart</th>
-                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dokumentenweg</th>
+                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notiz</th>
                 </tr>
               </thead>
               <tbody class="bg-white divide-y divide-gray-200">
-                <tr v-for="invoice in lastInvoices" :key="invoice.id">
+                <tr v-for="invoice in settlementHistory" :key="invoice.id">
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ formatSettlementDate(invoice.date) }}</td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <div class="flex flex-wrap gap-2">
-                      <span v-if="invoice.dokumentenart && invoice.dokumentenart.includes('CSV')" class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">CSV</span>
-                      <span v-if="invoice.dokumentenart && invoice.dokumentenart.includes('PDF')" class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-red-100 text-red-800">PDF</span>
-                      <span v-if="invoice.dokumentenart && invoice.dokumentenart.includes('XLS')" class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-green-100 text-green-800">Excel</span>
-                      <span v-if="invoice.dokumentenart && invoice.dokumentenart.includes('XML')" class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-purple-100 text-purple-800">XML</span>
-                      <span v-if="invoice.dokumentenart && invoice.dokumentenart.includes('Papier')" class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-800">Papier</span>
-                    </div>
-                  </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {{ invoice.bezugsweg || insurer.bezugsweg }}
-                  </td>
+                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ invoice.note || '-' }}</td>
                 </tr>
               </tbody>
             </table>
@@ -111,7 +99,8 @@
       <div v-if="showDatePicker" class="absolute inset-0 bg-white bg-opacity-90 flex justify-center items-center z-50">
         <div class="bg-white p-6 rounded-lg shadow-2xl border border-gray-200 w-full max-w-sm">
           <h3 class="text-lg font-semibold mb-4">Datum der Abrechnung</h3>
-          <input type="date" ref="dateInputRef" v-model="selectedDate" class="w-full p-2 border rounded-md mb-4">
+          <input type="date" ref="dateInputRef" v-model="selectedDate" class="w-full p-2 border rounded-md mb-2">
+          <textarea v-model="settlementNote" placeholder="Notiz hinzufügen..." class="w-full p-2 border rounded-md mb-4" rows="3"></textarea>
           <div class="flex justify-end space-x-3">
             <button type="button" @click="handleCancel" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Abbrechen</button>
             <button type="button" @click="handleDateSubmit()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Bestätigen</button>
@@ -122,15 +111,17 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, defineProps, defineEmits } from 'vue';
+import { ref, computed, onMounted, defineProps, defineEmits, watch } from 'vue';
 import { useInsurerStore } from '../stores/insurerStore';
 import { getStatusColor, getStatusText } from '../utils/insurerUtils';
 
 // Initialize Pinia store
 const insurerStore = useInsurerStore();
+const settlementHistory = computed(() => insurerStore.settlementHistory);
 
 const showDatePicker = ref(false);
 const selectedDate = ref('');
+const settlementNote = ref('');
 const dateInputRef = ref(null);
 
 // Set initial date to today and log insurer data when component mounts
@@ -146,6 +137,7 @@ onMounted(() => {
   if (!props.isProductionBranch) console.log('Insurer data:', props.insurer);
   if (props.insurer) {
     if (!props.isProductionBranch) console.log('Dokumentenart:', props.insurer.dokumentenart);
+    insurerStore.fetchSettlementHistory(props.insurer.id);
   }
 });
 
@@ -154,10 +146,7 @@ const props = defineProps({
     type: Object,
     required: true
   },
-  lastInvoices: {
-    type: Array,
-    default: () => []
-  },
+
   currentDate: {
     type: [Date, String],
     required: true
@@ -169,6 +158,12 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['close', 'settlement-completed']);
+
+watch(() => props.insurer, (newInsurer) => {
+  if (newInsurer && newInsurer.id) {
+    insurerStore.fetchSettlementHistory(newInsurer.id);
+  }
+}, { immediate: true });
 
 const handleClose = () => {
   emit('close');
@@ -220,7 +215,8 @@ const handleDateSubmit = async (date) => {
     const lastInvoice = {
       display: displayDate,
       timestamp: timestamp,
-      date: parsedDate.toISOString()
+      date: parsedDate.toISOString(),
+      note: settlementNote.value
     };
 
     if (!props.isProductionBranch) console.log('Created last_invoice object:', JSON.stringify(lastInvoice, null, 2));
@@ -243,6 +239,7 @@ const handleDateSubmit = async (date) => {
 
     if (!props.isProductionBranch) console.log('Date picker closed');
     showDatePicker.value = false;
+    settlementNote.value = ''; // Reset note on submit
   } catch (error) {
     if (!props.isProductionBranch) console.error('Error in handleDateSubmit:', error);
     if (error instanceof Error) {
@@ -256,6 +253,7 @@ const handleDateSubmit = async (date) => {
 
 const handleCancel = () => {
   showDatePicker.value = false;
+  settlementNote.value = ''; // Reset note on cancel
   const today = new Date();
   const day = String(today.getDate()).padStart(2, '0');
   const month = String(today.getMonth() + 1).padStart(2, '0');

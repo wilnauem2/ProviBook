@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { getFirestore, doc, updateDoc, getDoc, collection, getDocs } from 'firebase/firestore';
+import { getFirestore, doc, updateDoc, getDoc, collection, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 
 export const useInsurerStore = defineStore('insurer', () => {
@@ -8,6 +8,7 @@ export const useInsurerStore = defineStore('insurer', () => {
   const insurers = ref([]);
   const selectedInsurer = ref(null);
   const lastInvoices = ref({});
+  const settlementHistory = ref([]);
   const isLoading = ref(false);
   const error = ref(null);
   const currentCollection = ref('insurers');
@@ -33,6 +34,7 @@ export const useInsurerStore = defineStore('insurer', () => {
 
   function clearSelectedInsurer() {
     selectedInsurer.value = null;
+    settlementHistory.value = [];
   }
 
   async function updateInsurerLastInvoice(insurerId, lastInvoice) {
@@ -69,6 +71,38 @@ export const useInsurerStore = defineStore('insurer', () => {
     }
   };
 
+  const fetchSettlementHistory = async (insurerId) => {
+    isLoading.value = true;
+    try {
+      const historyCollectionRef = collection(db, currentCollection.value, insurerId, 'settlement_history');
+      const historySnapshot = await getDocs(historyCollectionRef);
+      settlementHistory.value = historySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => b.date.seconds - a.date.seconds);
+    } catch (err) {
+      error.value = err.message;
+    } finally {
+      isLoading.value = false;
+    }
+  };
+
+  const addInvoiceToHistory = async (insurerId, invoiceData) => {
+    isLoading.value = true;
+    try {
+      const historyCollectionRef = collection(db, currentCollection.value, insurerId, 'settlement_history');
+      await addDoc(historyCollectionRef, {
+        ...invoiceData,
+        createdAt: serverTimestamp()
+      });
+
+      // Also update the main insurer document with the latest invoice date
+      await updateInsurerLastInvoice(insurerId, invoiceData);
+
+    } catch (err) {
+      error.value = err.message;
+    } finally {
+      isLoading.value = false;
+    }
+  };
+
   const debugStoreState = () => {
     console.log('--- Insurer Store State ---');
     console.log('Insurers:', insurers.value);
@@ -84,6 +118,7 @@ export const useInsurerStore = defineStore('insurer', () => {
     insurers,
     selectedInsurer,
     lastInvoices,
+    settlementHistory,
     isLoading,
     error,
     currentCollection,
@@ -91,7 +126,9 @@ export const useInsurerStore = defineStore('insurer', () => {
     setSelectedInsurer,
     clearSelectedInsurer,
     updateInsurerLastInvoice,
+    fetchSettlementHistory,
     testFirestoreConnection,
-    debugStoreState
+    debugStoreState,
+    addInvoiceToHistory
   };
 });

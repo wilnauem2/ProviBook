@@ -392,42 +392,24 @@ const filteredInsurers = computed(() => {
 // Handle settlement completion from the detail view
 const handleSettlementCompleted = async (event) => {
   console.log('Settlement completed event received in MainApp:', event);
-  const { insurerId, newInvoiceDate, note } = event;
+  const { insurer, last_invoice } = event;
 
-  if (!insurerId || !newInvoiceDate) {
+  if (!insurer || !insurer.id || !last_invoice) {
     console.error('Invalid settlement data received:', event);
     return;
   }
 
   isLoading.value = true;
   try {
-    // Find the insurer to get their name
-    const insurer = insurersData.value.find(i => i.id === insurerId);
-    if (!insurer) {
-      console.error('Could not find insurer with ID:', insurerId);
-      return;
-    }
-
-    // Create the new invoice object
+    // The new invoice object is the `last_invoice` from the event
     const newInvoice = {
-      date: newInvoiceDate,
-      amount: '0', // Amount is not captured in this simplified flow
-      note: note || '',
+      ...last_invoice,
       createdAt: new Date().toISOString()
     };
 
-    // Save the new invoice to Firebase
-    const invoiceCollectionName = dataMode.value === 'production' ? 'invoices' : 'invoices_test';
-    await saveInvoices(insurerId, [newInvoice], invoiceCollectionName);
+    // Save the new invoice to the insurer's invoice history in Firebase
+    await insurerStore.addInvoiceToHistory(insurer.id, newInvoice);
     console.log(`New invoice for ${insurer.name} saved successfully.`);
-
-    // Update the local lastInvoices store to reflect the change immediately
-    insurerStore.addInvoice(insurerId, newInvoice);
-
-    // Optionally, refetch all data to ensure consistency
-    // await insurerStore.fetchInsurers(dataMode.value === 'production' ? 'insurers' : 'insurers_test');
-
-    console.log('Local store updated with new invoice.');
 
     // Close the detail panel
     handleClearSelection();

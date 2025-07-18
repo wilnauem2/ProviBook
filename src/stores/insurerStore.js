@@ -109,6 +109,27 @@ export const useInsurerStore = defineStore('insurer', () => {
     }
   };
 
+    const addInsurer = async (insurerData) => {
+    isLoading.value = true;
+    error.value = null;
+    try {
+      const insurerCollectionName = collections.value.insurers;
+      const docRef = await addDoc(collection(db, insurerCollectionName), {
+        ...insurerData,
+        createdAt: serverTimestamp()
+      });
+      // Add the new insurer to the local state for immediate UI update
+      insurers.value.push({ id: docRef.id, ...insurerData });
+      console.log('New insurer added with ID:', docRef.id);
+    } catch (err) {
+      console.error('Error adding insurer:', err);
+      error.value = err.message;
+    }
+    finally {
+      isLoading.value = false;
+    }
+  };
+
   const addInvoiceToHistory = async (insurerId, invoiceData) => {
     isLoading.value = true;
     try {
@@ -170,6 +191,7 @@ export const useInsurerStore = defineStore('insurer', () => {
     updateInsurerLastInvoice,
     fetchSettlementHistory,
     addInvoiceToHistory,
+    addInsurer,
     testFirestoreConnection,
     debugStoreState
   };

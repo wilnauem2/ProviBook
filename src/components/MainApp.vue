@@ -127,7 +127,11 @@
                 </div>
                 
                 <!-- Sort options -->
-                <div class="inline-flex">
+                <div class="flex items-center">
+                  <button @click="isCreateInsurerModalVisible = true" class="mr-4 px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    + Neuer Versicherer
+                  </button>
+                  <div class="inline-flex">
                   <select 
                     v-model="sortOption"
                     class="form-select rounded-md border-gray-300 text-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
@@ -136,6 +140,7 @@
                     <option value="date">Letztes Abrechnungsdatum</option>
                     <option value="overdue">Tage überfällig</option>
                   </select>
+                  </div>
                 </div>
               </div>
               
@@ -210,6 +215,13 @@
         </transition>
       </div>
     </div>
+
+    <!-- Create Insurer Modal -->
+    <CreateInsurerForm 
+      v-if="isCreateInsurerModalVisible" 
+      @close="isCreateInsurerModalVisible = false"
+      @save="handleSaveInsurer"
+    />
   </div>
 </template>
 
@@ -228,6 +240,7 @@ import InsurerList from './InsurerList.vue';
 import InsurerDetail from './InsurerDetail.vue';
 import TestDateSimulator from './TestDateSimulator.vue';
 import EnvironmentUserInfo from './EnvironmentUserInfo.vue';
+import CreateInsurerForm from './CreateInsurerForm.vue';
 
 // Utility imports
 import { calculateDaysOverdue } from '../utils/insurerUtils';
@@ -255,6 +268,7 @@ const activeTab = ref('main');
 const sortOption = ref('name');
 const statusFilter = ref('all'); // 'all', 'warning', 'critical', 'on_time'
 const simulatedDate = ref(new Date()); // For the date simulator
+const isCreateInsurerModalVisible = ref(false);
 
 const isProduction = computed(() => {
   return !!window.IS_PRODUCTION;
@@ -338,6 +352,13 @@ const handleInsurerSelection = (insurer) => {
 const handleClearSelection = () => {
   console.log('Clearing selection');
   insurerStore.clearSelectedInsurer();
+};
+
+// Handle saving a new insurer from the form
+const handleSaveInsurer = (insurerData) => {
+  console.log('New insurer data received:', insurerData);
+  insurerStore.addInsurer(insurerData);
+  isCreateInsurerModalVisible.value = false;
 };
 
 // Main filtered insurers list

@@ -119,6 +119,13 @@ import { getStatusColor, getStatusText } from '../utils/insurerUtils';
 const insurerStore = useInsurerStore();
 const settlementHistory = computed(() => insurerStore.settlementHistory);
 
+const formattedTurnus = computed(() => {
+  if (props.insurer && typeof props.insurer.turnus === 'number') {
+    return `${props.insurer.turnus} Tage`;
+  }
+  return props.insurer.turnus; // Fallback for old string data
+});
+
 const showDatePicker = ref(false);
 const selectedDate = ref('');
 const settlementNote = ref('');
@@ -365,11 +372,6 @@ const formattedLastInvoice = computed(() => {
     if (!props.isProductionBranch) console.log('Error case, returning:', result);
     return result;
   }
-});
-
-const formattedTurnus = computed(() => {
-  if (!props.insurer.turnus) return '';
-  return props.insurer.turnus.replace(/-/g, '-');
 });
 
 const formatSettlementDate = (dateValue) => {

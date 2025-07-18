@@ -90,7 +90,7 @@
             <EnvironmentUserInfo 
               v-if="!isProduction"
               :current-mode="dataMode"
-              @switch-mode="switchEnvironment"
+              @switch-mode="switchEnvironmentAndFetchData"
             />
           </div>
           
@@ -214,15 +214,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, onUnmounted, nextTick } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useInsurerStore } from '../stores/insurerStore';
-import { useRouter, useRoute } from 'vue-router';
+import { storeToRefs } from 'pinia';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 
 // Component imports
 import AbrechnungenHistory from './AbrechnungenHistory.vue';
-import HeaderSection from './HeaderSection.vue';
 import StatusSummary from './StatusSummary.vue';
 import SearchBar from './SearchBar.vue';
 import InsurerList from './InsurerList.vue';
@@ -230,73 +229,53 @@ import InsurerDetail from './InsurerDetail.vue';
 import TestDateSimulator from './TestDateSimulator.vue';
 import EnvironmentUserInfo from './EnvironmentUserInfo.vue';
 
-// Utility and configuration imports
-import { calculateDaysOverdue, isOverdue, getStatusColor, getStatusText, formatLastInvoiceDate } from '../utils/insurerUtils';
-import { fetchInvoices, saveInvoices, subscribeInvoices } from '../firebaseInvoices';
-
-// Core state and router
-const router = useRouter();
-const route = useRoute();
+// Utility imports
+import { calculateDaysOverdue } from '../utils/insurerUtils';
 
 // Initialize Pinia store
 const insurerStore = useInsurerStore();
 
-// UI state
+// Destructure state and getters from the store
+// Use storeToRefs to keep reactivity
+const {
+  insurers: insurersData,
+  lastInvoices,
+  selectedInsurer,
+  isLoading,
+  dataMode,
+  error
+} = storeToRefs(insurerStore);
+
+// Destructure actions from the store
+const { switchEnvironmentAndFetchData, setSelectedInsurer, clearSelectedInsurer } = insurerStore;
+
+// Local UI state
 const searchFilter = ref('');
 const activeTab = ref('main');
-const isLoading = ref(false);
 const sortOption = ref('name');
 const statusFilter = ref('all'); // 'all', 'warning', 'critical', 'on_time'
-const dataMode = ref('production'); // 'production' or 'test'
 const simulatedDate = ref(new Date()); // For the date simulator
 
 const isProduction = computed(() => {
-  // This global flag is set to true only in `main-prod.js`, which is used for production builds.
-  // For any other build (dev, testing), this flag will be undefined, and the expression will be false.
   return !!window.IS_PRODUCTION;
 });
 
 const gitBranch = computed(() => import.meta.env.VITE_GIT_BRANCH);
 
-
-
-
-
-// Function to switch data mode, called by EnvironmentUserInfo component
-const switchEnvironment = (newEnv) => {
-  console.log(`Switching environment to: ${newEnv}`);
-  dataMode.value = newEnv;
-};
-
-// Watch for data mode changes to load data accordingly
-watch(dataMode, async (newMode) => {
-  console.log(`Data mode changed to: ${newMode}. Fetching data...`);
-  isLoading.value = true;
-  try {
-    const collection = newMode === 'production' ? 'insurers' : 'insurers_test';
-    await insurerStore.fetchInsurers(collection);
-  } catch (error) {
-    console.error(`Error fetching data for mode ${newMode}:`, error);
-  } finally {
-    isLoading.value = false;
-  }
-}, { immediate: true }); // Use immediate: true to run the watcher on component mount
-
-// Lifecycle hooks
+// When the component mounts, trigger the initial data fetch.
+// The store defaults to 'production', so this will load production data initially.
 onMounted(() => {
-  console.log('MainApp component mounted');
-  // The 'watch' with 'immediate: true' now handles the initial data load.
+  console.log('MainApp component mounted. Fetching initial data...');
+  switchEnvironmentAndFetchData(dataMode.value);
 });
 
 onUnmounted(() => {
   console.log('MainApp component unmounted');
-  insurerStore.setSelectedInsurer(null);
+  // Clear selection when leaving the page to avoid stale data
+  clearSelectedInsurer();
 });
 
-// Data from Pinia store
-const insurersData = computed(() => insurerStore.insurers);
-const lastInvoices = computed(() => insurerStore.lastInvoices);
-const selectedInsurer = computed(() => insurerStore.selectedInsurer);
+// Data from Pinia store is already reactive thanks to storeToRefs
 
 // Status counts for summary
 const statusCounts = computed(() => {
@@ -557,7 +536,7 @@ const debugInsurerStatus = () => {
   background-size: 1.5em 1.5em;
   padding-right: 2.5rem;
   -webkit-print-color-adjust: exact;
-  color-adjust: exact;
+  print-color-adjust: exact;
 }
 
 .filter.blur-sm {

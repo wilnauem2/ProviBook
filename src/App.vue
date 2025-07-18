@@ -38,105 +38,64 @@
   </div>
 </template>
 
-<script>
+<script setup>
 import { ref, onMounted, onErrorCaptured } from 'vue';
-import { useRouter } from 'vue-router';
 import { useInsurerStore } from './stores/insurerStore';
 
-// Error handling component
-const ErrorBoundary = {
-  setup() {
-    const hasError = ref(false);
-    const errorMessage = ref('');
+// --- Error Boundary State ---
+const hasError = ref(false);
+const errorMessage = ref('');
 
-    onErrorCaptured((err) => {
-      console.error('Error captured in component:', err);
-      hasError.value = true;
-      errorMessage.value = err.message;
-      return false; // Prevent the error from propagating further
-    });
+onErrorCaptured((err) => {
+  console.error('Root error captured in App.vue:', err);
+  hasError.value = true;
+  errorMessage.value = err.message || 'An unknown error occurred.';
+  return false; // Prevent the error from propagating further
+});
 
-    const reloadApp = () => {
-      window.location.reload();
-    };
+const reloadApp = () => {
+  window.location.reload();
+};
 
-    return {
-      hasError,
-      errorMessage,
-      reloadApp
-    };
+// --- Debug Panel State & Logic ---
+const store = useInsurerStore();
+const isDevelopment = import.meta.env.DEV;
+const isOpen = ref(isDevelopment);
+const isFirebaseConnected = ref(false);
+const error = ref(null); // Local error for debug panel
+const isLoading = ref(false);
+const environment = import.meta.env.MODE;
+
+const toggleDebug = () => {
+  isOpen.value = !isOpen.value;
+};
+
+const testFirebase = async () => {
+  try {
+    isLoading.value = true;
+    error.value = null;
+    isFirebaseConnected.value = await store.testFirestoreConnection();
+  } catch (err) {
+    console.error('Firebase test failed:', err);
+    error.value = err.message;
+  } finally {
+    isLoading.value = false;
   }
 };
 
-export default {
-  name: 'App',
-  
-  components: {
-    ErrorBoundary
-  },
-  
-  setup() {
-    const router = useRouter();
-    const store = useInsurerStore();
-    
-    const isDevelopment = import.meta.env.DEV;
-    const isOpen = ref(isDevelopment);
-    const isFirebaseConnected = ref(false);
-    const error = ref(null);
-    const isLoading = ref(false);
-    const environment = import.meta.env.MODE;
-
-    const toggleDebug = () => {
-      isOpen.value = !isOpen.value;
-    };
-
-    const testFirebase = async () => {
-      try {
-        isLoading.value = true;
-        error.value = null;
-        isFirebaseConnected.value = await store.testFirestoreConnection();
-      } catch (err) {
-        console.error('Firebase test failed:', err);
-        error.value = err.message;
-      } finally {
-        isLoading.value = false;
-      }
-    };
-
-    const showStoreState = () => {
-      store.debugStoreState();
-    };
-
-    const clearError = () => {
-      error.value = null;
-    };
-
-    // Test Firebase connection on component mount
-    onMounted(async () => {
-      if (isDevelopment) {
-        console.log('App mounted in development mode');
-        try {
-          isFirebaseConnected.value = await store.testFirestoreConnection();
-        } catch (err) {
-          console.error('Initial Firebase test failed:', err);
-        }
-      }
-    });
-
-    return {
-      isDevelopment,
-      isOpen,
-      isFirebaseConnected,
-      environment,
-      error,
-      isLoading,
-      toggleDebug,
-      testFirebase,
-      showStoreState,
-      clearError
-    };
-  }
+const showStoreState = () => {
+  store.debugStoreState();
 };
+
+const clearError = () => {
+  error.value = null;
+};
+
+onMounted(() => {
+  if (isDevelopment) {
+    testFirebase();
+  }
+});
 </script>
 
 <style scoped>

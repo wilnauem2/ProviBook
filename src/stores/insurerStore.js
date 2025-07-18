@@ -11,18 +11,57 @@ export const useInsurerStore = defineStore('insurer', () => {
   const settlementHistory = ref([]);
   const isLoading = ref(false);
   const error = ref(null);
-  const currentCollection = ref('insurers');
+  const dataMode = ref('production'); // 'production' or 'test'
+
+  // Getters - Computed properties to get collection names based on dataMode
+  const collections = computed(() => {
+    const isProd = dataMode.value === 'production';
+    return {
+      insurers: isProd ? 'insurers' : 'insurers_test',
+      invoices: isProd ? 'invoices' : 'invoices_test',
+    };
+  });
 
   // Actions
-  const fetchInsurers = async (collectionName = 'insurers') => {
+  const switchEnvironmentAndFetchData = async (newMode) => {
+    if (!['production', 'test'].includes(newMode)) {
+      error.value = 'Invalid environment mode specified.';
+      console.error(error.value, newMode);
+      return;
+    }
+
+    dataMode.value = newMode;
     isLoading.value = true;
+    error.value = null;
+
     try {
-      const insurersCollection = collection(db, collectionName);
-      const insurerSnapshot = await getDocs(insurersCollection);
-      insurers.value = insurerSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      currentCollection.value = collectionName;
+      console.log(`Store: Fetching data for ${dataMode.value} environment...`);
+      
+      const insurerCollectionName = collections.value.insurers;
+      const invoicesDocName = 'last_invoices';
+      const invoicesCollectionName = collections.value.invoices;
+
+      const [insurersSnapshot, invoicesDoc] = await Promise.all([
+        getDocs(collection(db, insurerCollectionName)),
+        getDoc(doc(db, invoicesCollectionName, invoicesDocName))
+      ]);
+
+      insurers.value = insurersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+      if (invoicesDoc.exists()) {
+        lastInvoices.value = invoicesDoc.data();
+      } else {
+        lastInvoices.value = {};
+        console.warn(`Invoices document '${invoicesDocName}' not found in collection '${invoicesCollectionName}'.`);
+      }
+
+      console.log('Store: Data fetching complete.');
+
     } catch (err) {
+      console.error('Error fetching data from store:', err);
       error.value = err.message;
+      insurers.value = [];
+      lastInvoices.value = {};
     } finally {
       isLoading.value = false;
     }
@@ -40,7 +79,7 @@ export const useInsurerStore = defineStore('insurer', () => {
   async function updateInsurerLastInvoice(insurerId, lastInvoice) {
     try {
       isLoading.value = true;
-      const insurerRef = doc(db, currentCollection.value, insurerId);
+      const insurerRef = doc(db, collections.value.insurers, insurerId);
       await updateDoc(insurerRef, { last_invoice: lastInvoice });
 
       const index = insurers.value.findIndex(i => i.id === insurerId);
@@ -57,6 +96,35 @@ export const useInsurerStore = defineStore('insurer', () => {
     }
   }
 
+  const fetchSettlementHistory = async (insurerId) => {
+    isLoading.value = true;
+    try {
+      const historyCollectionRef = collection(db, collections.value.insurers, insurerId, 'settlement_history');
+      const historySnapshot = await getDocs(historyCollectionRef);
+      settlementHistory.value = historySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => b.date.seconds - a.date.seconds);
+    } catch (err) {
+      error.value = err.message;
+    } finally {
+      isLoading.value = false;
+    }
+  };
+
+  const addInvoiceToHistory = async (insurerId, invoiceData) => {
+    isLoading.value = true;
+    try {
+      const historyCollectionRef = collection(db, collections.value.insurers, insurerId, 'settlement_history');
+      await addDoc(historyCollectionRef, {
+        ...invoiceData,
+        createdAt: serverTimestamp()
+      });
+      await updateInsurerLastInvoice(insurerId, invoiceData);
+    } catch (err) {
+      error.value = err.message;
+    } finally {
+      isLoading.value = false;
+    }
+  };
+
   const testFirestoreConnection = async () => {
     try {
       // A lightweight check to confirm Firestore connectivity.
@@ -71,38 +139,6 @@ export const useInsurerStore = defineStore('insurer', () => {
     }
   };
 
-  const fetchSettlementHistory = async (insurerId) => {
-    isLoading.value = true;
-    try {
-      const historyCollectionRef = collection(db, currentCollection.value, insurerId, 'settlement_history');
-      const historySnapshot = await getDocs(historyCollectionRef);
-      settlementHistory.value = historySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => b.date.seconds - a.date.seconds);
-    } catch (err) {
-      error.value = err.message;
-    } finally {
-      isLoading.value = false;
-    }
-  };
-
-  const addInvoiceToHistory = async (insurerId, invoiceData) => {
-    isLoading.value = true;
-    try {
-      const historyCollectionRef = collection(db, currentCollection.value, insurerId, 'settlement_history');
-      await addDoc(historyCollectionRef, {
-        ...invoiceData,
-        createdAt: serverTimestamp()
-      });
-
-      // Also update the main insurer document with the latest invoice date
-      await updateInsurerLastInvoice(insurerId, invoiceData);
-
-    } catch (err) {
-      error.value = err.message;
-    } finally {
-      isLoading.value = false;
-    }
-  };
-
   const debugStoreState = () => {
     console.log('--- Insurer Store State ---');
     console.log('Insurers:', insurers.value);
@@ -110,25 +146,31 @@ export const useInsurerStore = defineStore('insurer', () => {
     console.log('Last Invoices:', lastInvoices.value);
     console.log('Is Loading:', isLoading.value);
     console.log('Error:', error.value);
-    console.log('Current Collection:', currentCollection.value);
+    console.log('Data Mode:', dataMode.value);
     console.log('-------------------------');
   };
 
   return {
+    // State
     insurers,
     selectedInsurer,
     lastInvoices,
     settlementHistory,
     isLoading,
     error,
-    currentCollection,
-    fetchInsurers,
+    dataMode,
+
+    // Getters
+    collections,
+
+    // Actions
+    switchEnvironmentAndFetchData,
     setSelectedInsurer,
     clearSelectedInsurer,
     updateInsurerLastInvoice,
     fetchSettlementHistory,
+    addInvoiceToHistory,
     testFirestoreConnection,
-    debugStoreState,
-    addInvoiceToHistory
+    debugStoreState
   };
 });

@@ -35,8 +35,8 @@
               : 'hover:scale-[1.01]',
             'h-full min-h-[140px] flex flex-col',
             'transition-all duration-200 hover:shadow-md',
-            // Gray out tiles with complete: false in production environment
-            isProductionIncomplete(insurer) ? 'incomplete-tile opacity-50 grayscale' : ''
+            // Gray out tiles with complete: false
+            isInsurerIncomplete(insurer) ? 'incomplete-tile opacity-50 grayscale' : ''
           ]"
           @click="selectInsurer(insurer)"
           @keydown.enter="selectInsurer(insurer)"
@@ -71,7 +71,7 @@
               
               <!-- Status badge -->
               <span 
-                v-if="isProductionIncomplete(insurer)"
+                v-if="isInsurerIncomplete(insurer)"
                 class="flex-shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-2 bg-gray-100 text-gray-800"
               >
                 Unvollständig
@@ -102,7 +102,7 @@
               <div class="space-y-2">
                 <div v-if="insurer.turnus" class="flex items-start">
                   <svg class="w-4 h-4 text-gray-400 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                   <div>
                     <div class="text-xs text-gray-500">Turnus</div>
@@ -261,7 +261,6 @@
 import { ref, computed, onMounted, nextTick } from 'vue';
 import { useInsurerStore } from '../stores/insurerStore';
 import { isOverdue, getStatusColor, calculateDaysOverdue, getStatusText } from '../utils/insurerUtils';
-const currentEnvironment = import.meta.env.MODE;
 
 const props = defineProps({
   insurers: {
@@ -353,18 +352,14 @@ const formatDate = (dateString) => {
   });
 };
 
-// Check if insurer is in production environment and has complete: false status
-const isProductionIncomplete = (insurer) => {
-  // Only apply this logic in production environment
-  if (currentEnvironment !== 'production') return false;
-  
-  // Check if the insurer has a complete property set to false
+// Check if insurer is incomplete
+const isInsurerIncomplete = (insurer) => {
   return insurer.complete === false;
 };
 
 // Add a badge to indicate incomplete status
 const getIncompleteText = (insurer) => {
-  if (isProductionIncomplete(insurer)) {
+  if (isInsurerIncomplete(insurer)) {
     return 'Unvollständig';
   }
   return '';

@@ -23,7 +23,7 @@
     <div class="flex-1 overflow-y-auto w-full -mr-3 pr-1">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6 p-3">
         <div
-          v-for="insurer in insurers"
+          v-for="insurer in sortedInsurers"
           :key="insurer.name"
           :class="[
             'group relative p-6 rounded-xl cursor-pointer',
@@ -258,313 +258,101 @@
 </style>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue';
-import { useInsurerStore } from '../stores/insurerStore';
-import { isOverdue, getStatusColor, calculateDaysOverdue, getStatusText } from '../utils/insurerUtils';
+import { computed } from 'vue';
+import { format, add } from 'date-fns';
+import { de } from 'date-fns/locale';
+import InsurerStatus from './InsurerStatus.vue';
+import { calculateDaysOverdue } from '../utils/insurerUtils';
 
 const props = defineProps({
-  insurers: {
-    type: Array,
-    required: true
-  },
-  selectedInsurer: {
-    type: Object,
-    default: null
-  }
+  insurers: { type: Array, required: true },
+  sortBy: { type: String, default: 'name' },
+  lastInvoices: { type: Object, required: true },
+  currentDate: { type: Date, required: true },
+  selectedInsurer: { type: Object, default: null }
 });
 
 const emit = defineEmits(['select-insurer', 'clear-selection']);
 
-// Add smooth scrolling to selected insurer
-const containerRef = ref(null);
-const selectedInsurerRef = ref(null);
-
-// Initialize Pinia store
-const insurerStore = useInsurerStore();
-
-// Handle insurer selection
-const selectInsurer = (insurer) => {
-  if (props.selectedInsurer?.name === insurer.name) {
-    // Clear selection in both Pinia store and via emit
-    insurerStore.setSelectedInsurer(null);
-    emit('clear-selection');
-  } else {
-    // Set selection in both Pinia store and via emit
-    insurerStore.setSelectedInsurer(insurer);
-    emit('select-insurer', insurer);
-  }
-  nextTick(() => {
-    selectedInsurerRef.value = document.querySelector('[data-selected="true"]');
+const sortedInsurers = computed(() => {
+  if (!props.insurers) return [];
+  const sorted = [...props.insurers];
+  sorted.sort((a, b) => {
+    switch (props.sortBy) {
+      case 'date': {
+        const dateA = props.lastInvoices[a.id]?.datum ? new Date(props.lastInvoices[a.id].datum.seconds * 1000) : new Date(0);
+        const dateB = props.lastInvoices[b.id]?.datum ? new Date(props.lastInvoices[b.id].datum.seconds * 1000) : new Date(0);
+        return dateB - dateA;
+      }
+      case 'overdue': {
+        const overdueA = calculateDaysOverdue(a, props.lastInvoices[a.id], props.currentDate);
+        const overdueB = calculateDaysOverdue(b, props.lastInvoices[b.id], props.currentDate);
+        return overdueB - overdueA;
+      }
+      case 'name':
+      default:
+        return a.name.localeCompare(b.name);
+    }
   });
-};
-
-// Get initials from insurer name
-const getInitials = (name) => {
-  if (!name) return '--';
-  return name
-    .split(' ')
-    .map(word => word[0])
-    .join('')
-    .toUpperCase()
-    .substring(0, 2);
-};
-
-// Scroll to selected insurer when it changes
-const scrollToSelected = () => {
-  if (selectedInsurerRef.value) {
-    selectedInsurerRef.value.scrollIntoView({
-      behavior: 'smooth',
-      block: 'nearest',
-      inline: 'start'
-    });
-  }
-};
-
-// Watch for selectedInsurer changes and scroll to it
-onMounted(() => {
-  // Debug logs
-  console.log('InsurerList mounted with insurers:', props.insurers);
-  if (props.insurers && props.insurers.length > 0) {
-    console.log('First insurer data:', props.insurers[0]);
-    console.log('First insurer dokumentenart:', props.insurers[0].dokumentenart);
-  }
-  
-  // Scroll to selected insurer if needed
-  if (props.selectedInsurer) {
-    // Use nextTick to ensure the DOM is updated
-    nextTick(() => {
-      scrollToSelected();
-    });
-  }
+  return sorted;
 });
 
-// Format date to DD.MM.YYYY format
-const formatDate = (dateString) => {
-  if (!dateString) return '';
-  
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) return dateString;
-  
-  return date.toLocaleDateString('de-DE', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  });
+const selectInsurer = (insurer) => {
+  emit('select-insurer', insurer);
 };
 
-// Check if insurer is incomplete
+const getNextSettlementDate = (insurer) => {
+  const lastInvoice = props.lastInvoices[insurer.id];
+  if (!lastInvoice || !lastInvoice.datum) return 'N/A';
+  const lastDate = new Date(lastInvoice.datum.seconds * 1000);
+  const nextDate = add(lastDate, { days: insurer.turnus });
+  return format(nextDate, 'dd.MM.yyyy', { locale: de });
+};
+
+const getInitials = (name) => {
+  if (!name) return '';
+  return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+};
+
 const isInsurerIncomplete = (insurer) => {
   return insurer.complete === false;
 };
 
-// Add a badge to indicate incomplete status
-const getIncompleteText = (insurer) => {
-  if (isInsurerIncomplete(insurer)) {
-    return 'Unvollständig';
-  }
-  return '';
+const getStatusColor = (insurer) => {
+  if (isInsurerIncomplete(insurer)) return 'gray';
+  const days = calculateDaysOverdue(insurer, props.lastInvoices[insurer.id], props.currentDate);
+  if (days > 5) return 'red';
+  if (days > 0) return 'yellow';
+  return 'green';
 };
 
-// Format last invoice date to show only the date part
-const formatLastInvoice = (dateValue) => {
-  console.log('=== formatLastInvoice called ===');
-  
-  try {
-    console.log('Input dateValue:', dateValue);
-    console.log('Type of dateValue:', typeof dateValue);
-    console.log('Constructor:', dateValue?.constructor?.name);
-    
-    // If value is null or undefined, return empty string
-    if (dateValue == null) {
-      console.log('dateValue is null or undefined, returning empty string');
-      return '';
-    }
-    
-    // Handle object with date property (ISO string)
-    if (typeof dateValue === 'object' && dateValue !== null) {
-      console.log('dateValue is an object with keys:', Object.keys(dateValue));
-      
-      // First check for date property (ISO string)
-      if (dateValue.date) {
-        console.log('Using date property (ISO):', dateValue.date);
-        try {
-          const date = new Date(dateValue.date);
-          if (!isNaN(date.getTime())) {
-            const formatted = date.toLocaleDateString('de-DE');
-            console.log('Formatted date from ISO string:', formatted);
-            return formatted;
-          }
-        } catch (e) {
-          console.error('Error parsing date from ISO string:', e);
-        }
-      }
-      
-      // Then check for display property
-      if (dateValue.display) {
-        console.log('Using display property:', dateValue.display);
-        const displayStr = dateValue.display.split(',')[0].trim();
-        console.log('Extracted date from display:', displayStr);
-        return displayStr;
-      }
-      
-      // Then check for timestamp
-      if (dateValue.timestamp) {
-        console.log('Using timestamp property:', dateValue.timestamp);
-        try {
-          const date = new Date(Number(dateValue.timestamp));
-          if (!isNaN(date.getTime())) {
-            const formatted = date.toLocaleDateString('de-DE');
-            console.log('Formatted timestamp:', formatted);
-            return formatted;
-          }
-        } catch (e) {
-          console.error('Error parsing timestamp:', e);
-        }
-      }
-      
-      // If we have a toISOString method, use that
-      if (typeof dateValue.toISOString === 'function') {
-        console.log('Using toISOString() method');
-        try {
-          const date = new Date(dateValue.toISOString());
-          if (!isNaN(date.getTime())) {
-            const formatted = date.toLocaleDateString('de-DE');
-            console.log('Formatted ISO date:', formatted);
-            return formatted;
-          }
-        } catch (e) {
-          console.error('Error calling toISOString():', e);
-        }
-      }
-      
-      // Try to get a date from the object's properties
-      for (const key in dateValue) {
-        if (dateValue.hasOwnProperty(key) && 
-            (key.toLowerCase().includes('date') || key.toLowerCase().includes('time'))) {
-          console.log(`Trying to use property '${key}':`, dateValue[key]);
-          try {
-            const date = new Date(dateValue[key]);
-            if (!isNaN(date.getTime())) {
-              const formatted = date.toLocaleDateString('de-DE');
-              console.log(`Formatted date from property '${key}':`, formatted);
-              return formatted;
-            }
-          } catch (e) {
-            console.error(`Error parsing date from property '${key}':`, e);
-          }
-        }
-      }
-      
-      console.log('No valid date properties found in object');
-      return '';
-    }
-    
-    // Handle string input
-    if (typeof dateValue === 'string') {
-      console.log('dateValue is a string:', dateValue);
-      
-      // If it's already in the format DD.MM.YYYY, return it as is
-      if (/^\d{1,2}\.\d{1,2}\.\d{4}$/.test(dateValue.trim())) {
-        console.log('dateValue is already in DD.MM.YYYY format, returning as is');
-        return dateValue.trim();
-      }
-      
-      // If it's in format 'DD.MM.YYYY, HH:mm', extract just the date part
-      const dateMatch = dateValue.match(/^(\d{1,2}\.\d{1,2}\.\d{4})/);
-      if (dateMatch && dateMatch[1]) {
-        console.log('Extracted date from DD.MM.YYYY, HH:mm format:', dateMatch[1]);
-        return dateMatch[1];
-      }
-      
-      // Try to parse it as a date string (ISO format)
-      try {
-        const date = new Date(dateValue);
-        if (!isNaN(date.getTime())) {
-          const formatted = date.toLocaleDateString('de-DE');
-          console.log('Formatted date from string:', formatted);
-          return formatted;
-        }
-      } catch (e) {
-        console.error('Error parsing date string:', e);
-      }
-      
-      console.log('Could not parse as Date, returning first part before comma');
-      return dateValue.split(',')[0].trim();
-    }
-    
-    // Last resort: try to convert to string and parse
-    try {
-      console.log('Trying last resort string conversion');
-      const str = String(dateValue);
-      console.log('String representation:', str);
-      
-      if (str !== '[object Object]') {
-        const datePart = str.split(',')[0].trim();
-        console.log('Extracted date part from string:', datePart);
-        if (datePart) return datePart;
-      } else {
-        console.log('String representation is [object Object], skipping');
-      }
-    } catch (e) {
-      console.error('Error converting dateValue to string:', e);
-    }
-    
-    // If we get here, we couldn't format the date
-    console.log('Could not format date, returning empty string');
-    return '';
-    
-  } catch (e) {
-    console.error('Error in formatLastInvoice:', e);
-    return '';
-  } finally {
-    console.log('=== End of formatLastInvoice ===\n');
+const getStatusText = (insurer) => {
+  const days = calculateDaysOverdue(insurer, props.lastInvoices[insurer.id], props.currentDate);
+  if (days > 0) {
+    return `${days} ${days === 1 ? 'Tag' : 'Tage'} überfällig`;
   }
+  return 'Anstehend';
 };
 
-// Helper function to format a date with relative text (heute, gestern, etc.)
-const formatDateWithRelative = (date) => {
-  try {
-    if (!(date instanceof Date) || isNaN(date.getTime())) return '';
-    
-    const now = new Date();
-    now.setHours(0, 0, 0, 0); // Reset time part for accurate day comparison
-    
-    // Create a date object with time set to 00:00:00 for comparison
-    const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    
-    const diffTime = Math.abs(now - dateOnly);
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    
-    // Format the date in German format (DD.MM.YYYY)
-    const formattedDate = dateOnly.toLocaleDateString('de-DE', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-    
-    if (diffDays === 0) {
-      return `heute (${formattedDate})`;
-    } else if (diffDays === 1) {
-      return `gestern (${formattedDate})`;
-    } else if (diffDays < 7) {
-      return `vor ${diffDays} Tagen (${formattedDate})`;
-    } else {
-      return formattedDate;
-    }
-  } catch (e) {
-    console.error('Error in formatDateWithRelative:', e);
-    return '';
-  }
-}
-
-// Add a ref to the selected insurer for scrolling
-const getInsurerRef = (insurer) => {
-  return props.selectedInsurer?.name === insurer.name ? selectedInsurerRef : null;
+const isOverdue = (insurer) => {
+  const days = calculateDaysOverdue(insurer, props.lastInvoices[insurer.id], props.currentDate);
+  return days > 0;
 };
 
-// Add data attribute for selected insurer
-const getInsurerDataAttrs = (insurer) => ({
-  'data-selected': props.selectedInsurer?.name === insurer.name,
-  'ref': props.selectedInsurer?.name === insurer.name ? 'selectedInsurerRef' : null
-});
+const formatDate = (dateValue) => {
+  if (!dateValue) return '';
+  let date;
+  if (dateValue.seconds) { // Firestore timestamp
+    date = new Date(dateValue.seconds * 1000);
+  } else {
+    date = new Date(dateValue);
+  }
+  if (isNaN(date.getTime())) return '';
+  return format(date, 'dd.MM.yyyy', { locale: de });
+};
+
+const formatLastInvoice = (lastInvoice) => {
+  if (!lastInvoice || !lastInvoice.datum) return 'N/A';
+  return formatDate(lastInvoice.datum);
+};
 </script>

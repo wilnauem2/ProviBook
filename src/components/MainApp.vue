@@ -134,7 +134,7 @@
                   <div class="inline-flex">
                   <select 
                     v-model="sortOption"
-                    class="form-select rounded-md border-gray-300 text-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                    class="form-select appearance-none rounded-md border-gray-300 text-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
                   >
                     <option value="name">Name</option>
                     <option value="date">Letztes Abrechnungsdatum</option>

@@ -160,7 +160,7 @@
                   :insurers="filteredInsurers" 
                   :sortBy="sortOption"
                   :lastInvoices="lastInvoices"
-                  :currentDate="getCurrentDate()"
+                  :currentDate="currentDate"
                   :selectedInsurer="selectedInsurer"
                   @select-insurer="handleInsurerSelection($event)"
                   @clear-selection="handleClearSelection()"
@@ -205,7 +205,7 @@
             <div class="p-6 overflow-y-auto" style="height: 100vh;">
               <InsurerDetail 
                 :insurer="selectedInsurer" 
-                :current-date="getCurrentDate()"
+                :current-date="currentDate"
                 :is-production="isProduction"
                 @settlement-completed="handleSettlementCompleted"
                 @close="handleClearSelection"
@@ -297,7 +297,7 @@ const statusCounts = computed(() => {
   if (!insurersData.value) return counts;
 
   insurersData.value.forEach(insurer => {
-    const days = calculateDaysOverdue(insurer, lastInvoices.value[insurer.id], getCurrentDate());
+    const days = calculateDaysOverdue(insurer, currentDate.value);
     if (days > 5) {
       counts.critical++;
     } else if (days > 0) {
@@ -310,12 +310,12 @@ const statusCounts = computed(() => {
 });
 
 // Get current date (real or simulated)
-const getCurrentDate = () => {
+const currentDate = computed(() => {
   if (!isProduction.value && simulatedDate.value) {
     return new Date(simulatedDate.value);
   }
   return new Date();
-};
+});
 
 // Get a human-readable label for the status filter
 const getStatusFilterLabel = (status) => {
@@ -378,7 +378,7 @@ const filteredInsurers = computed(() => {
   // Apply status filter
   if (statusFilter.value !== 'all') {
     filtered = filtered.filter(insurer => {
-      const days = calculateDaysOverdue(insurer, lastInvoices.value[insurer.id], getCurrentDate());
+      const days = calculateDaysOverdue(insurer, currentDate.value);
       if (statusFilter.value === 'critical') return days > 5;
       if (statusFilter.value === 'warning') return days > 0 && days <= 5;
       if (statusFilter.value === 'on_time') return days <= 0;
@@ -529,7 +529,7 @@ const debugInsurerStatus = () => {
   console.log('--- Insurer Status Debug ---');
   insurersData.value.forEach(insurer => {
     const lastInv = lastInvoices.value[insurer.id];
-    const daysOverdue = calculateDaysOverdue(insurer, lastInv, getCurrentDate());
+    const daysOverdue = calculateDaysOverdue(insurer, getCurrentDate());
     console.log(
       `${insurer.name}: ` +
       `Last Invoice: ${lastInv ? format(new Date(lastInv[0].date), 'dd.MM.yyyy') : 'N/A'}, ` +

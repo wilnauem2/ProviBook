@@ -67,12 +67,6 @@ const decreaseDate = () => {
     console.log('Decreasing date to:', newDate)
     testDate.value = newDate
     emit('update:modelValue', newDate)
-    
-    // Force re-render
-    setTimeout(() => {
-      testDate.value = newDate
-      emit('update:modelValue', newDate)
-    }, 0)
   }
 }
 
@@ -82,12 +76,6 @@ const increaseDate = () => {
     console.log('Increasing date to:', newDate)
     testDate.value = newDate
     emit('update:modelValue', newDate)
-    
-    // Force re-render
-    setTimeout(() => {
-      testDate.value = newDate
-      emit('update:modelValue', newDate)
-    }, 0)
   }
 }
 
@@ -99,12 +87,6 @@ const resetDate = () => {
   // Update the date immediately
   testDate.value = now
   emit('update:modelValue', now)
-  
-  // Force a re-render
-  setTimeout(() => {
-    testDate.value = now
-    emit('update:modelValue', now)
-  }, 0)
 }
 
 watch(() => props.modelValue, (newDate) => {

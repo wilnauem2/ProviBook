@@ -27,7 +27,7 @@ const props = defineProps({
 });
 
 const status = computed(() => {
-  const days = calculateDaysOverdue(props.insurer, props.lastInvoice, props.currentDate);
+  const days = calculateDaysOverdue(props.insurer, props.currentDate);
   
   if (days > 5) {
     return {

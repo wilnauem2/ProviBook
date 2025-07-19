@@ -285,8 +285,8 @@ const sortedInsurers = computed(() => {
         return dateB - dateA;
       }
       case 'overdue': {
-        const overdueA = calculateDaysOverdue(a, props.lastInvoices[a.id], props.currentDate);
-        const overdueB = calculateDaysOverdue(b, props.lastInvoices[b.id], props.currentDate);
+        const overdueA = calculateDaysOverdue(a, props.currentDate);
+        const overdueB = calculateDaysOverdue(b, props.currentDate);
         return overdueB - overdueA;
       }
       case 'name':
@@ -320,14 +320,14 @@ const isInsurerIncomplete = (insurer) => {
 
 const getStatusColor = (insurer) => {
   if (isInsurerIncomplete(insurer)) return 'gray';
-  const days = calculateDaysOverdue(insurer, props.lastInvoices[insurer.id], props.currentDate);
+  const days = calculateDaysOverdue(insurer, props.currentDate);
   if (days > 5) return 'red';
   if (days > 0) return 'yellow';
   return 'green';
 };
 
 const getStatusText = (insurer) => {
-  const days = calculateDaysOverdue(insurer, props.lastInvoices[insurer.id], props.currentDate);
+  const days = calculateDaysOverdue(insurer, props.currentDate);
   if (days > 0) {
     return `${days} ${days === 1 ? 'Tag' : 'Tage'} überfällig`;
   }
@@ -335,7 +335,7 @@ const getStatusText = (insurer) => {
 };
 
 const isOverdue = (insurer) => {
-  const days = calculateDaysOverdue(insurer, props.lastInvoices[insurer.id], props.currentDate);
+  const days = calculateDaysOverdue(insurer, props.currentDate);
   return days > 0;
 };
 
@@ -352,7 +352,21 @@ const formatDate = (dateValue) => {
 };
 
 const formatLastInvoice = (lastInvoice) => {
-  if (!lastInvoice || !lastInvoice.datum) return 'N/A';
-  return formatDate(lastInvoice.datum);
+  // Handle case when lastInvoice is directly a string
+  if (typeof lastInvoice === 'string') {
+    return lastInvoice;
+  }
+  
+  // Handle case when lastInvoice is an object with display property
+  if (lastInvoice && typeof lastInvoice === 'object') {
+    if (lastInvoice.display) {
+      return lastInvoice.display;
+    }
+    if (lastInvoice.datum) {
+      return formatDate(lastInvoice.datum);
+    }
+  }
+  
+  return 'N/A';
 };
 </script>

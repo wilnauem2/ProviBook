@@ -123,14 +123,14 @@
               
               <!-- Right column -->
               <div class="space-y-2">
-                <div v-if="insurer.last_invoice" class="flex items-start">
+                <div class="flex items-start">
                   <svg class="w-4 h-4 text-gray-400 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                   </svg>
                   <div>
                     <div class="text-xs text-gray-500">Letzte Rechnung</div>
                     <div class="font-medium" :class="isOverdue(insurer) ? 'text-red-600' : 'text-green-600'">
-                      {{ formatLastInvoice(insurer.last_invoice) }}
+                      {{ formatLastInvoice(lastInvoices[insurer.id] || insurer.last_invoice) }}
                     </div>
                   </div>
                 </div>
@@ -320,14 +320,27 @@ const isInsurerIncomplete = (insurer) => {
 
 const getStatusColor = (insurer) => {
   if (isInsurerIncomplete(insurer)) return 'gray';
-  const days = calculateDaysOverdue(insurer, props.currentDate);
+  
+  // Create a modified insurer object with the correct last_invoice data
+  const modifiedInsurer = { ...insurer };
+  if (props.lastInvoices[insurer.id]) {
+    modifiedInsurer.last_invoice = props.lastInvoices[insurer.id];
+  }
+  
+  const days = calculateDaysOverdue(modifiedInsurer, props.currentDate);
   if (days > 5) return 'red';
   if (days > 0) return 'yellow';
   return 'green';
 };
 
 const getStatusText = (insurer) => {
-  const days = calculateDaysOverdue(insurer, props.currentDate);
+  // Create a modified insurer object with the correct last_invoice data
+  const modifiedInsurer = { ...insurer };
+  if (props.lastInvoices[insurer.id]) {
+    modifiedInsurer.last_invoice = props.lastInvoices[insurer.id];
+  }
+  
+  const days = calculateDaysOverdue(modifiedInsurer, props.currentDate);
   if (days > 0) {
     return `${days} ${days === 1 ? 'Tag' : 'Tage'} überfällig`;
   }
@@ -335,7 +348,13 @@ const getStatusText = (insurer) => {
 };
 
 const isOverdue = (insurer) => {
-  const days = calculateDaysOverdue(insurer, props.currentDate);
+  // Create a modified insurer object with the correct last_invoice data
+  const modifiedInsurer = { ...insurer };
+  if (props.lastInvoices[insurer.id]) {
+    modifiedInsurer.last_invoice = props.lastInvoices[insurer.id];
+  }
+  
+  const days = calculateDaysOverdue(modifiedInsurer, props.currentDate);
   return days > 0;
 };
 
@@ -367,6 +386,6 @@ const formatLastInvoice = (lastInvoice) => {
     }
   }
   
-  return 'N/A';
+  return 'Keine';
 };
 </script>

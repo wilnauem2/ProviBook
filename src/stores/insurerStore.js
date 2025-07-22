@@ -41,21 +41,60 @@ export const useInsurerStore = defineStore('insurer', () => {
       const invoicesDocName = 'last_invoices';
       const invoicesCollectionName = collections.value.invoices;
 
-      const [insurersSnapshot, invoicesDoc] = await Promise.all([
-        getDocs(collection(db, insurerCollectionName)),
-        getDoc(doc(db, invoicesCollectionName, invoicesDocName))
-      ]);
-
+      // First, get the insurers
+      const insurersSnapshot = await getDocs(collection(db, insurerCollectionName));
       insurers.value = insurersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-      if (invoicesDoc.exists()) {
-        lastInvoices.value = invoicesDoc.data();
+      
+      // Initialize lastInvoices
+      lastInvoices.value = {};
+      
+      // In test mode, we need to get the last invoice from each insurer's subcollection
+      // since the top-level last_invoices document might not be maintained
+      if (dataMode.value === 'test') {
+        console.log('Test mode: Fetching last invoices from insurer subcollections...');
+        
+        // For each insurer, get the most recent invoice from their invoice-history subcollection
+        for (const insurer of insurers.value) {
+          try {
+            const invoicesCollectionRef = collection(db, insurerCollectionName, insurer.id, 'invoice-history');
+            const invoicesSnapshot = await getDocs(invoicesCollectionRef);
+            
+            if (!invoicesSnapshot.empty) {
+              // Get all invoices and sort by date (newest first)
+              const invoices = invoicesSnapshot.docs
+                .map(doc => ({ id: doc.id, ...doc.data() }))
+                .sort((a, b) => {
+                  const dateA = a.date?.seconds ? new Date(a.date.seconds * 1000) : new Date(a.date || 0);
+                  const dateB = b.date?.seconds ? new Date(b.date.seconds * 1000) : new Date(b.date || 0);
+                  return dateB - dateA; // Newest first
+                });
+              
+              // Store the most recent invoice
+              if (invoices.length > 0) {
+                lastInvoices.value[insurer.id] = {
+                  datum: invoices[0].date,
+                  display: invoices[0].date?.seconds 
+                    ? new Date(invoices[0].date.seconds * 1000).toLocaleDateString() 
+                    : new Date(invoices[0].date).toLocaleDateString()
+                };
+              }
+            }
+          } catch (err) {
+            console.error(`Error fetching invoices for insurer ${insurer.id}:`, err);
+          }
+        }
       } else {
-        lastInvoices.value = {};
-        console.warn(`Invoices document '${invoicesDocName}' not found in collection '${invoicesCollectionName}'.`);
+        // In production mode, use the top-level last_invoices document as before
+        const invoicesDoc = await getDoc(doc(db, invoicesCollectionName, invoicesDocName));
+        
+        if (invoicesDoc.exists()) {
+          lastInvoices.value = invoicesDoc.data();
+        } else {
+          console.warn(`Invoices document '${invoicesDocName}' not found in collection '${invoicesCollectionName}'.`);
+        }
       }
 
-      console.log('Store: Data fetching complete.');
+      console.log('Store: Data fetching complete. Last invoices:', lastInvoices.value);
 
     } catch (err) {
       console.error('Error fetching data from store:', err);
@@ -99,10 +138,26 @@ export const useInsurerStore = defineStore('insurer', () => {
   const fetchSettlementHistory = async (insurerId) => {
     isLoading.value = true;
     try {
-      const historyCollectionRef = collection(db, collections.value.insurers, insurerId, 'settlement_history');
-      const historySnapshot = await getDocs(historyCollectionRef);
-      settlementHistory.value = historySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).sort((a, b) => b.date.seconds - a.date.seconds);
+      console.log(`Fetching invoices for insurer ${insurerId} from 'invoice-history' subcollection...`);
+      
+      // Use the standardized 'invoice-history' subcollection
+      // This matches the structure used by fetchAbrechnungen in abrechnungStore
+      const invoicesCollectionRef = collection(db, collections.value.insurers, insurerId, 'invoice-history');
+      const invoicesSnapshot = await getDocs(invoicesCollectionRef);
+      
+      // Map the documents and sort by date
+      settlementHistory.value = invoicesSnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .sort((a, b) => {
+          // Handle both date formats (timestamp or ISO string)
+          const dateA = a.date?.seconds ? new Date(a.date.seconds * 1000) : new Date(a.date || 0);
+          const dateB = b.date?.seconds ? new Date(b.date.seconds * 1000) : new Date(b.date || 0);
+          return dateB - dateA; // Sort descending (newest first)
+        });
+      
+      console.log(`Fetched ${settlementHistory.value.length} invoices for insurer ${insurerId}`);
     } catch (err) {
+      console.error('Error fetching settlement history:', err);
       error.value = err.message;
     } finally {
       isLoading.value = false;
@@ -132,15 +187,47 @@ export const useInsurerStore = defineStore('insurer', () => {
 
   const addInvoiceToHistory = async (insurerId, invoiceData) => {
     isLoading.value = true;
+    let docRef = null;
+    
     try {
-      const historyCollectionRef = collection(db, collections.value.insurers, insurerId, 'settlement_history');
-      await addDoc(historyCollectionRef, {
+      console.log(`Adding invoice to insurer ${insurerId} in 'invoice-history' subcollection...`);
+      
+      // Validate inputs
+      if (!insurerId) {
+        throw new Error('Invalid insurer ID provided');
+      }
+      
+      if (!invoiceData) {
+        throw new Error('Invalid invoice data provided');
+      }
+      
+      // Save to the standardized 'invoice-history' subcollection
+      // This matches the structure used by fetchAbrechnungen in abrechnungStore
+      const invoicesCollectionRef = collection(db, collections.value.insurers, insurerId, 'invoice-history');
+      
+      // Add additional fields needed for Abrechnungen display
+      const invoiceToSave = {
         ...invoiceData,
-        createdAt: serverTimestamp()
-      });
-      await updateInsurerLastInvoice(insurerId, invoiceData);
+        date: invoiceData.date || new Date().toISOString(),
+        documentType: invoiceData.documentType || 'invoice',
+        status: invoiceData.status || 'completed',
+        createdAt: serverTimestamp(),
+        insurerId: insurerId // Add the insurerId for reference
+      };
+      
+      // Save the document and get the reference
+      docRef = await addDoc(invoicesCollectionRef, invoiceToSave);
+      console.log(`Invoice saved successfully with ID: ${docRef.id}`);
+      
+      // No longer update the last_invoice field on the insurer document
+      // as per requirement to only store invoice data in subcollections
+      
+      // Return the full document reference
+      return docRef;
     } catch (err) {
+      console.error('Error adding invoice to history:', err);
       error.value = err.message;
+      throw err;
     } finally {
       isLoading.value = false;
     }

@@ -1,14 +1,5 @@
 <template>
   <div class="abrechnungen-history p-4">
-    <!-- Debug info -->
-        <!-- Debug info -->
-    <div v-if="!props.isProductionBranch" class="bg-blue-50 p-4 mb-6 rounded-lg text-sm">
-      <h3 class="font-medium mb-2">Debug Information</h3>
-      <p>Anzahl der Abrechnungen: {{ props.abrechnungen ? props.abrechnungen.length : 0 }}</p>
-      <p>Gefilterte Abrechnungen: {{ filteredAbrechnungen.length }}</p>
-      <p>Sortierfeld: {{ sortField }} ({{ sortAscending ? 'aufsteigend' : 'absteigend' }})</p>
-      <p>Aktuelle Seite: {{ currentPage }} / {{ totalPages }}</p>
-    </div>
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
       <div>
         <h2 class="text-2xl font-bold text-gray-800">Vergangene Abrechnungen</h2>
@@ -46,8 +37,18 @@
         </div>
         
         <button 
+          @click="refreshData"
+          class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 whitespace-nowrap mr-2"
+        >
+          <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Aktualisieren
+        </button>
+        
+        <button 
           @click="exportToCSV"
-          class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 whitespace-nowrap"
+          class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 whitespace-nowrap"
         >
           <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -386,484 +387,218 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, watch, defineProps, defineEmits } from 'vue';
-import { format, parseISO, parse } from 'date-fns';
-import { de } from 'date-fns/locale';
-import { saveAs } from 'file-saver';
+import { ref, computed, onMounted, watch } from 'vue'
+import { useAbrechnungStore } from '../stores/abrechnungStore'
+import SortIndicator from './SortIndicator.vue'
 
+const abrechnungStore = useAbrechnungStore()
 const props = defineProps({
+  isProduction: {
+    type: Boolean,
+    default: true
+  },
   abrechnungen: {
     type: Array,
     default: () => []
-  },
-  isProductionBranch: {
-    type: Boolean,
-    default: true
   }
-});
+})
 
-// Debug log to check incoming props
-console.log('AbrechnungenHistory received props:', props.abrechnungen);
-
-// Local state
-const searchQuery = ref('');
-const sortField = ref('date');
-const sortAscending = ref(false);
-const currentPage = ref(1);
-const itemsPerPage = ref(10);
-const showDetailsModal = ref(false);
-const selectedAbrechnung = ref(null);
-const filterDocumentType = ref('');
-const filterStatus = ref('');
- // Show debug info by default to help troubleshoot
-
-// Document types and statuses for filters
-const documentTypes = computed(() => {
-  const types = new Set();
-  localAbrechnungen.value.forEach(item => {
-    if (item.documentType) {
-      types.add(item.documentType);
-    }
-  });
-  return Array.from(types).sort();
-});
-
-const statusTypes = computed(() => {
-  const statuses = new Set();
-  localAbrechnungen.value.forEach(item => {
-    if (item.status) {
-      statuses.add(item.status);
-    }
-  });
-  return Array.from(statuses).sort();
-});
-
-// Ensure abrechnungen is always an array and log its contents
-const localAbrechnungen = computed(() => {
-  if (!props.abrechnungen) {
-    console.warn('Abrechnungen prop is not defined');
-    return [];
-  }
+// Initialize store with correct environment
+onMounted(() => {
+  console.log('🔍 AbrechnungenHistory mounted with isProduction:', props.isProduction);
+  console.log('🔍 Current environment mode:', props.isProduction ? 'production' : 'test');
+  console.log('🔍 Props abrechnungen length:', props.abrechnungen?.length || 0);
+  console.log('🔍 Store abrechnungen length:', abrechnungStore.abrechnungen?.length || 0);
   
-  if (!Array.isArray(props.abrechnungen)) {
-    console.warn('Abrechnungen prop is not an array:', props.abrechnungen);
-    return [];
-  }
+  // Ensure the abrechnungStore data mode is synchronized with the component's isProduction prop
+  const currentMode = props.isProduction ? 'production' : 'test';
+  console.log('🔍 Setting abrechnungStore data mode to:', currentMode);
   
-  console.log('Local abrechnungen:', props.abrechnungen);
-  return props.abrechnungen.map(item => ({
-    ...item,
-    // Ensure all required fields have defaults
-    documentType: item.documentType || 'Rechnung',
-    status: item.status || 'Erfolgreich',
-    reference: item.reference || '',
-    amount: item.amount || '',
-    notes: item.notes || ''
-  }));
-});
-
-// Document type styling
-const documentTypeStyles = {
-  'Rechnung': 'bg-blue-100 text-blue-800',
-  'Gutschrift': 'bg-green-100 text-green-800',
-  'Stornorechnung': 'bg-red-100 text-red-800',
-  'PDF': 'bg-red-100 text-red-800',
-  'CSV': 'bg-green-100 text-green-800',
-  'XLS': 'bg-blue-100 text-blue-800',
-  'XML': 'bg-purple-100 text-purple-800',
-  'Papier': 'bg-gray-100 text-gray-800'
-};
-
-// Status styling
-const statusStyles = {
-  'Erfolgreich': 'bg-green-100 text-green-800',
-  'Fehlgeschlagen': 'bg-red-100 text-red-800',
-  'Ausstehend': 'bg-yellow-100 text-yellow-800',
-  'In Bearbeitung': 'bg-blue-100 text-blue-800'
-};
-
-const setSort = (field) => {
-  if (sortField.value === field) {
-    sortAscending.value = !sortAscending.value;
+  // Force the store to use the correct environment mode
+  abrechnungStore.switchEnvironmentAndFetchData(currentMode);
+  
+  console.log('🔍 After sync, store data mode:', abrechnungStore.dataMode);
+  console.log('🔍 After sync, store abrechnungen length:', abrechnungStore.abrechnungen?.length || 0);
+  
+  // Check if we already have data, if not fetch it
+  if (!abrechnungStore.abrechnungen || abrechnungStore.abrechnungen.length === 0) {
+    console.log('🔍 AbrechnungenHistory: No data found, fetching from Firestore...');
+    const mode = props.isProduction ? 'production' : 'test';
+    console.log('🔍 Switching to mode:', mode);
+    abrechnungStore.switchEnvironmentAndFetchData(mode)
+      .then(result => {
+        console.log('🔍 Data fetch completed, result:', result);
+        console.log('🔍 Store now has', abrechnungStore.abrechnungen?.length || 0, 'abrechnungen');
+      })
+      .catch(error => {
+        console.error('❌ Error fetching data:', error);
+      });
   } else {
-    sortField.value = field;
-    sortAscending.value = true;
+    console.log('🔍 AbrechnungenHistory: Data already loaded, using existing data');
   }
-};
+})
 
 // Computed properties
 const filteredAbrechnungen = computed(() => {
-  let result = [...localAbrechnungen.value];
-  
-  // Apply search query filter
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase();
-    result = result.filter(abrechnung => 
-      (abrechnung.insurer && abrechnung.insurer.toLowerCase().includes(query)) ||
-      (abrechnung.reference && abrechnung.reference.toString().toLowerCase().includes(query)) ||
-      (abrechnung.notes && abrechnung.notes.toLowerCase().includes(query)) ||
-      (abrechnung.amount && abrechnung.amount.toString().toLowerCase().includes(query))
-    );
-  }
-  
-  // Apply document type filter
-  if (filterDocumentType.value) {
-    result = result.filter(abrechnung => 
-      abrechnung.documentType === filterDocumentType.value
-    );
-  }
-  
-  // Apply status filter
-  if (filterStatus.value) {
-    result = result.filter(abrechnung => 
-      abrechnung.status === filterStatus.value
-    );
-  }
-  
-  return result;
-});
+  return abrechnungStore.filterAbrechnungen({
+    documentType: filterDocumentType.value,
+    status: filterStatus.value,
+    search: searchQuery.value
+  })
+})
 
 const sortedAbrechnungen = computed(() => {
-  return [...filteredAbrechnungen.value].sort((a, b) => {
-    let comparison = 0;
-    
-    if (sortField.value === 'date') {
-      // Use timestamp if available, otherwise parse the date string
-      const dateA = a.timestamp || new Date(a.date);
-      const dateB = b.timestamp || new Date(b.date);
-      comparison = dateA - dateB;
-    } else if (sortField.value === 'insurer') {
-      comparison = (a.insurer || '').localeCompare(b.insurer || '');
-    } else if (sortField.value === 'documentType') {
-      comparison = (a.documentType || '').localeCompare(b.documentType || '');
-    } else if (sortField.value === 'status') {
-      comparison = (a.status || '').localeCompare(b.status || '');
-    } else if (sortField.value === 'amount') {
-      // Convert amounts to numbers for proper comparison
-      const amountA = parseFloat(a.amount) || 0;
-      const amountB = parseFloat(b.amount) || 0;
-      comparison = amountA - amountB;
-    }
-    
-    return sortAscending.value ? comparison : -comparison;
-  });
-});
-
-// Pagination
-const totalPages = computed(() => {
-  return Math.max(1, Math.ceil(sortedAbrechnungen.value.length / itemsPerPage.value));
-});
+  return abrechnungStore.sortAbrechnungen(
+    filteredAbrechnungen.value,
+    sortField.value,
+    sortAscending.value
+  )
+})
 
 const paginatedAbrechnungen = computed(() => {
-  try {
-    if (!sortedAbrechnungen.value || !Array.isArray(sortedAbrechnungen.value)) {
-      console.warn('sortedAbrechnungen is not an array:', sortedAbrechnungen.value);
-      return [];
-    }
-    
-    const start = (currentPage.value - 1) * itemsPerPage.value;
-    const end = start + itemsPerPage.value;
-    console.log(`Pagination: page ${currentPage.value}, showing items ${start}-${end} of ${sortedAbrechnungen.value.length}`);
-    return sortedAbrechnungen.value.slice(start, end);
-  } catch (error) {
-    console.error('Error in paginatedAbrechnungen:', error);
-    return [];
-  }
-});
+  const start = (currentPage.value - 1) * itemsPerPage
+  const end = start + itemsPerPage
+  return sortedAbrechnungen.value.slice(start, end)
+})
+
+// Document types for filtering and display
+const documentTypes = {
+  INVOICE: { value: 'invoice', label: 'Rechnung', class: 'bg-blue-100 text-blue-800' },
+  REMINDER: { value: 'reminder', label: 'Mahnung', class: 'bg-yellow-100 text-yellow-800' },
+  STATEMENT: { value: 'statement', label: 'Kontoauszug', class: 'bg-green-100 text-green-800' },
+  OTHER: { value: 'other', label: 'Sonstiges', class: 'bg-gray-100 text-gray-800' }
+};
+
+// Status types for filtering and display
+const statusTypes = {
+  PAID: { value: 'paid', label: 'Bezahlt', class: 'bg-green-100 text-green-800' },
+  PENDING: { value: 'pending', label: 'Ausstehend', class: 'bg-yellow-100 text-yellow-800' },
+  OVERDUE: { value: 'overdue', label: 'Überfällig', class: 'bg-red-100 text-red-800' },
+  PROCESSING: { value: 'processing', label: 'In Bearbeitung', class: 'bg-blue-100 text-blue-800' }
+}
 
 const visiblePages = computed(() => {
   const pages = [];
-  const total = totalPages.value;
-  const current = currentPage.value;
-  
-  // Always show first page
-  pages.push(1);
-  
-  // Calculate range around current page
-  let start = Math.max(2, current - 1);
-  let end = Math.min(total - 1, current + 1);
-  
-  // Adjust if we're near the start or end
-  if (current <= 3) {
-    end = Math.min(4, total - 1);
-  } else if (current >= total - 2) {
-    start = Math.max(total - 3, 2);
+  for (let i = 1; i <= totalPages.value; i++) {
+    pages.push(i);
   }
-  
-  // Add ellipsis if needed
-  if (start > 2) pages.push('...');
-  
-  // Add middle pages
-  for (let i = start; i <= end; i++) {
-    if (i > 1 && i < total) pages.push(i);
-  }
-  
-  // Add ellipsis if needed
-  if (end < total - 1) pages.push('...');
-  
-  // Always show last page if there is more than one page
-  if (total > 1) pages.push(total);
-  
   return pages;
-});
+})
 
-const parseGermanDate = (dateString) => {
-  // Handle German date format: DD.MM.YYYY, HH:mm
-  const [datePart] = dateString.split(','); // Only take the date part
-  const [day, month, year] = datePart.split('.').map(Number);
-  
-  // Note: Month is 0-indexed in JavaScript Date
-  return new Date(year, month - 1, day);
-};
+const currentPage = ref(1)
+const itemsPerPage = 10
+const totalPages = computed(() => Math.ceil(filteredAbrechnungen.value.length / itemsPerPage))
 
-// Helper functions
-const formatDate = (dateString) => {
-  try {
-    let date;
-    
-    // Handle different date formats
-    if (typeof dateString === 'string') {
-      // Handle German format: DD.MM.YYYY, HH:mm
-      if (dateString.match(/^\d{2}\.\d{2}\.\d{4}(, \d{2}:\d{2})?$/)) {
-        date = parseGermanDate(dateString);
-      } 
-      // Handle ISO format
-      else if (dateString.match(/^\d{4}-\d{2}-\d{2}/)) {
-        date = parseISO(dateString);
-      }
-      // Handle other formats
-      else {
-        date = new Date(dateString);
-      }
-    } else if (dateString instanceof Date) {
-      date = dateString;
-    } else if (dateString && dateString.toDate) {
-      // Handle Firestore timestamp
-      date = dateString.toDate();
-    } else {
-      throw new Error('Unsupported date format');
-    }
-    
-    if (isNaN(date.getTime())) {
-      throw new Error('Invalid date');
-    }
-    
-    return format(date, 'dd.MM.yyyy');
-  } catch (e) {
-    console.warn('Failed to format date:', dateString, e);
-    return dateString || 'Ungültiges Datum';
+// Filter states
+const filterDocumentType = ref('')
+const filterStatus = ref('')
+const searchQuery = ref('')
+const sortField = ref('date')
+const sortAscending = ref(true)
+
+// UI state
+const isLoading = ref(false)
+
+// Methods
+const setSort = (field) => {
+  if (sortField.value === field) {
+    sortAscending.value = !sortAscending.value
+  } else {
+    sortField.value = field
+    sortAscending.value = true
   }
-};
-
-const formatTime = (dateString) => {
-  try {
-    let date;
-    
-    // Handle different date formats
-    if (typeof dateString === 'string') {
-      // Handle German format: DD.MM.YYYY, HH:mm
-      if (dateString.match(/, \d{2}:\d{2}$/)) {
-        const timePart = dateString.split(', ')[1];
-        return timePart;
-      }
-      // Handle ISO format
-      else if (dateString.match(/\d{2}:\d{2}(:\d{2})?/)) {
-        date = parseISO(dateString);
-      }
-      // Handle other formats
-      else {
-        date = new Date(dateString);
-      }
-    } else if (dateString instanceof Date) {
-      date = dateString;
-    } else if (dateString && dateString.toDate) {
-      // Handle Firestore timestamp
-      date = dateString.toDate();
-    } else {
-      return '';
-    }
-    
-    if (isNaN(date.getTime())) {
-      return '';
-    }
-    
-    return format(date, 'HH:mm');
-  } catch (e) {
-    console.warn('Failed to format time:', dateString, e);
-    return '';
-  }
-};
-
-const getDocumentType = (abrechnung) => {
-  return abrechnung.documentType || 'Rechnung';
-};
-
-const getDocumentTypeClass = (abrechnung) => {
-  const type = (abrechnung.documentType || '').toLowerCase();
-  switch (type) {
-    case 'gutschrift':
-      return 'bg-purple-100 text-purple-800';
-    case 'rechnung':
-      return 'bg-blue-100 text-blue-800';
-    case 'mahnung':
-      return 'bg-red-100 text-red-800';
-    case 'gutschriftsanfrage':
-      return 'bg-green-100 text-green-800';
-    default:
-      return 'bg-gray-100 text-gray-800';
-  }
-};
+}
 
 const getStatusText = (abrechnung) => {
-  if (!abrechnung.status) return 'Unbekannt';
   const statusMap = {
-    'success': 'Erfolgreich',
     'pending': 'Ausstehend',
-    'failed': 'Fehlgeschlagen',
-    'erfolgreich': 'Erfolgreich',
-    'ausstehend': 'Ausstehend',
-    'fehlgeschlagen': 'Fehlgeschlagen',
-    'bezahlt': 'Bezahlt',
-    'offen': 'Offen',
-    'storniert': 'Storniert',
-    'teilweise_bezahlt': 'Teilweise bezahlt'
-  };
-  return statusMap[abrechnung.status.toLowerCase()] || abrechnung.status;
-};
+    'completed': 'Abgeschlossen',
+    'error': 'Fehler'
+  }
+  return statusMap[abrechnung.status] || abrechnung.status
+}
 
-const getStatusClass = (abrechnung) => {
-  if (!abrechnung.status) return 'bg-gray-100 text-gray-800';
-  const status = abrechnung.status.toLowerCase();
-  
-  // Status that indicate success
-  if (['erfolgreich', 'success', 'bezahlt'].includes(status)) {
-    return 'bg-green-100 text-green-800';
+const getDocumentType = (abrechnung) => {
+  return abrechnung.documentType || 'Unbekannt'
+}
+
+const getDocumentTypeClass = (abrechnung) => {
+  const type = abrechnung.documentType || 'unknown'
+  const typeMap = {
+    'invoice': 'bg-blue-100 text-blue-800',
+    'remittance': 'bg-green-100 text-green-800',
+    'rejection': 'bg-red-100 text-red-800',
+    'unknown': 'bg-gray-100 text-gray-800'
   }
-  
-  // Status that indicate warning/attention needed
-  if (['ausstehend', 'pending', 'offen', 'teilweise_bezahlt'].includes(status)) {
-    return 'bg-yellow-100 text-yellow-800';
-  }
-  
-  // Status that indicate error/failure
-  if (['fehlgeschlagen', 'failed', 'storniert'].includes(status)) {
-    return 'bg-red-100 text-red-800';
-  }
-  
-  // Default for unknown status
-  return 'bg-gray-100 text-gray-800';
-};
+  return typeMap[type] || 'bg-gray-100 text-gray-800'
+}
+
+const formatDate = (date) => {
+  if (!date) return ''
+  return new Date(date).toLocaleDateString('de-DE', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  })
+}
 
 const showDetails = (abrechnung) => {
-  // Close any open modal first to ensure clean state
-  if (showDetailsModal.value) {
-    showDetailsModal.value = false;
-    // Small delay to allow the modal to close before reopening
-    setTimeout(() => {
-      selectedAbrechnung.value = { ...abrechnung };
-      showDetailsModal.value = true;
-      // Prevent body scroll when modal is open
-      document.body.style.overflow = 'hidden';
-    }, 50);
-  } else {
-    selectedAbrechnung.value = { ...abrechnung };
-    showDetailsModal.value = true;
-    // Prevent body scroll when modal is open
-    document.body.style.overflow = 'hidden';
-  }
-};
+  // Implement details view logic
+  console.log('Showing details for:', abrechnung)
+}
 
-const closeModal = () => {
-  showDetailsModal.value = false;
-  // Re-enable body scroll when modal is closed
-  document.body.style.overflow = 'auto';
-  // Small delay before clearing to allow transition
-  setTimeout(() => {
-    selectedAbrechnung.value = null;
-  }, 300);
-};
+const downloadDocument = (abrechnung) => {
+  if (!abrechnung.downloadUrl) return
+  window.open(abrechnung.downloadUrl, '_blank')
+}
 
-// Close modal when pressing escape
-const handleEscape = (e) => {
-  if (e.key === 'Escape' && showDetailsModal.value) {
-    closeModal();
-  }
-};
-
-onMounted(() => {
-  window.addEventListener('keydown', handleEscape);
-});
-
-onBeforeUnmount(() => {
-  window.removeEventListener('keydown', handleEscape);
-  document.body.style.overflow = 'auto';
-});
-
-const downloadDocument = async (abrechnung) => {
+const refreshData = async () => {
   try {
-    if (abrechnung.downloadUrl) {
-      // If it's a direct URL, open in new tab
-      window.open(abrechnung.downloadUrl, '_blank');
-    } else if (abrechnung.file) {
-      // If it's a file object, create a download
-      const url = URL.createObjectURL(abrechnung.file);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Abrechnung_${abrechnung.insurer}_${formatDate(abrechnung.date)}.${getDocumentType(abrechnung).toLowerCase()}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }
+    console.log('Refreshing Abrechnungen data from Firestore...');
+    isLoading.value = true;
+    
+    // Force a fresh fetch from Firestore using the current environment
+    await abrechnungStore.fetchAbrechnungen({ forceRefresh: true });
+    
+    console.log(`Refreshed data: ${abrechnungStore.abrechnungen.length} Abrechnungen loaded`);
+    
+    // Reset to first page
+    currentPage.value = 1;
+    
+    // Show success message
+    alert(`Daten erfolgreich aktualisiert. ${abrechnungStore.abrechnungen.length} Abrechnungen geladen.`);
   } catch (error) {
-    console.error('Error downloading document:', error);
-    alert('Fehler beim Herunterladen des Dokuments');
+    console.error('Error refreshing data:', error);
+    alert('Fehler beim Aktualisieren der Daten: ' + error.message);
+  } finally {
+    isLoading.value = false;
   }
 };
 
 const exportToCSV = () => {
   try {
-    const headers = [
-      'Datum',
-      'Uhrzeit',
-      'Versicherung',
-      'Dokumententyp',
-      'Status',
-      'Referenz',
-      'Betrag',
-      'Notizen',
-      'Dokument-URL'
-    ];
-    
     const csvContent = [
-      headers.join(';'),
-      ...sortedAbrechnungen.value.map(abrechnung => {
-        const date = abrechnung.timestamp ? new Date(abrechnung.timestamp) : parseDate(abrechnung.date);
-        const formattedDate = date ? format(date, 'dd.MM.yyyy') : '';
-        const formattedTime = date ? format(date, 'HH:mm') : '';
-        
+      // Header row
+      'Datum,Versicherung,Dokumententyp,Abrechnungsweg,Status',
+      // Data rows
+      ...filteredAbrechnungen.value.map(abrechnung => {
         return [
-          formattedDate,
-          formattedTime,
-          `"${abrechnung.insurer || ''}"`,
-          `"${getDocumentType(abrechnung)}"`,
-          `"${getStatusText(abrechnung)}"`,
-          `"${abrechnung.reference || ''}"`,
-          `"${abrechnung.amount ? parseFloat(abrechnung.amount).toFixed(2).replace('.', ',') : '0,00'}"`,
-          `"${(abrechnung.notes || '').replace(/"/g, '""')}"`,
-          `"${abrechnung.downloadUrl || ''}"`
-        ].join(';');
+          formatDate(abrechnung.date),
+          abrechnung.insurerName || abrechnung.insurer || 'Unbekannt',
+          abrechnung.documentType || 'Unbekannt',
+          abrechnung.abrechnungsweg || 'Unbekannt',
+          abrechnung.status || 'Unbekannt'
+        ].join(',')
       })
     ].join('\n');
-    
-    const blob = new Blob([
-      '\uFEFF', // UTF-8 BOM for Excel
-      csvContent
-    ], { type: 'text/csv;charset=utf-8;' });
-    
-    const today = format(new Date(), 'yyyy-MM-dd');
-    const filename = `Abrechnungen_${today}.csv`;
-    saveAs(blob, filename);
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', 'abrechnungen.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   } catch (error) {
     console.error('Error exporting to CSV:', error);
     alert('Fehler beim Exportieren der Daten: ' + error.message);
@@ -875,15 +610,11 @@ watch(searchQuery, () => {
   currentPage.value = 1;
 });
 
-// Watch for changes in abrechnungen prop
-watch(() => props.abrechnungen, (newVal) => {
-  console.log('abrechnungen prop changed:', newVal);
+// Watch for changes in store data to reset to first page
+watch(() => abrechnungStore.filteredAbrechnungen, () => {
+  currentPage.value = 1;
 }, { deep: true });
 
-// Watch for abrechnungen changes to reset to first page
-watch(() => props.abrechnungen, () => {
-  currentPage.value = 1;
-});
 </script>
 
 <style scoped>

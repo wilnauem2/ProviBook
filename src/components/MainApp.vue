@@ -90,7 +90,7 @@
             <EnvironmentUserInfo 
               v-if="!isProduction"
               :current-mode="dataMode"
-              @switch-mode="switchEnvironmentAndFetchData"
+              @switch-mode="toggleEnvironment"
             />
           </div>
           
@@ -178,11 +178,34 @@
           class="w-full"
           :class="{ 'filter blur-sm': selectedInsurer }"
         >
-          <div v-if="formattedAbrechnungen && formattedAbrechnungen.length > 0">
-            <AbrechnungenHistory :abrechnungen="formattedAbrechnungen" :is-production="isProduction" />
-          </div>
-          <div v-else class="bg-white shadow rounded-lg p-6">
-            <p class="text-gray-500 text-center">Keine Abrechnungen verfügbar.</p>
+
+          
+
+          
+          <!-- Always render AbrechnungenHistory and let it handle empty state -->
+          <AbrechnungenHistory 
+            :is-production="dataMode.value === 'production'"
+            :abrechnungen="abrechnungStore.abrechnungen"
+          />
+          
+
+          
+          <!-- Only show this when explicitly in test mode with no data -->
+          <div v-if="dataMode.value === 'test' && (!abrechnungStore.abrechnungen || abrechnungStore.abrechnungen.length === 0)" class="bg-white shadow rounded-lg p-6 mt-4">
+            <p class="text-gray-500 text-center mb-4">Keine Testdaten verfügbar. Erstellen Sie Testdaten mit dem Button unten.</p>
+            <div class="flex justify-center">
+              <button 
+                @click="createSampleData"
+                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                :disabled="isCreatingSampleData"
+              >
+                <svg v-if="isCreatingSampleData" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                {{ isCreatingSampleData ? 'Erstelle Testdaten...' : 'Testdaten erstellen' }}
+              </button>
+            </div>
           </div>
         </div>
         
@@ -226,10 +249,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { useInsurerStore } from '../stores/insurerStore';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { storeToRefs } from 'pinia';
-import { format } from 'date-fns';
+import { useInsurerStore } from '../stores/insurerStore';
+import { useAbrechnungStore } from '../stores/abrechnungStore';
+import { useAuthStore } from '../stores/auth';
+import { useRoute } from 'vue-router';
+import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
+import { db } from '../firebase';
 import { de } from 'date-fns/locale';
 
 // Component imports
@@ -247,6 +274,7 @@ import { calculateDaysOverdue } from '../utils/insurerUtils';
 
 // Initialize Pinia store
 const insurerStore = useInsurerStore();
+const abrechnungStore = useAbrechnungStore();
 
 // Destructure state and getters from the store
 // Use storeToRefs to keep reactivity
@@ -260,18 +288,54 @@ const {
 } = storeToRefs(insurerStore);
 
 // Destructure actions from the store
-const { switchEnvironmentAndFetchData, setSelectedInsurer, clearSelectedInsurer } = insurerStore;
+const { switchEnvironmentAndFetchData: switchInsurerEnvironment, setSelectedInsurer, clearSelectedInsurer } = insurerStore;
 
 // Local UI state
 const searchFilter = ref('');
 const activeTab = ref('main');
+const isCreatingSampleData = ref(false);
+
+// Watch for tab changes to load appropriate data
+watch(activeTab, (newTab) => {
+  if (newTab === 'history') {
+    console.log('🔄 Switching to Abrechnungen tab, fetching data...');
+    console.log('🔄 Current data mode:', dataMode.value);
+    console.log('🔄 Current abrechnungen data:', abrechnungStore.abrechnungen);
+    
+    // Explicitly refresh the data in the current mode
+    console.log('🔄 Calling abrechnungStore.switchEnvironmentAndFetchData with mode:', dataMode.value);
+    abrechnungStore.switchEnvironmentAndFetchData(dataMode.value)
+      .then(result => {
+        console.log('🔄 Data fetch completed. Result:', result);
+        console.log('🔄 Abrechnungen after fetch:', abrechnungStore.abrechnungen);
+        console.log('🔄 Abrechnungen length:', abrechnungStore.abrechnungen?.length || 0);
+      })
+      .catch(error => {
+        console.error('🔄 Error fetching abrechnungen data:', error);
+      });
+    
+    // Add a delayed check to see if data was loaded
+    setTimeout(() => {
+      console.log('🔄 Delayed check - Abrechnungen data after fetch:', abrechnungStore.abrechnungen);
+      console.log('🔄 Abrechnungen length:', abrechnungStore.abrechnungen?.length || 0);
+    }, 2000);
+  }
+});
 const sortOption = ref('name');
 const statusFilter = ref('all'); // 'all', 'warning', 'critical', 'on_time'
 const simulatedDate = ref(new Date()); // For the date simulator
 const isCreateInsurerModalVisible = ref(false);
 
 const isProduction = computed(() => {
-  return !!window.IS_PRODUCTION;
+  // Check if we're in production environment
+  // First check VITE environment variable
+  if (import.meta.env.VITE_ENV === 'production') return true;
+  
+  // Check window.IS_PRODUCTION flag
+  if (typeof window !== 'undefined' && window.IS_PRODUCTION) return true;
+  
+  // If neither condition is met, assume development environment
+  return false;
 });
 
 const gitBranch = computed(() => import.meta.env.VITE_GIT_BRANCH);
@@ -280,7 +344,12 @@ const gitBranch = computed(() => import.meta.env.VITE_GIT_BRANCH);
 // The store defaults to 'production', so this will load production data initially.
 onMounted(() => {
   console.log('MainApp component mounted. Fetching initial data...');
-  switchEnvironmentAndFetchData(dataMode.value);
+  switchInsurerEnvironment(dataMode.value);
+  
+  // Also fetch abrechnungen data if we're starting on the history tab
+  if (activeTab.value === 'history') {
+    abrechnungStore.switchEnvironmentAndFetchData(dataMode.value);
+  }
 });
 
 onUnmounted(() => {
@@ -361,6 +430,466 @@ const handleSaveInsurer = (insurerData) => {
   isCreateInsurerModalVisible.value = false;
 };
 
+// Create sample abrechnungen data for testing
+const createSampleData = async () => {
+  isCreatingSampleData.value = true;
+  try {
+    console.log('🔄 Creating sample abrechnungen data in insurer subcollections...');
+    
+    // Get all insurers first - use the correct collection based on environment mode
+    const insurersCollectionName = dataMode.value === 'test' ? 'insurers_test' : 'insurers';
+    console.log(`🔄 Creating sample data in ${dataMode.value} mode, using collection: ${insurersCollectionName}`);
+    
+    const insurersCollection = collection(db, insurersCollectionName);
+    let insurersSnapshot = await getDocs(insurersCollection);
+    
+    console.log(`🔄 Found ${insurersSnapshot.size} insurers in ${insurersCollectionName}`);
+    
+    // If we're in test mode and no insurers exist, create some test insurers first
+    if (insurersSnapshot.empty && dataMode.value === 'test') {
+      console.log('🔄 No test insurers found. Creating test insurers first...');
+      
+      // Create some test insurers
+      const testInsurerData = [
+        { name: 'Test Versicherung 1', type: 'Krankenversicherung', contactEmail: 'test1@example.com' },
+        { name: 'Test Versicherung 2', type: 'Haftpflichtversicherung', contactEmail: 'test2@example.com' }
+      ];
+      
+      for (const insurer of testInsurerData) {
+        const docRef = await addDoc(insurersCollection, insurer);
+        console.log(`🔄 Created test insurer with ID: ${docRef.id}`);
+      }
+      
+      // Re-fetch insurers
+      insurersSnapshot = await getDocs(insurersCollection);
+      console.log(`🔄 Now have ${insurersSnapshot.size} test insurers`);
+    }
+    
+    if (insurersSnapshot.empty) {
+      console.error('❌ No insurers found. Cannot create sample abrechnungen.');
+      alert('Keine Versicherer gefunden. Kann keine Beispieldaten erstellen.');
+      isCreatingSampleData.value = false;
+      return;
+    }
+    
+    console.log(`Found ${insurersSnapshot.size} insurers to create sample data for`);
+    
+    // Use different subcollection names based on environment
+    const invoicesSubcollection = dataMode.value === 'test' ? 'invoice-history-test' : 'invoice-history';
+    console.log(`Using subcollection: ${invoicesSubcollection} for environment: ${dataMode.value}`);
+    
+    // Sample data templates
+    const sampleDataTemplates = [
+      {
+        date: new Date().toISOString(),
+        documentType: 'invoice',
+        status: 'completed',
+        abrechnungsweg: 'Online',
+        reference: 'INV-2025-001',
+        amount: 1250.00
+      },
+      {
+        date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days ago
+        documentType: 'remittance',
+        status: 'pending',
+        abrechnungsweg: 'Email',
+        reference: 'REM-2025-002',
+        amount: 980.50
+      },
+      {
+        date: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(), // 14 days ago
+        documentType: 'invoice',
+        status: 'completed',
+        abrechnungsweg: 'Post',
+        reference: 'INV-2025-003',
+        amount: 750.25
+      },
+      {
+        date: new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString(), // 21 days ago
+        documentType: 'rejection',
+        status: 'error',
+        abrechnungsweg: 'Online',
+        reference: 'REJ-2025-004',
+        amount: 0.00
+      },
+      {
+        date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days ago
+        documentType: 'invoice',
+        status: 'completed',
+        abrechnungsweg: 'Email',
+        reference: 'INV-2025-005',
+        amount: 1500.75
+      }
+    ];
+    
+    // Distribute sample data across insurers
+    let dataIndex = 0;
+    let totalCreated = 0;
+    
+    for (const insurerDoc of insurersSnapshot.docs) {
+      const insurerData = insurerDoc.data();
+      const insurerName = insurerData.name || 'Unbekannt';
+      
+      // Get the invoices subcollection for this insurer - use the correct collection based on environment mode
+      const invoicesCollection = collection(db, insurersCollectionName, insurerDoc.id, invoicesSubcollection);
+      console.log(`Adding invoices to: ${insurersCollectionName}/${insurerDoc.id}/${invoicesSubcollection}`);
+      
+      // Add 1-2 sample invoices per insurer
+      const numToCreate = Math.min(2, sampleDataTemplates.length - dataIndex);
+      
+      for (let i = 0; i < numToCreate && dataIndex < sampleDataTemplates.length; i++) {
+        const template = sampleDataTemplates[dataIndex++];
+        
+        await addDoc(invoicesCollection, {
+          ...template,
+          insurerName: insurerName,
+          insurerId: insurerDoc.id,
+          createdAt: serverTimestamp()
+        });
+        
+        console.log(`Added sample abrechnung for ${insurerName}`);
+        totalCreated++;
+      }
+      
+      // Reset dataIndex if we've used all templates
+      if (dataIndex >= sampleDataTemplates.length) {
+        dataIndex = 0;
+      }
+    }
+    
+    console.log(`Sample data creation complete! Created ${totalCreated} invoices across ${insurersSnapshot.size} insurers.`);
+    
+    // Refresh the data
+    console.log('🔄 Refreshing data after sample creation...');
+    console.log('🔄 Current data mode:', dataMode.value);
+    
+    try {
+      // Force a refresh of the abrechnungen store
+      const result = await abrechnungStore.switchEnvironmentAndFetchData(dataMode.value);
+      console.log('🔄 Data refresh result:', result);
+      console.log('🔄 Abrechnungen after refresh:', abrechnungStore.abrechnungen?.length || 0);
+      
+      // Force a UI update
+      nextTick(() => {
+        console.log('🔄 After nextTick - Abrechnungen count:', abrechnungStore.abrechnungen?.length || 0);
+      });
+      
+      console.log('🔄 Sample data creation complete');
+      alert(`${totalCreated} Beispiel-Abrechnungen erstellt`);
+    } catch (refreshError) {
+      console.error('❌ Error refreshing data after sample creation:', refreshError);
+    }
+  } catch (error) {
+    console.error('❌ Error creating sample data:', error);
+    alert('Fehler beim Erstellen von Beispieldaten: ' + error.message);
+  } finally {
+    isCreatingSampleData.value = false;
+  }
+};
+
+// Toggle between production and test environment
+const toggleEnvironment = () => {
+  const newMode = dataMode.value === 'production' ? 'test' : 'production';
+  console.log(`Switching environment from ${dataMode.value} to ${newMode}`);
+  
+  // Update both stores with the new environment mode
+  switchInsurerEnvironment(newMode);
+  abrechnungStore.switchEnvironmentAndFetchData(newMode);
+  
+  // Log the change
+  console.log(`Environment switched to ${newMode}`);
+};
+
+// Refresh Abrechnungen data
+const refreshAbrechnungen = async () => {
+  console.log(`Refreshing Abrechnungen data in ${dataMode.value} mode...`);
+  await abrechnungStore.switchEnvironmentAndFetchData(dataMode.value);
+  console.log(`Abrechnungen data refreshed. Found ${abrechnungStore.abrechnungen.length} documents.`);
+};
+
+// Inspect Firestore collections for debugging
+const inspectFirestore = async () => {
+  try {
+    console.log('🔍 Inspecting Firestore collections...');
+    
+    // Check both production and test collections
+    const prodCollectionName = 'abrechnungen';
+    const testCollectionName = 'abrechnungen_test';
+    
+    console.log(`Checking production collection: ${prodCollectionName}`);
+    const prodSnapshot = await getDocs(collection(db, prodCollectionName));
+    console.log(`Production collection has ${prodSnapshot.size} documents`);
+    
+    prodSnapshot.forEach(doc => {
+      console.log('Production document:', { id: doc.id, ...doc.data() });
+    });
+    
+    console.log(`Checking test collection: ${testCollectionName}`);
+    const testSnapshot = await getDocs(collection(db, testCollectionName));
+    console.log(`Test collection has ${testSnapshot.size} documents`);
+    
+    testSnapshot.forEach(doc => {
+      console.log('Test document:', { id: doc.id, ...doc.data() });
+    });
+    
+    // Check current store state
+    console.log('Current abrechnungStore state:');
+    console.log('- dataMode:', abrechnungStore.dataMode);
+    console.log('- collections:', abrechnungStore.collections);
+    console.log('- abrechnungen:', abrechnungStore.abrechnungen);
+    console.log('- isLoading:', abrechnungStore.isLoading);
+    console.log('- error:', abrechnungStore.error);
+    
+    // Check insurers collection and invoices subcollections
+    console.log('Checking insurers collection and invoices subcollections...');
+    const insurersCollection = collection(db, 'insurers');
+    const insurersSnapshot = await getDocs(insurersCollection);
+    console.log(`Found ${insurersSnapshot.size} insurers`);
+    
+    let totalInvoices = 0;
+    for (const insurerDoc of insurersSnapshot.docs) {
+      const insurerData = insurerDoc.data();
+      const insurerName = insurerData.name || 'Unbekannt';
+      
+      const invoicesCollection = collection(db, 'insurers', insurerDoc.id, 'invoices');
+      const invoicesSnapshot = await getDocs(invoicesCollection);
+      
+      console.log(`Insurer ${insurerName} (${insurerDoc.id}) has ${invoicesSnapshot.size} invoices`);
+      totalInvoices += invoicesSnapshot.size;
+      
+      invoicesSnapshot.forEach(invoiceDoc => {
+        console.log(`Invoice for ${insurerName}:`, { id: invoiceDoc.id, ...invoiceDoc.data() });
+      });
+    }
+    
+    alert(`Firestore Inspektion abgeschlossen. Ergebnisse in der Konsole.\n\nProduktion: ${prodSnapshot.size} Dokumente\nTest: ${testSnapshot.size} Dokumente\nVersicherer: ${insurersSnapshot.size}\nRechnungen: ${totalInvoices}`);
+  } catch (error) {
+    console.error('Error inspecting Firestore:', error);
+    alert(`Fehler bei der Firestore-Inspektion: ${error.message}`);
+  }
+};
+
+// Test function to save an invoice directly to an insurer's subcollection
+const testSaveInvoice = async () => {
+  try {
+    console.log('🧪 Testing invoice saving functionality...');
+    
+    // Select a test insurer (first one in the list)
+    if (!insurersData.value || insurersData.value.length === 0) {
+      alert('No insurers available. Please load insurers first.');
+      return;
+    }
+    
+    const testInsurer = insurersData.value[0];
+    console.log(`Selected test insurer: ${testInsurer.name} (${testInsurer.id})`);
+    
+    // Create a test invoice
+    const testInvoice = {
+      date: new Date().toISOString(),
+      amount: 1000,
+      currency: 'EUR',
+      documentType: 'invoice',
+      status: 'completed',
+      description: 'Test invoice created via debug button',
+      testId: `test-${Date.now()}`
+    };
+    
+    console.log('Test invoice data:', testInvoice);
+    
+    // Method 1: Use the store function
+    console.log('Method 1: Using insurerStore.addInvoiceToHistory...');
+    const docId = await insurerStore.addInvoiceToHistory(testInsurer.id, testInvoice);
+    console.log(`Invoice saved with ID: ${docId}`);
+    
+    // Method 2: Direct Firestore access
+    console.log('Method 2: Direct Firestore access to invoice-history subcollection...');
+    const directCollectionRef = collection(db, 'insurers', testInsurer.id, 'invoice-history');
+    const directDocRef = await addDoc(directCollectionRef, {
+      ...testInvoice,
+      createdAt: serverTimestamp(),
+      method: 'direct'
+    });
+    console.log(`Direct invoice saved with ID: ${directDocRef.id}`);
+    
+    // Method 3: Using settlement_history (legacy name) to test if it's still being used
+    console.log('Method 3: Direct Firestore access to settlement_history subcollection...');
+    const legacyCollectionRef = collection(db, 'insurers', testInsurer.id, 'settlement_history');
+    const legacyDocRef = await addDoc(legacyCollectionRef, {
+      ...testInvoice,
+      createdAt: serverTimestamp(),
+      method: 'legacy'
+    });
+    console.log(`Legacy invoice saved with ID: ${legacyDocRef.id}`);
+    
+    // Check if the invoices were saved
+    await checkSubcollectionNames();
+    
+    alert(`Test invoices saved successfully for ${testInsurer.name}. Check console for details.`);
+  } catch (error) {
+    console.error('Error in testSaveInvoice:', error);
+    alert(`Error saving test invoice: ${error.message}`);
+  }
+};
+
+// Check subcollection names in Firestore
+const checkSubcollectionNames = async () => {
+  try {
+    console.log('🔍 Checking subcollection names in insurers collection...');
+    
+    // Get all insurers
+    const insurersCollection = collection(db, 'insurers');
+    const insurersSnapshot = await getDocs(insurersCollection);
+    
+    console.log(`Found ${insurersSnapshot.size} insurers`);
+    
+    // For each insurer, list all subcollections
+    for (const insurerDoc of insurersSnapshot.docs) {
+      const insurerData = insurerDoc.data();
+      const insurerName = insurerData.name || 'Unbekannt';
+      
+      console.log(`Checking subcollections for insurer: ${insurerName} (${insurerDoc.id})`);
+      
+      // Check for 'invoice-history' subcollection
+      const invoiceHistoryCollection = collection(db, 'insurers', insurerDoc.id, 'invoice-history');
+      const invoiceHistorySnapshot = await getDocs(invoiceHistoryCollection);
+      console.log(`- 'invoice-history' subcollection has ${invoiceHistorySnapshot.size} documents`);
+      
+      // Check for 'invoices' subcollection
+      const invoicesCollection = collection(db, 'insurers', insurerDoc.id, 'invoices');
+      const invoicesSnapshot = await getDocs(invoicesCollection);
+      console.log(`- 'invoices' subcollection has ${invoicesSnapshot.size} documents`);
+      
+      // Check for 'settlement_history' subcollection
+      const settlementHistoryCollection = collection(db, 'insurers', insurerDoc.id, 'settlement_history');
+      const settlementHistorySnapshot = await getDocs(settlementHistoryCollection);
+      console.log(`- 'settlement_history' subcollection has ${settlementHistorySnapshot.size} documents`);
+      
+      // Show sample documents from each subcollection
+      if (settlementHistorySnapshot.size > 0) {
+        console.log('Sample document from settlement_history:', settlementHistorySnapshot.docs[0].data());
+      }
+      if (invoicesSnapshot.size > 0) {
+        console.log('Sample document from invoices:', invoicesSnapshot.docs[0].data());
+      }
+      if (invoiceHistorySnapshot.size > 0) {
+        console.log('Sample document from invoice-history:', invoiceHistorySnapshot.docs[0].data());
+      }
+    }
+    
+    alert('Subcollection check complete. See console for details.');
+  } catch (error) {
+    console.error('Error checking subcollections:', error);
+    alert(`Error checking subcollections: ${error.message}`);
+  }
+};
+
+// Debug component state and data flow
+const debugComponentState = () => {
+  console.log('🔍 Debugging component state and data flow...');
+  
+  // Check MainApp.vue state
+  console.log('MainApp.vue state:');
+  console.log('- activeTab:', activeTab.value);
+  console.log('- dataMode:', dataMode.value);
+  console.log('- isProduction:', isProduction);
+  
+  // Check if abrechnungStore has data
+  console.log('AbrechnungStore state:');
+  console.log('- abrechnungen length:', abrechnungStore.abrechnungen?.length || 0);
+  console.log('- abrechnungen sample:', abrechnungStore.abrechnungen?.[0] || 'No data');
+  console.log('- dataMode:', abrechnungStore.dataMode);
+  
+  // Check AbrechnungenHistory component props and data
+  console.log('AbrechnungenHistory props:');
+  console.log('- :is-production prop value:', isProduction);
+  console.log('- :abrechnungen prop value length:', abrechnungStore.abrechnungen?.length || 0);
+  
+  // Check conditional rendering
+  const shouldShowAbrechnungen = abrechnungStore.abrechnungen && abrechnungStore.abrechnungen.length > 0;
+  console.log('Should show AbrechnungenHistory?', shouldShowAbrechnungen);
+  
+  // Force refresh data
+  console.log('Forcing data refresh...');
+  abrechnungStore.fetchAbrechnungen();
+  
+  alert(`Komponenten-Debug abgeschlossen. Ergebnisse in der Konsole.\n\nAbrechnungen: ${abrechnungStore.abrechnungen?.length || 0}\nAktiver Tab: ${activeTab.value}\nDaten-Modus: ${dataMode.value}`);
+};
+
+// Create a sample invoice in an insurer's subcollection
+const createSampleInvoice = async () => {
+  try {
+    console.log('🔍 Creating sample invoice in insurer subcollection...');
+    
+    // Find an insurer to add the invoice to - use the correct collection based on environment mode
+    const insurersCollectionName = dataMode.value === 'test' ? 'insurers_test' : 'insurers';
+    console.log(`Creating sample invoice in ${dataMode.value} mode, using collection: ${insurersCollectionName}`);
+    
+    const insurersCollection = collection(db, insurersCollectionName);
+    const insurersSnapshot = await getDocs(insurersCollection);
+    
+    if (insurersSnapshot.empty) {
+      console.error('No insurers found to add invoice to');
+      alert('Keine Versicherer gefunden, um eine Rechnung hinzuzufügen.');
+      return;
+    }
+    
+    // Use the first insurer
+    const insurerDoc = insurersSnapshot.docs[0];
+    const insurerData = insurerDoc.data();
+    const insurerName = insurerData.name || 'Unbekannt';
+    
+    console.log(`Adding sample invoice to insurer: ${insurerName} (${insurerDoc.id})`);
+    
+    // Create a sample invoice
+    const invoiceData = {
+      date: new Date().toISOString(),
+      documentType: 'invoice',
+      status: 'completed',
+      abrechnungsweg: 'Online',
+      reference: `INV-${Date.now()}`,
+      amount: 1250.00,
+      createdAt: serverTimestamp()
+    };
+    
+    // Add the invoice to the insurer's invoice-history subcollection - use the correct subcollection based on environment
+    const invoicesSubcollection = dataMode.value === 'test' ? 'invoice-history-test' : 'invoice-history';
+    const invoicesCollection = collection(db, insurersCollectionName, insurerDoc.id, invoicesSubcollection);
+    
+    console.log(`Adding invoice to: ${insurersCollectionName}/${insurerDoc.id}/${invoicesSubcollection}`);
+    const docRef = await addDoc(invoicesCollection, invoiceData);
+    
+    console.log(`Sample invoice created with ID: ${docRef.id}`);
+    alert(`Beispielrechnung für ${insurerName} erstellt. ID: ${docRef.id}`);
+    
+    // Refresh the data
+    console.log('Refreshing data after invoice creation...');
+    const result = await abrechnungStore.fetchAbrechnungen();
+    
+    // Verify the invoice was fetched
+    console.log('After refresh, abrechnungStore has', abrechnungStore.abrechnungen.length, 'invoices');
+    
+    // Check if our new invoice is in the results
+    const foundInvoice = abrechnungStore.abrechnungen.find(inv => inv.id === docRef.id);
+    console.log('Found our new invoice in results?', !!foundInvoice);
+    
+    if (foundInvoice) {
+      console.log('Invoice details:', foundInvoice);
+    } else {
+      console.warn('Could not find our new invoice in the results!');
+    }
+    
+    // Check AbrechnungenHistory component
+    console.log('AbrechnungenHistory should now display', abrechnungStore.abrechnungen.length, 'invoices');
+    
+    // Update alert with more info
+    alert(`Beispielrechnung für ${insurerName} erstellt. ID: ${docRef.id}\n\nRechnungen im Store: ${abrechnungStore.abrechnungen.length}\nUnsere neue Rechnung gefunden: ${!!foundInvoice}`);
+    
+  } catch (error) {
+    console.error('Error creating sample invoice:', error);
+    alert(`Fehler beim Erstellen der Beispielrechnung: ${error.message}`);
+  }
+};
+
 // Main filtered insurers list
 const filteredInsurers = computed(() => {
   if (!insurersData.value) return [];
@@ -404,12 +933,21 @@ const handleSettlementCompleted = async (event) => {
     // The new invoice object is the `last_invoice` from the event
     const newInvoice = {
       ...last_invoice,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      insurerName: insurer.name, // Add insurer name for better display in Abrechnungen
+      documentType: 'invoice',
+      status: 'completed'
     };
 
     // Save the new invoice to the insurer's invoice history in Firebase
-    await insurerStore.addInvoiceToHistory(insurer.id, newInvoice);
-    console.log(`New invoice for ${insurer.name} saved successfully.`);
+    const docRef = await insurerStore.addInvoiceToHistory(insurer.id, newInvoice);
+    console.log(`New invoice for ${insurer.name} saved successfully with ID: ${docRef.id}`);
+    
+    // Refresh the abrechnungen data if we're on the history tab
+    if (activeTab.value === 'history') {
+      console.log('Refreshing abrechnungen data after new invoice save...');
+      await abrechnungStore.fetchAbrechnungen();
+    }
 
     // Close the detail panel
     handleClearSelection();
@@ -423,106 +961,10 @@ const handleSettlementCompleted = async (event) => {
 
 
 
-// Format last invoices for the history view
+// Use real data from abrechnung store
 const formattedAbrechnungen = computed(() => {
-  const entries = [];
-  
-  if (!insurersData.value || !Array.isArray(insurersData.value)) {
-    console.warn('insurersData is not a valid array:', insurersData.value);
-    // Return sample data for development purposes
-    return getSampleAbrechnungen();
-  }
-  
-  console.log('Processing insurers for history:', insurersData.value);
-  
-  // Process insurers data for history
-  insurersData.value.forEach(insurer => {
-    if (!insurer || !insurer.name) {
-      return;
-    }
-    
-    const insurerInvoices = lastInvoices.value[insurer.id] || [];
-    
-    if (insurerInvoices && insurerInvoices.length > 0) {
-      insurerInvoices.forEach(invoice => {
-        entries.push({
-          insurerId: insurer.id,
-          insurerName: insurer.name,
-          date: invoice.date ? new Date(invoice.date) : null,
-          amount: invoice.amount,
-          note: invoice.note,
-          id: invoice.id,
-          abrechnungsweg: insurer.abrechnungsweg
-        });
-      });
-    }
-  });
-  
-  // If no real data is available, use sample data for development
-  if (entries.length === 0) {
-    console.log('No real abrechnungen data, using sample data');
-    return getSampleAbrechnungen();
-  }
-  
-  // Sort by date descending
-  return entries.sort((a, b) => {
-    if (!a.date) return 1;
-    if (!b.date) return -1;
-    return b.date.getTime() - a.date.getTime();
-  });
+  return abrechnungStore.abrechnungen;
 });
-
-// Helper function to generate sample abrechnungen for development
-const getSampleAbrechnungen = () => {
-  return [
-    {
-      insurerId: 'sample-1',
-      insurerName: 'Allianz',
-      date: new Date(2025, 5, 15), // June 15, 2025
-      amount: '1250.00',
-      abrechnungsweg: 'Portal',
-      status: 'Erfolgreich',
-      id: 'sample-invoice-1'
-    },
-    {
-      insurerId: 'sample-2',
-      insurerName: 'AXA',
-      date: new Date(2025, 5, 10), // June 10, 2025
-      amount: '980.50',
-      abrechnungsweg: 'E-Mail',
-      status: 'Erfolgreich',
-      id: 'sample-invoice-2'
-    },
-    {
-      insurerId: 'sample-3',
-      insurerName: 'Generali',
-      date: new Date(2025, 4, 28), // May 28, 2025
-      amount: '1560.75',
-      abrechnungsweg: 'E-Mail',
-      status: 'Bezahlt',
-      id: 'sample-invoice-3'
-    },
-    {
-      insurerId: 'sample-4',
-      insurerName: 'HUK-Coburg',
-      date: new Date(2025, 4, 20), // May 20, 2025
-      amount: '2100.00',
-      abrechnungsweg: 'Portal',
-      documentType: 'Rechnung',
-      status: 'Fehlgeschlagen',
-      id: 'sample-invoice-4'
-    },
-    {
-      insurerId: 'sample-5',
-      insurerName: 'ERGO',
-      date: new Date(2025, 4, 5), // May 5, 2025
-      amount: '750.25',
-      documentType: 'Gutschrift',
-      status: 'Erfolgreich',
-      id: 'sample-invoice-5'
-    }
-  ];
-};
 
 // Debug function to check insurer data and overdue status
 const debugInsurerStatus = () => {

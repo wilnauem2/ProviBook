@@ -8,7 +8,32 @@
     <div class="p-6">
         <!-- Header -->
         <div class="mb-6 border-b pb-4 border-gray-200">
-          <h2 class="text-2xl font-bold text-gray-900">{{ insurer.name }}</h2>
+          <div class="flex items-center justify-between">
+            <h2 v-if="isEditing && editField === 'name'" class="text-2xl font-bold text-gray-900 flex-grow">
+              <input 
+                v-model="editedName" 
+                class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Versicherer Name"
+              />
+              <div class="flex justify-end mt-3 space-x-2">
+                <button @click="cancelEditing()" class="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Abbrechen</button>
+                <button @click="saveField('name')" class="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700">Speichern</button>
+              </div>
+            </h2>
+            <div v-else class="flex items-center w-full">
+              <div class="flex items-center flex-grow">
+                <h2 class="text-2xl font-bold text-gray-900">{{ insurer.name }}</h2>
+                <button 
+                  @click="startEditing('name')" 
+                  class="text-blue-600 hover:text-blue-800 focus:outline-none ml-2"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
           <div class="flex items-center gap-3 mt-2">
             <div class="w-3 h-3 rounded-full" :class="getStatusColor(insurer, currentDate)"></div>
             <span class="text-sm font-medium" :class="getStatusColor(insurer, currentDate).replace('bg-', 'text-').replace('-500', '-600')">
@@ -21,31 +46,111 @@
         <div class="mb-6">
           <h3 class="text-lg font-semibold text-gray-900 mb-4">Abrechnungsdetails</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div v-if="insurer.turnus" class="p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <div class="flex items-center mb-2">
-                <svg class="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                <span class="font-medium text-blue-800">Turnus</span>
+            <!-- Turnus Field -->
+            <div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center">
+                  <svg class="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  <span class="font-medium text-blue-800">Turnus</span>
+                </div>
+                <button 
+                  v-if="!isEditing" 
+                  @click="startEditing('turnus')" 
+                  class="text-blue-600 hover:text-blue-800 focus:outline-none"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                </button>
               </div>
-              <p class="text-gray-600">{{ formattedTurnus }}</p>
+              <div v-if="isEditing && editField === 'turnus'">
+                <select 
+                  v-model="editedTurnus" 
+                  class="w-full p-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="wöchentlich">Wöchentlich</option>
+                  <option value="alle 2 Wochen">Alle 2 Wochen</option>
+                  <option value="monatlich">Monatlich</option>
+                </select>
+                <div class="flex justify-end mt-3 space-x-2">
+                  <button @click="cancelEditing()" class="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Abbrechen</button>
+                  <button @click="saveField('turnus')" class="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700">Speichern</button>
+                </div>
+              </div>
+              <p v-else class="text-gray-600">{{ formattedTurnus }}</p>
             </div>
-            <div v-if="insurer.bezugsweg" class="p-4 bg-teal-50 rounded-lg border border-teal-200">
-              <div class="flex items-center mb-2">
-                <svg class="w-5 h-5 text-teal-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                <span class="font-medium text-teal-800">Standard-Dokumentenweg</span>
+            
+            <!-- Standard-Dokumentenweg Field -->
+            <div class="p-4 bg-teal-50 rounded-lg border border-teal-200">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center">
+                  <svg class="w-5 h-5 text-teal-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                  <span class="font-medium text-teal-800">Standard-Dokumentenweg</span>
+                </div>
+                <button 
+                  v-if="!isEditing" 
+                  @click="startEditing('bezugsweg')" 
+                  class="text-teal-600 hover:text-teal-800 focus:outline-none"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                </button>
               </div>
-              <p class="text-gray-600">{{ insurer.bezugsweg }}</p>
+              <div v-if="isEditing && editField === 'bezugsweg'">
+                <select 
+                  v-model="editedBezugsweg" 
+                  class="w-full p-2 border border-teal-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
+                >
+                  <option value="E-Mail">E-Mail</option>
+                  <option value="Maklerportal">Maklerportal</option>
+                  <option value="Post">Post</option>
+                  <option value="Bipro">Bipro</option>
+                </select>
+                <div class="flex justify-end mt-3 space-x-2">
+                  <button @click="cancelEditing()" class="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Abbrechen</button>
+                  <button @click="saveField('bezugsweg')" class="px-3 py-1 text-sm bg-teal-600 text-white rounded-md hover:bg-teal-700">Speichern</button>
+                </div>
+              </div>
+              <p v-else class="text-gray-600">{{ insurer.bezugsweg || 'Nicht angegeben' }}</p>
             </div>
-            <div v-if="insurer.dokumentenart && insurer.dokumentenart.length > 0" class="p-4 bg-indigo-50 rounded-lg border border-indigo-200 md:col-span-2">
-              <div class="flex items-center mb-3">
-                <svg class="w-5 h-5 text-indigo-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                <span class="font-medium text-indigo-800">Standard-Formate</span>
+            
+            <!-- Standard-Formate Field -->
+            <div class="p-4 bg-indigo-50 rounded-lg border border-indigo-200 md:col-span-2">
+              <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center">
+                  <svg class="w-5 h-5 text-indigo-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                  <span class="font-medium text-indigo-800">Standard-Formate</span>
+                </div>
+                <button 
+                  v-if="!isEditing" 
+                  @click="startEditing('dokumentenart')" 
+                  class="text-indigo-600 hover:text-indigo-800 focus:outline-none"
+                >
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                </button>
               </div>
-              <div class="flex flex-wrap gap-2">
-                <span v-if="insurer.dokumentenart.includes('CSV')" class="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium bg-blue-100 text-blue-800"><svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>CSV</span>
-                <span v-if="insurer.dokumentenart.includes('PDF')" class="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium bg-red-100 text-red-800"><svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0112.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>PDF</span>
-                <span v-if="insurer.dokumentenart.includes('XLS')" class="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium bg-green-100 text-green-800"><svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>Excel</span>
-                <span v-if="insurer.dokumentenart.includes('XML')" class="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium bg-purple-100 text-purple-800"><svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg>XML</span>
-                <span v-if="insurer.dokumentenart.includes('Papier')" class="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium bg-gray-100 text-gray-800"><svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>Papier</span>
+              <div v-if="isEditing && editField === 'dokumentenart'">
+                <div class="flex flex-wrap gap-3">
+                  <div v-for="format in availableFormats" :key="format" class="flex items-center">
+                    <input 
+                      type="checkbox" 
+                      :id="`format-${format}`" 
+                      :value="format" 
+                      v-model="editedDokumentenart"
+                      class="w-4 h-4 text-indigo-600 border-indigo-300 rounded focus:ring-indigo-500"
+                    >
+                    <label :for="`format-${format}`" class="ml-2 text-sm text-gray-700">{{ format }}</label>
+                  </div>
+                </div>
+                <div class="flex justify-end mt-3 space-x-2">
+                  <button @click="cancelEditing()" class="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Abbrechen</button>
+                  <button @click="saveField('dokumentenart')" class="px-3 py-1 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Speichern</button>
+                </div>
+              </div>
+              <div v-else class="flex flex-wrap gap-2">
+                <span v-if="!insurer.dokumentenart || insurer.dokumentenart.length === 0 || filteredFormats.length === 0" class="text-gray-500">Keine Formate angegeben</span>
+                <span v-else v-for="format in filteredFormats" :key="format" 
+                  :class="getFormatClass(format)"
+                  class="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium">
+                  {{ format }}
+                </span>
               </div>
             </div>
           </div>
@@ -56,7 +161,9 @@
           <h3 class="text-lg font-semibold text-gray-900 mb-4">Letzte Abrechnung</h3>
           <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
             <div class="flex items-center mb-2">
-              <svg class="w-5 h-5 text-gray-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+              <svg class="w-5 h-5 text-gray-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
               <span class="font-medium text-gray-800">Datum</span>
             </div>
             <p class="text-gray-600">{{ formattedLastInvoice }}</p>
@@ -119,6 +226,38 @@ import { getStatusColor, getStatusText } from '../utils/insurerUtils';
 const insurerStore = useInsurerStore();
 const settlementHistory = computed(() => insurerStore.settlementHistory);
 
+// Edit mode state
+const isEditing = ref(false);
+const editField = ref(null);
+const editedName = ref('');
+const editedTurnus = ref('');
+const editedBezugsweg = ref('');
+const editedDokumentenart = ref([]);
+const availableFormats = ['CSV', 'PDF', 'Paper', 'XLS', 'XML', 'Papier'];
+
+// Format helpers
+const getFormatClass = (format) => {
+  switch(format) {
+    case 'CSV': return 'bg-blue-100 text-blue-800';
+    case 'PDF': return 'bg-red-100 text-red-800';
+    case 'Paper': return 'bg-yellow-100 text-yellow-800';
+    case 'XLS': return 'bg-green-100 text-green-800';
+    case 'XML': return 'bg-purple-100 text-purple-800';
+    case 'Papier': return 'bg-gray-100 text-gray-800';
+    default: return 'bg-gray-100 text-gray-800';
+  }
+};
+
+const filteredFormats = computed(() => {
+  if (!props.insurer || !props.insurer.dokumentenart) return [];
+  
+  // Filter out single letters and only keep valid format names
+  const validFormats = ['CSV', 'PDF', 'Paper', 'XLS', 'XML', 'Papier'];
+  return props.insurer.dokumentenart.filter(format => 
+    validFormats.includes(format) && format.length > 1
+  );
+});
+
 const formattedTurnus = computed(() => {
   if (props.insurer && typeof props.insurer.turnus === 'number') {
     return `${props.insurer.turnus} Tage`;
@@ -130,6 +269,63 @@ const showDatePicker = ref(false);
 const selectedDate = ref('');
 const settlementNote = ref('');
 const dateInputRef = ref(null);
+
+// Edit mode functions
+const startEditing = (field) => {
+  isEditing.value = true;
+  editField.value = field;
+  
+  // Initialize edit values from current insurer data
+  if (field === 'name') {
+    editedName.value = props.insurer.name || '';
+  } else if (field === 'turnus') {
+    editedTurnus.value = props.insurer.turnus || 'monatlich';
+  } else if (field === 'bezugsweg') {
+    editedBezugsweg.value = props.insurer.bezugsweg || 'E-Mail';
+  } else if (field === 'dokumentenart') {
+    editedDokumentenart.value = props.insurer.dokumentenart ? [...props.insurer.dokumentenart] : [];
+  }
+};
+
+const cancelEditing = () => {
+  isEditing.value = false;
+  editField.value = null;
+};
+
+const saveField = async (field) => {
+  if (!props.isProductionBranch) console.log(`Saving ${field} field`);
+  
+  try {
+    let updateData = {};
+    
+    if (field === 'name') {
+      updateData = { name: editedName.value };
+    } else if (field === 'turnus') {
+      updateData = { turnus: editedTurnus.value };
+    } else if (field === 'bezugsweg') {
+      updateData = { bezugsweg: editedBezugsweg.value };
+    } else if (field === 'dokumentenart') {
+      updateData = { dokumentenart: editedDokumentenart.value };
+    }
+    
+    if (Object.keys(updateData).length > 0) {
+      if (!props.isProductionBranch) console.log('Update data:', updateData);
+      
+      const success = await insurerStore.updateInsurer(props.insurer.id, updateData);
+      
+      if (success) {
+        if (!props.isProductionBranch) console.log(`${field} updated successfully`);
+      } else {
+        if (!props.isProductionBranch) console.error(`Failed to update ${field}`);
+      }
+    }
+  } catch (error) {
+    if (!props.isProductionBranch) console.error(`Error saving ${field}:`, error);
+  } finally {
+    isEditing.value = false;
+    editField.value = null;
+  }
+};
 
 // Set initial date to today and log insurer data when component mounts
 onMounted(() => {

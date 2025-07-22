@@ -266,6 +266,44 @@ export const useInsurerStore = defineStore('insurer', () => {
     console.log('-------------------------');
   };
 
+  const updateInsurer = async (insurerId, updateData) => {
+    isLoading.value = true;
+    error.value = null;
+    try {
+      const insurerCollectionName = collections.value.insurers;
+      const insurerDocRef = doc(db, insurerCollectionName, insurerId);
+      
+      // Update the document in Firestore
+      await updateDoc(insurerDocRef, updateData);
+      
+      // Update the local state
+      const insurerIndex = insurers.value.findIndex(ins => ins.id === insurerId);
+      if (insurerIndex !== -1) {
+        insurers.value[insurerIndex] = {
+          ...insurers.value[insurerIndex],
+          ...updateData
+        };
+      }
+      
+      // If this is the selected insurer, update it too
+      if (selectedInsurer.value && selectedInsurer.value.id === insurerId) {
+        selectedInsurer.value = {
+          ...selectedInsurer.value,
+          ...updateData
+        };
+      }
+      
+      console.log(`Insurer ${insurerId} updated successfully`);
+      return true;
+    } catch (err) {
+      console.error('Error updating insurer:', err);
+      error.value = err.message;
+      return false;
+    } finally {
+      isLoading.value = false;
+    }
+  };
+
   return {
     // State
     insurers,
@@ -287,6 +325,7 @@ export const useInsurerStore = defineStore('insurer', () => {
     fetchSettlementHistory,
     addInvoiceToHistory,
     addInsurer,
+    updateInsurer,
     testFirestoreConnection,
     debugStoreState
   };

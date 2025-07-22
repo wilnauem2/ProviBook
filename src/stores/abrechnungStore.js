@@ -1,7 +1,13 @@
-import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
-import { getFirestore, collection, getDocs, query, orderBy, limit, startAfter, endBefore, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase';
+import { defineStore } from 'pinia'
+import { ref, computed } from 'vue'
+import { collection, getDocs, query, orderBy, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../firebase'
+
+// Cache to store fetched data and reduce Firestore reads
+const dataCache = {
+  production: null,
+  test: null
+}
 
 export const useAbrechnungStore = defineStore('abrechnung', () => {
   // State
@@ -17,7 +23,8 @@ export const useAbrechnungStore = defineStore('abrechnung', () => {
   const collections = computed(() => {
     const isProd = dataMode.value === 'production';
     return {
-      abrechnungen: isProd ? 'abrechnungen' : 'abrechnungen_test'
+      abrechnungen: isProd ? 'abrechnungen' : 'abrechnungen_test',
+      insurers: isProd ? 'insurers' : 'insurers_test'
     };
   });
 
@@ -39,66 +46,98 @@ export const useAbrechnungStore = defineStore('abrechnung', () => {
   };
 
   const fetchAbrechnungen = async (options = {}) => {
+    console.log('🔄 SIMPLIFIED: Starting fetchAbrechnungen with options:', options);
     isLoading.value = true;
     error.value = null;
     
+    // Check cache first unless forceRefresh is true
+    if (!options.forceRefresh && dataCache[dataMode.value]) {
+      console.log('🔄 SIMPLIFIED: Using cached data for', dataMode.value);
+      abrechnungen.value = dataCache[dataMode.value];
+      totalDocuments.value = abrechnungen.value.length;
+      isLoading.value = false;
+      return abrechnungen.value;
+    }
+    
     // Clear existing data if forceRefresh is true
     if (options.forceRefresh) {
+      console.log('🔄 SIMPLIFIED: Force refresh requested, clearing existing data');
       abrechnungen.value = [];
       lastDocument.value = null;
       totalDocuments.value = 0;
+      // Also clear the cache
+      dataCache[dataMode.value] = null;
     }
     
     try {
-      const { pageSize = 50, direction = 'next', filterOptions = {}, page = 0 } = options;
-      
-      // Store the current page for pagination
-      currentPage.value = page;
-      
-      // Array to hold all invoices
-      const allInvoices = [];
-      
-      // Get all insurers first
+      // Get collection names based on environment
       const insurersCollectionName = dataMode.value === 'test' ? 'insurers_test' : 'insurers';
-      const insurersCollection = collection(db, insurersCollectionName);
+      console.log(`🔄 SIMPLIFIED: Using insurers collection: ${insurersCollectionName}`);
       
       // Always use 'invoice-history' subcollection regardless of environment
-      // This is because the actual data is stored in 'invoice-history' even in test mode
       const invoicesSubcollection = 'invoice-history';
+      console.log(`🔄 SIMPLIFIED: Using invoices subcollection: ${invoicesSubcollection}`);
       
+      // Get all insurers
+      console.log(`🔄 SIMPLIFIED: Fetching insurers from: ${insurersCollectionName}`);
+      const insurersCollection = collection(db, insurersCollectionName);
       const insurersSnapshot = await getDocs(insurersCollection);
       
-      // Fetch invoices from each insurer's subcollection
+      console.log(`🔄 SIMPLIFIED: Found ${insurersSnapshot.docs.length} insurers`);
+      
+      // Prepare to collect all invoices
+      const allInvoices = [];
+      
+      // Process each insurer sequentially to avoid any potential issues with parallel queries
       for (const insurerDoc of insurersSnapshot.docs) {
-        const insurerData = insurerDoc.data();
-        const insurerName = insurerData.name || 'Unbekannt';
+        const insurerId = insurerDoc.id;
+        const insurerName = insurerDoc.data().name || 'Unbekannt';
         
-        // Get the invoices subcollection for this insurer based on environment
-        const invoicesCollection = collection(db, insurersCollectionName, insurerDoc.id, invoicesSubcollection);
-        const invoicesSnapshot = await getDocs(invoicesCollection);
+        const path = `${insurersCollectionName}/${insurerId}/${invoicesSubcollection}`;
+        console.log(`🔄 SIMPLIFIED: Fetching invoices from path: ${path}`);
         
-        // Add each invoice to our array with the insurer name
-        invoicesSnapshot.forEach(invoiceDoc => {
-          const invoiceData = invoiceDoc.data();
-          allInvoices.push({
-            id: invoiceDoc.id,
-            insurerId: insurerDoc.id,
-            insurerName: insurerName,
-            ...invoiceData
+        try {
+          // Create a simple collection reference without any query operators
+          const invoicesCollection = collection(db, insurersCollectionName, insurerId, invoicesSubcollection);
+          const invoicesSnapshot = await getDocs(invoicesCollection);
+          
+          console.log(`🔄 SIMPLIFIED: Found ${invoicesSnapshot.docs.length} invoices for insurer ${insurerName}`);
+          
+          // Process invoices for this insurer
+          invoicesSnapshot.docs.forEach(doc => {
+            const invoiceData = doc.data();
+            allInvoices.push({
+              id: doc.id,
+              insurerId: insurerId,
+              insurerName: insurerName,
+              ...invoiceData
+            });
           });
-        });
+        } catch (innerError) {
+          console.error(`🔄 SIMPLIFIED: Error fetching invoices for insurer ${insurerId}:`, innerError);
+          // Continue with the next insurer even if this one fails
+        }
       }
       
-      // Sort all invoices by date (newest first)
+      console.log(`🔄 SIMPLIFIED: Total invoices collected: ${allInvoices.length}`);
+      
+      // Sort all invoices by date (newest first) - client-side sort
       allInvoices.sort((a, b) => {
-        return new Date(b.date) - new Date(a.date);
+        const dateA = a.date?.seconds ? new Date(a.date.seconds * 1000) : new Date(a.date || 0);
+        const dateB = b.date?.seconds ? new Date(b.date.seconds * 1000) : new Date(b.date || 0);
+        return dateB - dateA;
       });
       
       // Update the store with all invoices
       abrechnungen.value = allInvoices;
       totalDocuments.value = allInvoices.length;
       
-      // Apply client-side pagination if specified
+      // Store in cache to reduce future Firestore reads
+      console.log('🔄 SIMPLIFIED: Storing data in cache for', dataMode.value);
+      dataCache[dataMode.value] = [...allInvoices]; // Store a copy to avoid reference issues
+      
+      // Apply client-side pagination if needed
+      const { page = 0, pageSize = 50 } = options;
       if (page > 0 && pageSize > 0) {
         const start = page * pageSize;
         const end = start + pageSize;
@@ -106,8 +145,10 @@ export const useAbrechnungStore = defineStore('abrechnung', () => {
         abrechnungen.value = paginatedInvoices;
       }
       
+      console.log(`🔄 SIMPLIFIED: Finished processing ${allInvoices.length} invoices`);
       return abrechnungen.value;
     } catch (err) {
+      console.error('🔄 SIMPLIFIED: Error in main fetchAbrechnungen function:', err);
       error.value = err.message;
       return [];
     } finally {

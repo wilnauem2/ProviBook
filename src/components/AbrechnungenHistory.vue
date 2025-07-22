@@ -409,25 +409,20 @@ onMounted(() => {
   console.log('🔍 Current environment mode:', props.isProduction ? 'production' : 'test');
   console.log('🔍 Props abrechnungen length:', props.abrechnungen?.length || 0);
   console.log('🔍 Store abrechnungen length:', abrechnungStore.abrechnungen?.length || 0);
+  console.log('🔍 Current abrechnungStore dataMode:', abrechnungStore.dataMode);
   
-  // Ensure the abrechnungStore data mode is synchronized with the component's isProduction prop
-  const currentMode = props.isProduction ? 'production' : 'test';
-  console.log('🔍 Setting abrechnungStore data mode to:', currentMode);
+  // IMPORTANT: Do NOT override the dataMode that was set in MainApp.vue
+  // We'll use the existing dataMode from the store instead of forcing it based on isProduction
   
-  // Force the store to use the correct environment mode
-  abrechnungStore.switchEnvironmentAndFetchData(currentMode);
-  
-  console.log('🔍 After sync, store data mode:', abrechnungStore.dataMode);
-  console.log('🔍 After sync, store abrechnungen length:', abrechnungStore.abrechnungen?.length || 0);
-  
-  // Check if we already have data, if not fetch it
+  // Only fetch data if we don't have any yet
   if (!abrechnungStore.abrechnungen || abrechnungStore.abrechnungen.length === 0) {
     console.log('🔍 AbrechnungenHistory: No data found, fetching from Firestore...');
-    const mode = props.isProduction ? 'production' : 'test';
-    console.log('🔍 Switching to mode:', mode);
-    abrechnungStore.switchEnvironmentAndFetchData(mode)
+    console.log('🔍 Using existing dataMode:', abrechnungStore.dataMode);
+    
+    // Use the current dataMode from the store
+    abrechnungStore.fetchAbrechnungen({ forceRefresh: true })
       .then(result => {
-        console.log('🔍 Data fetch completed, result:', result);
+        console.log('🔍 Data fetch completed');
         console.log('🔍 Store now has', abrechnungStore.abrechnungen?.length || 0, 'abrechnungen');
       })
       .catch(error => {

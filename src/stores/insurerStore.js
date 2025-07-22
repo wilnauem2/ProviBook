@@ -56,8 +56,12 @@ export const useInsurerStore = defineStore('insurer', () => {
         // For each insurer, get the most recent invoice from their invoice-history subcollection
         for (const insurer of insurers.value) {
           try {
-            const invoicesCollectionRef = collection(db, insurerCollectionName, insurer.id, 'invoice-history');
+            // Use the correct subcollection name based on environment
+            const invoicesSubcollection = dataMode.value === 'test' ? 'invoice-history-test' : 'invoice-history';
+            const invoicesCollectionRef = collection(db, insurerCollectionName, insurer.id, invoicesSubcollection);
             const invoicesSnapshot = await getDocs(invoicesCollectionRef);
+            
+            console.log(`Fetching last invoices from: ${insurerCollectionName}/${insurer.id}/${invoicesSubcollection}`);
             
             if (!invoicesSnapshot.empty) {
               // Get all invoices and sort by date (newest first)
@@ -138,11 +142,12 @@ export const useInsurerStore = defineStore('insurer', () => {
   const fetchSettlementHistory = async (insurerId) => {
     isLoading.value = true;
     try {
-      console.log(`Fetching invoices for insurer ${insurerId} from 'invoice-history' subcollection...`);
+      // Use the correct subcollection name based on environment
+      const invoicesSubcollection = dataMode.value === 'test' ? 'invoice-history-test' : 'invoice-history';
+      console.log(`Fetching invoices for insurer ${insurerId} from '${invoicesSubcollection}' subcollection...`);
       
-      // Use the standardized 'invoice-history' subcollection
-      // This matches the structure used by fetchAbrechnungen in abrechnungStore
-      const invoicesCollectionRef = collection(db, collections.value.insurers, insurerId, 'invoice-history');
+      // Use the correct subcollection based on environment
+      const invoicesCollectionRef = collection(db, collections.value.insurers, insurerId, invoicesSubcollection);
       const invoicesSnapshot = await getDocs(invoicesCollectionRef);
       
       // Map the documents and sort by date
@@ -201,9 +206,12 @@ export const useInsurerStore = defineStore('insurer', () => {
         throw new Error('Invalid invoice data provided');
       }
       
-      // Save to the standardized 'invoice-history' subcollection
-      // This matches the structure used by fetchAbrechnungen in abrechnungStore
-      const invoicesCollectionRef = collection(db, collections.value.insurers, insurerId, 'invoice-history');
+      // Use the correct subcollection name based on environment
+      const invoicesSubcollection = dataMode.value === 'test' ? 'invoice-history-test' : 'invoice-history';
+      console.log(`Adding invoice to: ${collections.value.insurers}/${insurerId}/${invoicesSubcollection}`);
+      
+      // Save to the correct subcollection based on environment
+      const invoicesCollectionRef = collection(db, collections.value.insurers, insurerId, invoicesSubcollection);
       
       // Add additional fields needed for Abrechnungen display
       const invoiceToSave = {

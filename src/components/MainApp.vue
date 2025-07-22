@@ -188,6 +188,13 @@
             :abrechnungen="abrechnungStore.abrechnungen"
           />
           
+          <!-- Debug info -->
+          <div v-if="!isProduction" class="bg-white shadow rounded-lg p-4 mt-4 text-xs font-mono">
+            <p>Debug: dataMode = {{ dataMode.value }}</p>
+            <p>Debug: abrechnungStore.dataMode = {{ abrechnungStore.dataMode }}</p>
+            <p>Debug: abrechnungen count = {{ abrechnungStore.abrechnungen?.length || 0 }}</p>
+          </div>
+          
 
           
           <!-- Only show this when explicitly in test mode with no data -->
@@ -421,6 +428,10 @@ const handleInsurerSelection = (insurer) => {
 const handleClearSelection = () => {
   console.log('Clearing selection');
   insurerStore.clearSelectedInsurer();
+  
+  // Refresh insurer data to update the tiles with the latest invoice dates
+  console.log('Refreshing insurer data after closing details view...');
+  insurerStore.switchEnvironmentAndFetchData(dataMode.value);
 };
 
 // Handle saving a new insurer from the form
@@ -861,12 +872,17 @@ const createSampleInvoice = async () => {
     console.log(`Sample invoice created with ID: ${docRef.id}`);
     alert(`Beispielrechnung für ${insurerName} erstellt. ID: ${docRef.id}`);
     
-    // Refresh the data
+    // Refresh both stores to update all UI components
     console.log('Refreshing data after invoice creation...');
     const result = await abrechnungStore.fetchAbrechnungen();
     
+    // Also refresh the insurerStore to update lastInvoices for tile display
+    console.log('Refreshing insurerStore to update lastInvoices...');
+    await insurerStore.switchEnvironmentAndFetchData(dataMode.value);
+    
     // Verify the invoice was fetched
     console.log('After refresh, abrechnungStore has', abrechnungStore.abrechnungen.length, 'invoices');
+    console.log('Updated lastInvoices:', insurerStore.lastInvoices);
     
     // Check if our new invoice is in the results
     const foundInvoice = abrechnungStore.abrechnungen.find(inv => inv.id === docRef.id);

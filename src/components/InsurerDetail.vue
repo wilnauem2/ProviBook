@@ -354,6 +354,9 @@ const saveField = async (field) => {
     formatTurnus();
     updatedData = { turnus: editedTurnus.value };
   } else if (field === 'bezugsweg') {
+    if (editedBezugsweg.value && editedBezugsweg.value.toLowerCase().trim() === 'email') {
+      editedBezugsweg.value = 'E-Mail';
+    }
     updatedData = { bezugsweg: editedBezugsweg.value };
   } else if (field === 'dokumentenart') {
     updatedData = { dokumentenart: editedDokumentenart.value };

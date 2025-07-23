@@ -558,7 +558,7 @@ const createSampleData = async () => {
         date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days ago
         documentType: 'remittance',
         status: 'pending',
-        abrechnungsweg: 'Email',
+        abrechnungsweg: 'E-Mail',
         reference: 'REM-2025-002',
         amount: 980.50
       },
@@ -582,7 +582,7 @@ const createSampleData = async () => {
         date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days ago
         documentType: 'invoice',
         status: 'completed',
-        abrechnungsweg: 'Email',
+        abrechnungsweg: 'E-Mail',
         reference: 'INV-2025-005',
         amount: 1500.75
       }

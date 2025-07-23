@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { collection, collectionGroup, getDocs, query, addDoc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { collection, collectionGroup, getDocs, query, addDoc, serverTimestamp, getDoc, orderBy, limit, startAfter } from 'firebase/firestore';
 import { db } from '../firebase';
 
 // Using separate caches for each environment to prevent data leakage
@@ -32,7 +32,8 @@ export const useAbrechnungStore = defineStore('abrechnung', () => {
     });
 
     const hasMorePages = computed(() => {
-        return abrechnungen.value.length < totalDocuments.value;
+        // If totalDocuments is not yet known precisely, we assume there are more pages if the last fetch returned a full page.
+        return abrechnungen.value.length < totalDocuments.value || totalDocuments.value === 0;
     });
 
     // Actions
@@ -40,102 +41,100 @@ export const useAbrechnungStore = defineStore('abrechnung', () => {
         if (!['production', 'test'].includes(newMode) || newMode === dataMode.value) {
             return;
         }
-
         logEnvironmentState(`Switching from ${dataMode.value} to ${newMode}`, newMode);
-        const previousMode = dataMode.value;
         dataMode.value = newMode;
-
-        // Critical: Clear all state and cache for the new environment
-        abrechnungen.value = [];
-        dataCache[newMode] = null;
-        lastDocument.value = null;
-        currentPage.value = 0;
-        totalDocuments.value = 0;
-
-        try {
-            await fetchAbrechnungen({ forceRefresh: true });
-            logEnvironmentState(`Switch to ${newMode} complete.`, newMode);
-        } catch (err) {
-            console.error(`Failed to fetch data for ${newMode}, reverting.`, err);
-            dataMode.value = previousMode; // Revert on error
-            logEnvironmentState(`Reverted to ${previousMode}.`, previousMode);
-        }
+        await fetchAbrechnungen({ forceRefresh: true });
+        logEnvironmentState(`Switch to ${newMode} complete.`, newMode);
     };
 
     const fetchAbrechnungen = async (options = {}) => {
-        const { page = 1, pageSize = 15, forceRefresh = false, filters = {} } = options;
+        const { forceRefresh = false, filters = {} } = options;
         const currentMode = dataMode.value;
 
         if (isLoading.value) return;
+        if (!forceRefresh && !hasMorePages.value && lastDocument.value) return;
+
         isLoading.value = true;
         error.value = null;
 
-        if (forceRefresh) {
-            logEnvironmentState('Force refreshing data.', currentMode);
-            abrechnungen.value = [];
-            dataCache[currentMode] = null;
-            lastDocument.value = null;
-            currentPage.value = 0;
-        }
-
-        if (page === 1 && !forceRefresh && dataCache[currentMode]) {
-            logEnvironmentState('Using cached data.', currentMode);
-            abrechnungen.value = dataCache[currentMode];
-            isLoading.value = false;
-            return;
-        }
-
         try {
+            if (forceRefresh) {
+                abrechnungen.value = [];
+                lastDocument.value = null;
+                currentPage.value = 0;
+                totalDocuments.value = 0;
+            }
+
             const invoicesSubcollection = currentMode === 'production' ? 'invoice-history' : 'invoice-history-test';
             const insurersCollectionRef = collection(db, collections.value.insurers);
 
-            const [insurersSnapshot, invoicesSnapshot] = await Promise.all([
-                getDocs(insurersCollectionRef),
-                getDocs(query(collectionGroup(db, invoicesSubcollection)))
-            ]);
-
+            const insurersSnapshot = await getDocs(insurersCollectionRef);
             const insurerMap = new Map();
-            insurersSnapshot.forEach(doc => {
-                insurerMap.set(doc.id, doc.data().name || 'Unbekannt');
-            });
+            insurersSnapshot.forEach(doc => insurerMap.set(doc.id, doc.data()));
 
-            const allInvoices = invoicesSnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-                path: doc.ref.path,
-            }));
+            console.log('Checking imported Firestore functions:', { orderBy, limit, startAfter });
+            const pageSize = 15;
+            let queryConstraints = [orderBy('date', 'desc'), limit(pageSize)];
+            if (lastDocument.value) {
+                queryConstraints.push(startAfter(lastDocument.value));
+            }
+            const q = query(collectionGroup(db, invoicesSubcollection), ...queryConstraints);
 
-            let processedInvoices = allInvoices.map(invoice => {
-                const pathParts = invoice.path.split('/');
-                const insurerId = pathParts[pathParts.indexOf(invoicesSubcollection) - 1];
-                const insurerName = insurerMap.get(insurerId) || 'Unbekannt';
+            const invoicesSnapshot = await getDocs(q);
+            lastDocument.value = invoicesSnapshot.docs[invoicesSnapshot.docs.length - 1];
 
-                if (insurerName === 'Unbekannt') {
-                    console.warn(`[Orphan Invoice] ID: ${invoice.id} refs orphan Insurer ID: ${insurerId} in collection '${collections.value.insurers}'.`);
+            const getAbrechnungsweg = (bezugsweg) => {
+                if (!bezugsweg) return null;
+
+                let weg = Array.isArray(bezugsweg) ? bezugsweg.join(', ') : String(bezugsweg);
+
+                if (weg.toLowerCase().trim() === 'email') {
+                    return 'E-Mail';
                 }
-                return { ...invoice, insurerId, insurerName };
+                return weg;
+            };
+
+            const pageInvoices = invoicesSnapshot.docs.map(doc => {
+                const invoice = { id: doc.id, ...doc.data(), path: doc.ref.path };
+                const pathParts = invoice.path.split('/');
+                const insurerId = pathParts.length > 1 ? pathParts[pathParts.length - 3] : null;
+                const insurerData = insurerId ? insurerMap.get(insurerId) : null;
+
+                return {
+                    ...invoice,
+                    insurerId,
+                    insurerName: insurerData?.name || 'Unbekannt',
+                    dokumentenart: insurerData?.dokumentenart || 'Unbekannt',
+                    abrechnungsweg: getAbrechnungsweg(insurerData?.bezugsweg),
+                };
             });
 
-            // Apply filters and sorting in memory
-            if (filters.documentType) {
-                processedInvoices = processedInvoices.filter(i => i.documentType === filters.documentType);
+            let processedPage = pageInvoices;
+            if (filters.searchQuery) {
+                const lowerCaseQuery = filters.searchQuery.toLowerCase();
+                processedPage = processedPage.filter(i => 
+                    i.insurerName.toLowerCase().includes(lowerCaseQuery) ||
+                    (i.reference && i.reference.toLowerCase().includes(lowerCaseQuery))
+                );
             }
-            if (filters.status) {
-                processedInvoices = processedInvoices.filter(i => i.status === filters.status);
+            if (filters.sortField) {
+                processedPage.sort((a, b) => {
+                    const field = filters.sortField;
+                    const ascending = filters.sortAscending;
+                    let valA = a[field];
+                    let valB = b[field];
+                    if (valA < valB) return ascending ? -1 : 1;
+                    if (valA > valB) return ascending ? 1 : -1;
+                    return 0;
+                });
             }
-            processedInvoices.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-            totalDocuments.value = processedInvoices.length;
-            const startIndex = (page - 1) * pageSize;
-            const pageInvoices = processedInvoices.slice(startIndex, startIndex + pageSize);
+            abrechnungen.value.push(...processedPage);
+            currentPage.value += 1;
 
-            if (page === 1) {
-                abrechnungen.value = pageInvoices;
-                dataCache[currentMode] = [...pageInvoices]; // Cache the first page
-            } else {
-                abrechnungen.value.push(...pageInvoices);
+            if (invoicesSnapshot.docs.length < pageSize) {
+                totalDocuments.value = abrechnungen.value.length;
             }
-            currentPage.value = page;
 
         } catch (err) {
             console.error('Error in fetchAbrechnungen:', err);
@@ -143,21 +142,6 @@ export const useAbrechnungStore = defineStore('abrechnung', () => {
         } finally {
             isLoading.value = false;
         }
-    };
-
-    const fetchMoreAbrechnungen = () => {
-        if (hasMorePages.value) {
-            fetchAbrechnungen({ page: currentPage.value + 1 });
-        }
-    };
-
-    const resetPagination = () => {
-        abrechnungen.value = [];
-        lastDocument.value = null;
-        currentPage.value = 0;
-        totalDocuments.value = 0;
-        dataCache[dataMode.value] = null; // Clear cache for the current environment
-        logEnvironmentState('Pagination has been reset.', dataMode.value);
     };
 
     // Return all functions and state
@@ -173,7 +157,5 @@ export const useAbrechnungStore = defineStore('abrechnung', () => {
         hasMorePages,
         switchEnvironmentAndFetchData,
         fetchAbrechnungen,
-        fetchMoreAbrechnungen,
-        resetPagination,
     };
 });

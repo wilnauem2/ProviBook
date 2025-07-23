@@ -93,6 +93,9 @@ const handleSubmit = () => {
     alert('Name und Turnus des Versicherers sind erforderlich.');
   } else {
     formatTurnus(); // Ensure formatting before save
+    if (insurerData.value.bezugsweg && insurerData.value.bezugsweg.toLowerCase().trim() === 'email') {
+      insurerData.value.bezugsweg = 'E-Mail';
+    }
     emit('save', { ...insurerData.value });
   }
 };

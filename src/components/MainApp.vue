@@ -191,15 +191,6 @@
             :abrechnungen="abrechnungStore.abrechnungen"
           />
           
-          <!-- Debug info -->
-          <div v-if="!isProduction" class="bg-white shadow rounded-lg p-4 mt-4 text-xs font-mono">
-            <p>Debug: dataMode = {{ dataMode.value }}</p>
-            <p>Debug: abrechnungStore.dataMode = {{ abrechnungStore.dataMode }}</p>
-            <p>Debug: abrechnungen count = {{ abrechnungStore.abrechnungen?.length || 0 }}</p>
-          </div>
-          
-
-          
           <!-- Only show this when explicitly in test mode with no data -->
           <div v-if="dataMode.value === 'test' && (!abrechnungStore.abrechnungen || abrechnungStore.abrechnungen.length === 0)" class="bg-white shadow rounded-lg p-6 mt-4">
             <p class="text-gray-500 text-center mb-4">Keine Testdaten verfügbar. Erstellen Sie Testdaten mit dem Button unten.</p>
@@ -306,8 +297,14 @@ watch(activeTab, (newTab) => {
     abrechnungStore.switchEnvironmentAndFetchData(dataMode.value)
       .then(result => {
         console.log('🔄 Data fetch completed. Result:', result);
-        console.log('🔄 Abrechnungen after fetch:', abrechnungStore.abrechnungen);
-        console.log('🔄 Abrechnungen length:', abrechnungStore.abrechnungen?.length || 0);
+        console.log('🔄 Abrechnungen after fetch:', abrechnungStore.abrechnungen?.length || 0);
+        
+        // Force a UI update
+        nextTick(() => {
+          console.log('🔄 After nextTick - Abrechnungen count:', abrechnungStore.abrechnungen?.length || 0);
+        });
+        
+        console.log('🔄 Sample data creation complete');
       })
       .catch(error => {
         console.error('🔄 Error fetching abrechnungen data:', error);

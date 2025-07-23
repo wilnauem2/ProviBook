@@ -9,7 +9,9 @@
 
 <script setup>
 import { computed } from 'vue';
-import { calculateDaysOverdue } from '../utils/insurerUtils';
+import { useInsurerUtils } from '@/composables/useInsurerUtils';
+
+const { calculateDaysOverdue } = useInsurerUtils();
 
 const props = defineProps({
   insurer: {

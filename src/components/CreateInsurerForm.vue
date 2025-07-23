@@ -21,6 +21,12 @@
               <label for="insurer-name" class="block mb-2 text-sm font-medium text-gray-900">Name des Versicherers</label>
               <input type="text" id="insurer-name" v-model="insurerData.name" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" placeholder="z.B. Allianz" required>
             </div>
+            
+            <!-- Comment -->
+            <div class="md:col-span-2">
+              <label for="insurer-comment" class="block mb-2 text-sm font-medium text-gray-900">Kommentar</label>
+              <textarea id="insurer-comment" v-model="insurerData.comment" rows="4" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" placeholder="Kommentar zum Versicherer hinzufügen..."></textarea>
+            </div>
 
             <!-- Turnus -->
             <div>
@@ -66,6 +72,7 @@ const emit = defineEmits(['close', 'save']);
 
 const insurerData = ref({
   name: '',
+  comment: '', // New comment field
   turnus: 30, // Default to 30 days
   bezugsweg: 'E-Mail',
   dokumentenart: ['PDF']

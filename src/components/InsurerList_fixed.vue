@@ -35,7 +35,8 @@
               : 'hover:scale-[1.01]',
             'h-full min-h-[140px] flex flex-col',
             'transition-all duration-200 hover:shadow-md',
-            isInsurerIncomplete(insurer) ? 'opacity-50 grayscale' : ''
+            // Gray out tiles with complete: false
+            isInsurerIncomplete(insurer) ? 'incomplete-tile opacity-50 grayscale' : ''
           ]"
           @click="selectInsurer(insurer)"
           @keydown.enter="selectInsurer(insurer)"
@@ -44,7 +45,11 @@
           <!-- Status indicator bar -->
           <div 
             class="absolute top-0 left-0 w-1.5 h-full rounded-l-lg"
-            :class="getStatusColor(insurer, props.currentDate, props.lastInvoices[insurer.id])"
+            :class="{
+              'bg-red-500': getStatusColor(insurer) === 'red',
+              'bg-yellow-500': getStatusColor(insurer) === 'yellow',
+              'bg-green-500': getStatusColor(insurer) === 'green' || getStatusColor(insurer) === 'gray'
+            }"
           ></div>
           
           <div class="flex flex-1 flex-col h-full">
@@ -53,9 +58,9 @@
               <div class="flex items-center min-w-0">
                 <div class="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-lg mr-3"
                      :class="{
-                       'bg-red-500': getStatusCode(insurer, props.currentDate, props.lastInvoices[insurer.id]) === 'red',
-                       'bg-yellow-500': getStatusCode(insurer, props.currentDate, props.lastInvoices[insurer.id]) === 'yellow',
-                       'bg-blue-500': getStatusCode(insurer, props.currentDate, props.lastInvoices[insurer.id]) === 'green'
+                       'bg-red-500': getStatusColor(insurer) === 'red',
+                       'bg-yellow-500': getStatusColor(insurer) === 'yellow',
+                       'bg-blue-500': getStatusColor(insurer) === 'green' || getStatusColor(insurer) === 'gray'
                      }">
                   {{ getInitials(insurer.name) }}
                 </div>
@@ -72,13 +77,13 @@
                 Unvollständig
               </span>
               <span 
-                v-else-if="getStatusCode(insurer, props.currentDate, props.lastInvoices[insurer.id]) === 'red'"
+                v-else-if="getStatusColor(insurer) === 'red'"
                 class="flex-shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-2 bg-red-100 text-red-800"
               >
                 Überfällig (>5 Tage)
               </span>
               <span 
-                v-else-if="getStatusCode(insurer, props.currentDate, props.lastInvoices[insurer.id]) === 'yellow'"
+                v-else-if="getStatusColor(insurer) === 'yellow'"
                 class="flex-shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-2 bg-yellow-100 text-yellow-800"
               >
                 {{ getStatusText(insurer) }}
@@ -145,24 +150,55 @@
             <!-- File format tags -->
             <div class="mt-3 flex flex-wrap gap-2">
               <!-- BiPRO -->
-              <span v-if="insurer.bipro_support" class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-purple-100 text-purple-800">
-                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+              <span v-if="insurer.bipro" class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-indigo-100 text-indigo-800">
+                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                 </svg>
-                <span class="font-semibold">BiPRO</span>
-                <span v-if="insurer.bipro_version" class="ml-1 opacity-75">{{ insurer.bipro_version }}</span>
+                BiPRO
               </span>
-
-              <!-- Document Types -->
-              <span v-for="docType in getNormalizedDocTypes(insurer.dokumentenart)" :key="docType" 
-                    class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium"
-                    :class="docTypeColors[docType]?.classes || 'bg-gray-100 text-gray-800'">
-                <svg v-if="docTypeColors[docType]?.icon" class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" v-html="docTypeColors[docType]?.icon"></svg>
-                {{ docType }}
+              
+              <!-- CSV -->
+              <span v-if="insurer.dokumentenart && insurer.dokumentenart.includes('CSV')" class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 text-blue-800">
+                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                CSV
+              </span>
+              
+              <!-- PDF -->
+              <span v-if="insurer.dokumentenart && insurer.dokumentenart.includes('PDF')" class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-red-100 text-red-800">
+                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                PDF
+              </span>
+              
+              <!-- XLS -->
+              <span v-if="insurer.dokumentenart && insurer.dokumentenart.includes('XLS')" class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-green-100 text-green-800">
+                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Excel
+              </span>
+              
+              <!-- XML -->
+              <span v-if="insurer.dokumentenart && insurer.dokumentenart.includes('XML')" class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-purple-100 text-purple-800">
+                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                </svg>
+                XML
+              </span>
+              
+              <!-- Papier -->
+              <span v-if="insurer.dokumentenart && insurer.dokumentenart.includes('Papier')" class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-800">
+                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Papier
               </span>
               
               <!-- Fallback if no formats are specified -->
-              <span v-if="getNormalizedDocTypes(insurer.dokumentenart).length === 0" class="text-xs text-gray-500">
+              <span v-if="!insurer.dokumentenart || insurer.dokumentenart.length === 0" class="text-xs text-gray-500">
                 Keine Formate angegeben
               </span>
             </div>
@@ -234,7 +270,7 @@ import { computed } from 'vue';
 import { format, add } from 'date-fns';
 import { de } from 'date-fns/locale';
 import InsurerStatus from './InsurerStatus.vue';
-import { useInsurerUtils, docTypeColors } from '@/composables/useInsurerUtils';
+import { calculateDaysOverdue } from '../utils/insurerUtils';
 
 const props = defineProps({
   insurers: { type: Array, required: true },
@@ -251,33 +287,18 @@ const sortedInsurers = computed(() => {
   
   // Make a deep copy of the insurers array to avoid reactivity issues
   const sorted = [...props.insurers];
-
-  
-  // Ensure BiPRO property is set for display purposes
-  sorted.forEach(insurer => {
-    // Set default bipro property if not defined
-    if (insurer.bipro === undefined) {
-      // Set bipro to true for every third insurer to demonstrate the tag
-      insurer.bipro = insurer.name?.toLowerCase().includes('allianz') || 
-                      insurer.name?.toLowerCase().includes('axa') || 
-                      insurer.name?.toLowerCase().includes('ergo');
-    }
-  });
   
   // Sort the insurers
   sorted.sort((a, b) => {
     switch (props.sortBy) {
       case 'date': {
-        const lastInvoiceA = props.lastInvoices?.[a.id];
-        const lastInvoiceB = props.lastInvoices?.[b.id];
-        const dateA = lastInvoiceA?.datum?.seconds ? new Date(lastInvoiceA.datum.seconds * 1000) : new Date(0);
-        const dateB = lastInvoiceB?.datum?.seconds ? new Date(lastInvoiceB.datum.seconds * 1000) : new Date(0);
+        const dateA = props.lastInvoices[a.id]?.datum ? new Date(props.lastInvoices[a.id].datum.seconds * 1000) : new Date(0);
+        const dateB = props.lastInvoices[b.id]?.datum ? new Date(props.lastInvoices[b.id].datum.seconds * 1000) : new Date(0);
         return dateB - dateA;
       }
       case 'overdue': {
-        const { calculateDaysOverdue } = useInsurerUtils();
-        const overdueA = calculateDaysOverdue(a, props.currentDate, props.lastInvoices?.[a.id]);
-        const overdueB = calculateDaysOverdue(b, props.currentDate, props.lastInvoices?.[b.id]);
+        const overdueA = calculateDaysOverdue(a, props.currentDate);
+        const overdueB = calculateDaysOverdue(b, props.currentDate);
         return overdueB - overdueA;
       }
       case 'name':
@@ -307,43 +328,46 @@ const getInitials = (name) => {
 };
 
 const isInsurerIncomplete = (insurer) => {
-  if (!insurer) return true;
-
-  const isFieldEmpty = (field) => {
-    if (field === null || field === undefined) return true;
-    if (typeof field === 'string') return field.trim() === '';
-    // For non-string, non-array types (like numbers for turnus), if they exist, they are not empty.
-    return false;
-  };
-
-  const turnusEmpty = isFieldEmpty(insurer.turnus);
-  const bezugswegEmpty = isFieldEmpty(insurer.bezugsweg);
-  // For dokumentenart, we check if the *normalized* list is empty.
-  const dokArtEmpty = getNormalizedDocTypes(insurer.dokumentenart).length === 0;
-
-  return turnusEmpty || bezugswegEmpty || dokArtEmpty;
+  return insurer.complete === false;
 };
 
-const { getStatusCode, getStatusColor, getStatusText, calculateDaysOverdue } = useInsurerUtils();
-
-const getNormalizedDocTypes = (docArt) => {
-  if (!docArt) return [];
+const getStatusColor = (insurer) => {
+  if (isInsurerIncomplete(insurer)) return 'gray';
   
-  let types = [];
-  if (Array.isArray(docArt)) {
-    // Handles messy arrays like ['C','S','V',',','PDF'] by filtering for valid, multi-character types.
-    types = docArt.filter(d => typeof d === 'string' && d.trim().length > 1 && d.trim() !== ',');
-  } else if (typeof docArt === 'string') {
-    // Handles string formats like "CSV, PDF"
-    types = docArt.split(',').map(s => s.trim()).filter(Boolean);
+  // Create a modified insurer object with the correct last_invoice data
+  const modifiedInsurer = { ...insurer };
+  if (props.lastInvoices[insurer.id]) {
+    modifiedInsurer.last_invoice = props.lastInvoices[insurer.id];
   }
+  
+  const days = calculateDaysOverdue(modifiedInsurer, props.currentDate);
+  if (days > 5) return 'red';
+  if (days > 0) return 'yellow';
+  return 'green';
+};
 
-  // Return a unique set of uppercase types to avoid duplicates and ensure consistency.
-  return [...new Set(types.map(t => t.toUpperCase()))];
+const getStatusText = (insurer) => {
+  // Create a modified insurer object with the correct last_invoice data
+  const modifiedInsurer = { ...insurer };
+  if (props.lastInvoices[insurer.id]) {
+    modifiedInsurer.last_invoice = props.lastInvoices[insurer.id];
+  }
+  
+  const days = calculateDaysOverdue(modifiedInsurer, props.currentDate);
+  if (days > 0) {
+    return `${days} ${days === 1 ? 'Tag' : 'Tage'} überfällig`;
+  }
+  return 'Anstehend';
 };
 
 const isOverdue = (insurer) => {
-  const days = calculateDaysOverdue(insurer, props.currentDate, props.lastInvoices[insurer.id]);
+  // Create a modified insurer object with the correct last_invoice data
+  const modifiedInsurer = { ...insurer };
+  if (props.lastInvoices[insurer.id]) {
+    modifiedInsurer.last_invoice = props.lastInvoices[insurer.id];
+  }
+  
+  const days = calculateDaysOverdue(modifiedInsurer, props.currentDate);
   return days > 0;
 };
 
@@ -360,22 +384,21 @@ const formatDate = (dateValue) => {
 };
 
 const formatLastInvoice = (lastInvoice) => {
-  // Priority 1: Object with a 'display' property.
-  if (lastInvoice && typeof lastInvoice === 'object' && lastInvoice.display) {
-    return lastInvoice.display;
+  // Handle case when lastInvoice is directly a string
+  if (typeof lastInvoice === 'string') {
+    return lastInvoice;
   }
-
-  // Priority 2: Object with a 'datum' property (likely a Firestore timestamp).
-  if (lastInvoice && typeof lastInvoice === 'object' && lastInvoice.datum) {
-    return formatDate(lastInvoice.datum);
+  
+  // Handle case when lastInvoice is an object with display property
+  if (lastInvoice && typeof lastInvoice === 'object') {
+    if (lastInvoice.display) {
+      return lastInvoice.display;
+    }
+    if (lastInvoice.datum) {
+      return formatDate(lastInvoice.datum);
+    }
   }
-
-  // Priority 3: A simple string that is not an array or object representation.
-  if (typeof lastInvoice === 'string' && lastInvoice.trim() && !lastInvoice.includes('[') && !lastInvoice.includes('{')) {
-      return lastInvoice;
-  }
-
-  // Fallback for all other cases (null, undefined, arrays, other objects).
-  return 'Keine Angabe';
+  
+  return 'Keine';
 };
 </script>

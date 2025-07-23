@@ -1,290 +1,330 @@
 <template>
-  <div class="relative w-full bg-white h-full">
-    <!-- Close Button -->
-    <button @click="emit('close')" class="absolute top-3 right-3 text-gray-400 hover:text-gray-600 focus:outline-none z-10">
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-    </button>
+  <div v-if="insurer" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-40 overflow-y-auto" @click.self="handleClose">
 
-    <div class="p-6">
-        <!-- Header -->
-        <div class="mb-6 border-b pb-4 border-gray-200">
-          <div class="flex items-center justify-between">
-            <h2 v-if="isEditing && editField === 'name'" class="text-2xl font-bold text-gray-900 flex-grow">
-              <input 
-                v-model="editedName" 
-                class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Versicherer Name"
-              />
-              <div class="flex justify-end mt-3 space-x-2">
-                <button @click="cancelEditing()" class="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Abbrechen</button>
-                <button @click="saveField('name')" class="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700">Speichern</button>
-              </div>
-            </h2>
-            <div v-else class="flex items-center w-full">
-              <div class="flex items-center flex-grow">
-                <h2 class="text-2xl font-bold text-gray-900">{{ insurer.name }}</h2>
-                <button 
-                  @click="startEditing('name')" 
-                  class="text-blue-600 hover:text-blue-800 focus:outline-none ml-2"
-                >
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                  </svg>
-                </button>
+    <!-- Main Insurer Detail Modal -->
+    <div class="bg-gray-50 rounded-xl w-[60vw] max-h-[90vh] overflow-y-auto shadow-2xl transform transition-all" role="dialog" aria-modal="true" :aria-labelledby="`insurer-name-${insurer.id}`">
+      
+      <!-- Modal Header -->
+      <div class="sticky top-0 bg-white/70 backdrop-blur-lg z-10 border-b border-gray-200 px-6 py-4 sm:px-8">
+        <div class="flex items-center justify-between">
+          <div class="flex-1 min-w-0">
+            <div v-if="!isEditing || editField !== 'name'" class="flex items-center gap-3">
+              <h2 :id="`insurer-name-${insurer.id}`" class="text-xl sm:text-2xl font-bold text-gray-900 truncate">{{ insurer.name }}</h2>
+              <button @click="startEditing('name')" class="text-gray-400 hover:text-blue-600 transition-colors duration-200" title="Name bearbeiten">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z"></path><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd"></path></svg>
+              </button>
+            </div>
+            <div v-else>
+              <input v-model="editedName" class="w-full text-xl sm:text-2xl font-bold border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="Versicherer Name" autofocus/>
+              <div class="mt-2 flex justify-end gap-2">
+                <button @click="cancelEditing()" class="px-3 py-1 text-sm font-medium bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Abbrechen</button>
+                <button @click="saveField('name')" class="px-3 py-1 text-sm font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700">Speichern</button>
               </div>
             </div>
           </div>
-          <div class="flex items-center gap-3 mt-2">
-            <div class="w-3 h-3 rounded-full" :class="getStatusColor(insurer, currentDate)"></div>
-            <span class="text-sm font-medium" :class="getStatusColor(insurer, currentDate).replace('bg-', 'text-').replace('-500', '-600')">
-              {{ getStatusText(insurer, currentDate) }}
+          <div class="flex items-center gap-2 sm:gap-4 ml-4">
+            <div class="hidden sm:flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full border" :class="statusInfo.badgeClass">
+              <svg class="w-2.5 h-2.5" :class="statusInfo.dotClass" fill="currentColor" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3"></circle></svg>
+              <span>{{ statusInfo.text }}</span>
+            </div>
+            <span v-if="insurer.bipro || insurer.bezugsweg === 'BiPRO'" class="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full border border-blue-200">
+              <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+              BiPRO
             </span>
+            <button @click="confirmDelete" class="text-gray-400 hover:text-red-600 transition-colors duration-200 p-2 rounded-full hover:bg-red-50" title="Versicherer löschen">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+            </button>
+            <button @click="handleClose" class="text-gray-400 hover:text-gray-800 transition-colors duration-200 p-2 rounded-full hover:bg-gray-100" title="Schliessen">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-6 sm:p-8">
+        <!-- Redesigned Summary Bar -->
+        <div class="bg-white rounded-xl shadow-md p-4 mb-8 border border-gray-200/80">
+          <div class="grid grid-cols-1 md:grid-cols-3 items-center gap-4">
+
+            <!-- Column 1: Last Invoice -->
+            <div class="flex items-center gap-3">
+              <svg class="w-6 h-6 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+              <div>
+                <dt class="text-xs font-medium text-gray-500">Letzte Abrechnung</dt>
+                <dd class="text-lg font-bold text-gray-900">{{ formattedLastInvoiceDate }}</dd>
+              </div>
+            </div>
+
+            <!-- Column 2: Next Due & Turnus -->
+            <div class="grid grid-cols-2 gap-4 border-l border-r border-gray-200 px-4">
+              <div>
+                <dt class="text-xs font-medium text-gray-500">Nächste Fälligkeit</dt>
+                <dd class="text-base font-semibold text-gray-800">{{ nextDueDate }}</dd>
+              </div>
+              <div>
+                <dt class="text-xs font-medium text-gray-500">Turnus</dt>
+                <dd class="text-base font-semibold text-gray-800">{{ formattedTurnus }}</dd>
+              </div>
+            </div>
+
+            <!-- Column 3: Action -->
+            <div class="flex items-center justify-start md:justify-end gap-4">
+              <button @click="showDatePicker = true" class="flex-shrink-0 bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-200">
+                Abrechnung erledigt
+              </button>
+            </div>
+
           </div>
         </div>
 
-        <!-- Abrechnung Details -->
-        <div class="mb-6">
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">Abrechnungsdetails</h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <!-- Turnus Field -->
-            <div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <div class="flex items-center justify-between mb-2">
-                <div class="flex items-center">
-                  <svg class="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                  <span class="font-medium text-blue-800">Turnus</span>
-                </div>
-                <button 
-                  v-if="!isEditing" 
-                  @click="startEditing('turnus')" 
-                  class="text-blue-600 hover:text-blue-800 focus:outline-none"
-                >
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                </button>
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <!-- Left Column: Overview -->
+          <div class="space-y-8">
+            <!-- Kommentar Card -->
+            <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 transition-shadow duration-200 hover:shadow-md">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-800">Kommentar</h3>
+                <button @click="startEditing('comment')" class="text-gray-400 hover:text-blue-600 transition-colors duration-200 text-sm font-medium">Bearbeiten</button>
               </div>
-              <div v-if="isEditing && editField === 'turnus'">
-                <select 
-                  v-model="editedTurnus" 
-                  class="w-full p-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="wöchentlich">Wöchentlich</option>
-                  <option value="alle 2 Wochen">Alle 2 Wochen</option>
-                  <option value="monatlich">Monatlich</option>
-                </select>
-                <div class="flex justify-end mt-3 space-x-2">
-                  <button @click="cancelEditing()" class="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Abbrechen</button>
-                  <button @click="saveField('turnus')" class="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700">Speichern</button>
+              <div v-if="isEditing && editField === 'comment'">
+                <textarea v-model="editedComment" class="w-full border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" rows="4" placeholder="Kommentar hier eingeben..."></textarea>
+                <div class="mt-2 flex justify-end gap-2">
+                  <button @click="cancelEditing()" class="px-3 py-1 text-sm font-medium bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Abbrechen</button>
+                  <button @click="saveField('comment')" class="px-3 py-1 text-sm font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700">Speichern</button>
                 </div>
               </div>
-              <p v-else class="text-gray-600">{{ formattedTurnus }}</p>
+              <div v-else>
+                <p v-if="insurer.comment" class="text-gray-600 whitespace-pre-wrap">{{ insurer.comment }}</p>
+                <p v-else class="text-gray-400 italic">Kein Kommentar vorhanden.</p>
+              </div>
             </div>
-            
-            <!-- Standard-Dokumentenweg Field -->
-            <div class="p-4 bg-teal-50 rounded-lg border border-teal-200">
-              <div class="flex items-center justify-between mb-2">
-                <div class="flex items-center">
-                  <svg class="w-5 h-5 text-teal-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                  <span class="font-medium text-teal-800">Standard-Dokumentenweg</span>
-                </div>
-                <button 
-                  v-if="!isEditing" 
-                  @click="startEditing('bezugsweg')" 
-                  class="text-teal-600 hover:text-teal-800 focus:outline-none"
-                >
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                </button>
-              </div>
-              <div v-if="isEditing && editField === 'bezugsweg'">
-                <select 
-                  v-model="editedBezugsweg" 
-                  class="w-full p-2 border border-teal-300 rounded-md focus:outline-none focus:ring-2 focus:ring-teal-500"
-                >
-                  <option value="E-Mail">E-Mail</option>
-                  <option value="Maklerportal">Maklerportal</option>
-                  <option value="Post">Post</option>
-                  <option value="Bipro">Bipro</option>
-                </select>
-                <div class="flex justify-end mt-3 space-x-2">
-                  <button @click="cancelEditing()" class="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Abbrechen</button>
-                  <button @click="saveField('bezugsweg')" class="px-3 py-1 text-sm bg-teal-600 text-white rounded-md hover:bg-teal-700">Speichern</button>
-                </div>
-              </div>
-              <p v-else class="text-gray-600">{{ insurer.bezugsweg || 'Nicht angegeben' }}</p>
+
+            <!-- Abrechnungsverlauf Card -->
+            <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 transition-shadow duration-200 hover:shadow-md">
+              <h3 class="text-lg font-semibold text-gray-800 mb-4">Abrechnungsverlauf</h3>
+              <ul v-if="sortedLocalSettlements.length > 0" class="space-y-3">
+                <li v-for="settlement in sortedLocalSettlements" :key="settlement.id" class="flex items-center justify-between p-2 rounded-md hover:bg-gray-50">
+                  <span class="text-sm text-gray-700">{{ format(settlement.date.toDate ? settlement.date.toDate() : new Date(settlement.date), 'dd.MM.yyyy') }}</span>
+                  <button @click="confirmSettlementDelete(settlement.id)" class="text-gray-400 hover:text-red-500 transition-colors duration-200" title="Diesen Eintrag löschen">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                  </button>
+                </li>
+              </ul>
+              <p v-else class="text-sm text-gray-400 italic">Noch keine Abrechnungen erfasst.</p>
             </div>
-            
-            <!-- Standard-Formate Field -->
-            <div class="p-4 bg-indigo-50 rounded-lg border border-indigo-200 md:col-span-2">
-              <div class="flex items-center justify-between mb-3">
-                <div class="flex items-center">
-                  <svg class="w-5 h-5 text-indigo-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                  <span class="font-medium text-indigo-800">Standard-Formate</span>
-                </div>
-                <button 
-                  v-if="!isEditing" 
-                  @click="startEditing('dokumentenart')" 
-                  class="text-indigo-600 hover:text-indigo-800 focus:outline-none"
-                >
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                </button>
-              </div>
-              <div v-if="isEditing && editField === 'dokumentenart'">
-                <div class="flex flex-wrap gap-3">
-                  <div v-for="format in availableFormats" :key="format" class="flex items-center">
-                    <input 
-                      type="checkbox" 
-                      :id="`format-${format}`" 
-                      :value="format" 
-                      v-model="editedDokumentenart"
-                      class="w-4 h-4 text-indigo-600 border-indigo-300 rounded focus:ring-indigo-500"
-                    >
-                    <label :for="`format-${format}`" class="ml-2 text-sm text-gray-700">{{ format }}</label>
+          </div>
+
+          <!-- Right Column: Details -->
+          <div class="space-y-8">
+            <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 transition-shadow duration-200 hover:shadow-md">
+              <h3 class="text-lg font-semibold text-gray-800 mb-4">Details zur Abrechnung</h3>
+              <dl class="space-y-4">
+                <!-- Turnus -->
+                <div>
+                  <div class="flex items-center justify-between mb-1">
+                    <dt class="text-sm font-medium text-gray-500">Turnus</dt>
+                    <button @click="startEditing('turnus')" class="text-gray-400 hover:text-blue-600 transition-colors duration-200 text-sm font-medium">Bearbeiten</button>
+                  </div>
+                  <dd v-if="!isEditing || editField !== 'turnus'" class="text-sm text-gray-900 font-semibold">{{ formattedTurnus }}</dd>
+                  <div v-else>
+                    <input v-model="editedTurnus" type="number" class="w-full text-sm border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="z.B. 30"/>
+                    <div class="mt-2 flex justify-end gap-2">
+                      <button @click="cancelEditing()" class="px-3 py-1 text-sm font-medium bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Abbrechen</button>
+                      <button @click="saveField('turnus')" class="px-3 py-1 text-sm font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700">Speichern</button>
+                    </div>
                   </div>
                 </div>
-                <div class="flex justify-end mt-3 space-x-2">
-                  <button @click="cancelEditing()" class="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Abbrechen</button>
-                  <button @click="saveField('dokumentenart')" class="px-3 py-1 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Speichern</button>
+
+                <!-- Bezugsweg -->
+                <div>
+                  <div class="flex items-center justify-between mb-1">
+                    <dt class="text-sm font-medium text-gray-500">Bezugsweg</dt>
+                    <button @click="startEditing('bezugsweg')" class="text-gray-400 hover:text-blue-600 transition-colors duration-200 text-sm font-medium">Bearbeiten</button>
+                  </div>
+                  <dd v-if="!isEditing || editField !== 'bezugsweg'" class="text-sm text-gray-900 font-semibold">{{ insurer.bezugsweg || 'Keine Angabe' }}</dd>
+                  <div v-else>
+                    <input v-model="editedBezugsweg" class="w-full text-sm border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="z.B. E-Mail, Portal"/>
+                    <div class="mt-2 flex justify-end gap-2">
+                      <button @click="cancelEditing()" class="px-3 py-1 text-sm font-medium bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Abbrechen</button>
+                      <button @click="saveField('bezugsweg')" class="px-3 py-1 text-sm font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700">Speichern</button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div v-else class="flex flex-wrap gap-2">
-                <span v-if="!insurer.dokumentenart || insurer.dokumentenart.length === 0 || filteredFormats.length === 0" class="text-gray-500">Keine Formate angegeben</span>
-                <span v-else v-for="format in filteredFormats" :key="format" 
-                  :class="getFormatClass(format)"
-                  class="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium">
-                  {{ format }}
-                </span>
-              </div>
+
+                <!-- Dokumentenart -->
+                <div>
+                  <div class="flex items-center justify-between mb-1">
+                    <dt class="text-sm font-medium text-gray-500">Dokumentenart</dt>
+                    <button @click="startEditing('dokumentenart')" class="text-gray-400 hover:text-blue-600 transition-colors duration-200 text-sm font-medium">Bearbeiten</button>
+                  </div>
+                  <div v-if="!isEditing || editField !== 'dokumentenart'">
+                                        <div v-if="insurer.dokumentenart && getNormalizedDocTypes(insurer.dokumentenart).length" class="flex flex-wrap gap-2 mt-2">
+                      <span v-for="docType in getNormalizedDocTypes(insurer.dokumentenart)" :key="docType" 
+                            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                            :class="docTypeColors[docType]?.classes || 'bg-gray-100 text-gray-800'">
+                        <svg v-if="docTypeColors[docType]?.icon" class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" v-html="docTypeColors[docType]?.icon"></svg>
+                        {{ docType }}
+                      </span>
+                    </div>
+                    <p v-else class="text-sm text-gray-500 italic mt-2">Keine Angabe</p>
+                  </div>
+                  <div v-else>
+                    <div class="grid grid-cols-2 gap-2 mt-2">
+                      <div v-for="docType in allDocTypes" :key="docType" class="flex items-center">
+                        <input type="checkbox" :id="`doc-type-${docType}`" :value="docType" v-model="editedDokumentenart" class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                        <label :for="`doc-type-${docType}`" class="ml-2 text-sm text-gray-700">{{ docType }}</label>
+                      </div>
+                    </div>
+                    <div class="mt-3 flex justify-end gap-2">
+                      <button @click="cancelEditing()" class="px-3 py-1 text-sm font-medium bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Abbrechen</button>
+                      <button @click="saveField('dokumentenart')" class="px-3 py-1 text-sm font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700">Speichern</button>
+                    </div>
+                  </div>
+                </div>
+              </dl>
             </div>
           </div>
         </div>
+      </div>
+    </div>
 
-        <!-- Letzte Abrechnung -->
-        <div v-if="insurer.last_invoice" class="mb-6">
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">Letzte Abrechnung</h3>
-          <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <div class="flex items-center mb-2">
-              <svg class="w-5 h-5 text-gray-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              <span class="font-medium text-gray-800">Datum</span>
-            </div>
-            <p class="text-gray-600">{{ formattedLastInvoice }}</p>
-          </div>
-        </div>
-
-        <!-- Abrechnungshistorie -->
-        <div v-if="settlementHistory.length > 0" class="mb-6">
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">Abrechnungshistorie</h3>
-          <div class="overflow-x-auto rounded-lg border border-gray-200">
-            <table class="min-w-full divide-y divide-gray-200">
-              <thead class="bg-gray-50">
-                <tr>
-                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Datum</th>
-                  <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notiz</th>
-                </tr>
-              </thead>
-              <tbody class="bg-white divide-y divide-gray-200">
-                <tr v-for="invoice in settlementHistory" :key="invoice.id">
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ formatSettlementDate(invoice.date) }}</td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ invoice.note || '-' }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Actions -->
-        <div class="flex justify-end items-center gap-4 pt-4 border-t border-gray-200">
-          <button @click="openDatePicker" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-            Abrechnung erfolgt
-          </button>
-                    <button @click="handleClose" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none">
-            Schliessen
-          </button>
+    <!-- Date Picker Modal -->
+    <div v-if="showDatePicker" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg p-6 shadow-xl">
+        <h3 class="text-lg font-medium mb-4">Abrechnungsdatum wählen</h3>
+        <input type="date" v-model="selectedDate" class="w-full p-2 border rounded-md mb-4"/>
+        <textarea v-model="settlementNote" class="w-full p-2 border rounded-md mb-4" placeholder="Optionale Notiz..."></textarea>
+        <div class="flex justify-end gap-3">
+          <button @click="handleCancel" class="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Abbrechen</button>
+          <button @click="handleDateSubmit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Bestätigen</button>
         </div>
       </div>
+    </div>
 
-      <!-- Date Picker Dialog -->
-      <div v-if="showDatePicker" class="absolute inset-0 bg-white bg-opacity-90 flex justify-center items-center z-50">
-        <div class="bg-white p-6 rounded-lg shadow-2xl border border-gray-200 w-full max-w-sm">
-          <h3 class="text-lg font-semibold mb-4">Datum der Abrechnung</h3>
-          <input type="date" ref="dateInputRef" v-model="selectedDate" class="w-full p-2 border rounded-md mb-2">
-          <textarea v-model="settlementNote" placeholder="Notiz hinzufügen..." class="w-full p-2 border rounded-md mb-4" rows="3"></textarea>
-          <div class="flex justify-end space-x-3">
-            <button type="button" @click="handleCancel" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300">Abbrechen</button>
-            <button type="button" @click="handleDateSubmit()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Bestätigen</button>
-          </div>
+    <!-- Delete Confirmation Modal -->
+    <div v-if="showDeleteConfirmation" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg p-6 shadow-xl max-w-sm w-full">
+        <h3 class="text-lg font-medium mb-2">Versicherer löschen?</h3>
+        <p class="text-sm text-gray-600 mb-4">Möchten Sie den Versicherer "{{ insurer.name }}" wirklich endgültig löschen? Diese Aktion kann nicht rückgängig gemacht werden.</p>
+        <div class="flex justify-end gap-3">
+          <button @click="showDeleteConfirmation = false" class="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Abbrechen</button>
+          <button @click="deleteInsurer" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Löschen</button>
         </div>
       </div>
+    </div>
+
+    <!-- Settlement Delete Confirmation Modal -->
+    <div v-if="showSettlementDeleteConfirmation" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg p-6 shadow-xl max-w-sm w-full">
+        <h3 class="text-lg font-medium mb-2">Abrechnung löschen?</h3>
+        <p class="text-sm text-gray-600 mb-4">Möchten Sie diesen Abrechnungseintrag wirklich löschen?</p>
+        <div class="flex justify-end gap-3">
+          <button @click="cancelSettlementDelete" class="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Abbrechen</button>
+          <button @click="executeDeleteSettlement" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Löschen</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, defineProps, defineEmits, watch } from 'vue';
-import { useInsurerStore } from '../stores/insurerStore';
-import { getStatusColor, getStatusText } from '../utils/insurerUtils';
+import { ref, computed, watch, onMounted } from 'vue';
+import { useInsurerStore } from '@/stores/insurerStore';
+import { useInsurerUtils, allDocTypes, docTypeColors } from '@/composables/useInsurerUtils';
+import { format, differenceInDays, addDays } from 'date-fns';
 
-// Initialize Pinia store
+const props = defineProps({
+  insurer: Object,
+  lastInvoice: Object,
+  currentDate: Date,
+});
+
+const emit = defineEmits(['close', 'delete-insurer', 'settlement-completed']);
+
 const insurerStore = useInsurerStore();
-const settlementHistory = computed(() => insurerStore.settlementHistory);
+const { getStatusColor, getStatusText, calculateDaysOverdue, getNormalizedDocTypes, formatLastInvoice } = useInsurerUtils();
 
-// Edit mode state
-const isEditing = ref(false);
-const editField = ref(null);
-const editedName = ref('');
-const editedTurnus = ref('');
-const editedBezugsweg = ref('');
-const editedDokumentenart = ref([]);
-const availableFormats = ['CSV', 'PDF', 'Paper', 'XLS', 'XML', 'Papier'];
+// State
+const localLastInvoice = ref(props.lastInvoice);
 
-// Format helpers
-const getFormatClass = (format) => {
-  switch(format) {
-    case 'CSV': return 'bg-blue-100 text-blue-800';
-    case 'PDF': return 'bg-red-100 text-red-800';
-    case 'Paper': return 'bg-yellow-100 text-yellow-800';
-    case 'XLS': return 'bg-green-100 text-green-800';
-    case 'XML': return 'bg-purple-100 text-purple-800';
-    case 'Papier': return 'bg-gray-100 text-gray-800';
-    default: return 'bg-gray-100 text-gray-800';
-  }
-};
-
-const filteredFormats = computed(() => {
-  if (!props.insurer || !props.insurer.dokumentenart) return [];
-  
-  // Filter out single letters and only keep valid format names
-  const validFormats = ['CSV', 'PDF', 'Paper', 'XLS', 'XML', 'Papier'];
-  return props.insurer.dokumentenart.filter(format => 
-    validFormats.includes(format) && format.length > 1
-  );
+const sortedLocalSettlements = computed(() => {
+  return [...localSettlementHistory.value].sort((a, b) => {
+    const dateA = a.date?.toDate ? a.date.toDate() : new Date(a.date);
+    const dateB = b.date?.toDate ? b.date.toDate() : new Date(b.date);
+    return dateB - dateA; // Newest first
+  });
 });
-
-const formattedTurnus = computed(() => {
-  if (props.insurer && typeof props.insurer.turnus === 'number') {
-    return `${props.insurer.turnus} Tage`;
-  }
-  return props.insurer.turnus; // Fallback for old string data
-});
-
+const localSettlementHistory = ref([]);
 const showDatePicker = ref(false);
 const selectedDate = ref('');
 const settlementNote = ref('');
-const dateInputRef = ref(null);
+const isEditing = ref(false);
+const editField = ref(null);
+const editedName = ref('');
+const editedComment = ref('');
+const editedTurnus = ref('');
+const editedBezugsweg = ref('');
+const editedDokumentenart = ref([]);
+const showDeleteConfirmation = ref(false);
+const showSettlementDeleteConfirmation = ref(false);
+const settlementToDeleteId = ref(null);
 
-// Edit mode functions
+// Computed Properties
+const formattedLastInvoiceDate = computed(() => {
+  const invoice = localLastInvoice.value;
+  if (!invoice) return 'N/A';
+  // Use the robust formatter from the composable
+  return formatLastInvoice(invoice) || 'N/A';
+});
+
+const nextDueDate = computed(() => {
+  if (!props.insurer || !props.insurer.next_due) return 'N/A';
+  const date = props.insurer.next_due.toDate ? props.insurer.next_due.toDate() : new Date(props.insurer.next_due);
+  return format(date, 'dd.MM.yyyy');
+});
+
+const statusInfo = computed(() => {
+  if (!props.insurer) return { text: 'Unbekannt', badgeClass: 'bg-gray-100 text-gray-800', dotClass: 'text-gray-400' };
+  
+  const daysOverdue = calculateDaysOverdue(props.insurer, props.currentDate, localLastInvoice.value);
+
+  if (daysOverdue > 5) {
+    return { text: 'Kritisch', badgeClass: 'bg-red-100 text-red-800 border-red-200', dotClass: 'text-red-500' };
+  } else if (daysOverdue > 0) {
+    return { text: 'Überfällig', badgeClass: 'bg-yellow-100 text-yellow-800 border-yellow-200', dotClass: 'text-yellow-500' };
+  } else {
+    return { text: 'Aktuell', badgeClass: 'bg-green-100 text-green-800 border-green-200', dotClass: 'text-green-500' };
+  }
+});
+
+const formattedTurnus = computed(() => {
+  if (!props.insurer || !props.insurer.turnus) return 'N/A';
+  return `${props.insurer.turnus} Tage`;
+});
+
+const sortedSettlements = computed(() => {
+  if (!settlementHistory.value) return [];
+  return [...settlementHistory.value].sort((a, b) => {
+    const dateA = a.date.toDate ? a.date.toDate() : new Date(a.date);
+    const dateB = b.date.toDate ? b.date.toDate() : new Date(b.date);
+    return dateB - dateA;
+  });
+});
+
+// Methods
+const handleClose = () => emit('close');
+
 const startEditing = (field) => {
   isEditing.value = true;
   editField.value = field;
-  
-  // Initialize edit values from current insurer data
-  if (field === 'name') {
-    editedName.value = props.insurer.name || '';
-  } else if (field === 'turnus') {
-    editedTurnus.value = props.insurer.turnus || 'monatlich';
-  } else if (field === 'bezugsweg') {
-    editedBezugsweg.value = props.insurer.bezugsweg || 'E-Mail';
-  } else if (field === 'dokumentenart') {
-    editedDokumentenart.value = props.insurer.dokumentenart ? [...props.insurer.dokumentenart] : [];
-  }
+  if (field === 'name') editedName.value = props.insurer.name;
+  else if (field === 'comment') editedComment.value = props.insurer.comment || '';
+  else if (field === 'turnus') editedTurnus.value = props.insurer.turnus;
+  else if (field === 'bezugsweg') editedBezugsweg.value = props.insurer.bezugsweg;
+  else if (field === 'dokumentenart') editedDokumentenart.value = [...(props.insurer.dokumentenart || [])];
 };
 
 const cancelEditing = () => {
@@ -293,308 +333,102 @@ const cancelEditing = () => {
 };
 
 const saveField = async (field) => {
-  if (!props.isProductionBranch) console.log(`Saving ${field} field`);
-  
-  try {
-    let updateData = {};
-    
-    if (field === 'name') {
-      updateData = { name: editedName.value };
-    } else if (field === 'turnus') {
-      updateData = { turnus: editedTurnus.value };
-    } else if (field === 'bezugsweg') {
-      updateData = { bezugsweg: editedBezugsweg.value };
-    } else if (field === 'dokumentenart') {
-      updateData = { dokumentenart: editedDokumentenart.value };
-    }
-    
-    if (Object.keys(updateData).length > 0) {
-      if (!props.isProductionBranch) console.log('Update data:', updateData);
-      
-      const success = await insurerStore.updateInsurer(props.insurer.id, updateData);
-      
-      if (success) {
-        if (!props.isProductionBranch) console.log(`${field} updated successfully`);
-      } else {
-        if (!props.isProductionBranch) console.error(`Failed to update ${field}`);
-      }
-    }
-  } catch (error) {
-    if (!props.isProductionBranch) console.error(`Error saving ${field}:`, error);
-  } finally {
-    isEditing.value = false;
-    editField.value = null;
+  let updatedData = {};
+  if (field === 'name') updatedData = { name: editedName.value };
+  else if (field === 'comment') updatedData = { comment: editedComment.value };
+  else if (field === 'turnus') updatedData = { turnus: editedTurnus.value };
+  else if (field === 'bezugsweg') updatedData = { bezugsweg: editedBezugsweg.value };
+  else if (field === 'dokumentenart') updatedData = { dokumentenart: editedDokumentenart.value };
+
+  if (Object.keys(updatedData).length > 0) {
+    await insurerStore.updateInsurer(props.insurer.id, updatedData);
+  }
+  cancelEditing();
+};
+
+const confirmDelete = () => {
+  showDeleteConfirmation.value = true;
+};
+
+const deleteInsurer = async () => {
+  const success = await insurerStore.deleteInsurer(props.insurer.id);
+  if (success) {
+    showDeleteConfirmation.value = false;
+    emit('delete-insurer', props.insurer.id);
+    handleClose();
   }
 };
 
-// Set initial date to today and log insurer data when component mounts
-onMounted(() => {
-  // Set default date
-  const today = new Date();
-  const day = String(today.getDate()).padStart(2, '0');
-  const month = String(today.getMonth() + 1).padStart(2, '0');
-  const year = today.getFullYear();
-  selectedDate.value = `${year}-${month}-${day}`;
-
-  // Debug logs
-  if (!props.isProductionBranch) console.log('Insurer data:', props.insurer);
-  if (props.insurer) {
-    if (!props.isProductionBranch) console.log('Dokumentenart:', props.insurer.dokumentenart);
-    insurerStore.fetchSettlementHistory(props.insurer.id);
-  }
-});
-
-const props = defineProps({
-  insurer: {
-    type: Object,
-    required: true
-  },
-
-  currentDate: {
-    type: [Date, String],
-    required: true
-  },
-  isProductionBranch: {
-    type: Boolean,
-    default: true
-  }
-});
-
-const emit = defineEmits(['close', 'settlement-completed']);
-
-watch(() => props.insurer, (newInsurer) => {
-  if (newInsurer && newInsurer.id) {
-    insurerStore.fetchSettlementHistory(newInsurer.id);
-  }
-}, { immediate: true });
-
-const handleClose = () => {
-  emit('close');
+const confirmSettlementDelete = (settlementId) => {
+  settlementToDeleteId.value = settlementId;
+  showSettlementDeleteConfirmation.value = true;
 };
 
-const openDatePicker = () => {
-  showDatePicker.value = true;
-  // Focus the date input when the dialog opens
-  setTimeout(() => {
-    if (dateInputRef.value) {
-      dateInputRef.value.focus();
-    }
-  }, 100);
+const cancelSettlementDelete = () => {
+  settlementToDeleteId.value = null;
+  showSettlementDeleteConfirmation.value = false;
 };
 
-const handleDateSubmit = async (date) => {
-  if (!props.isProductionBranch) console.log('=== handleDateSubmit ===');
-
-  try {
-    if (!props.isProductionBranch) console.log('Starting handleDateSubmit with date:', date);
-
-    const dateToUse = date || selectedDate.value;
-
-    if (!dateToUse) {
-      if (!props.isProductionBranch) console.error('No date provided');
-      return;
-    }
-
-    if (!props.isProductionBranch) console.log('Input date:', dateToUse);
-
-    const parsedDate = new Date(dateToUse);
-    parsedDate.setHours(14, 0, 0, 0);
-
-    const timestamp = parsedDate.getTime();
-
-    const formattedDay = String(parsedDate.getDate()).padStart(2, '0');
-    const formattedMonth = String(parsedDate.getMonth() + 1).padStart(2, '0');
-    const formattedYear = parsedDate.getFullYear();
-    const displayDate = `${formattedDay}.${formattedMonth}.${formattedYear}`;
-
-    if (!props.isProductionBranch) console.log('Creating date object:', {
-      inputDate: dateToUse,
-      parsedDate: parsedDate.toString(),
-      isoString: parsedDate.toISOString(),
-      timestamp,
-      displayDate
-    });
-
-    const lastInvoice = {
-      display: displayDate,
-      timestamp: timestamp,
-      date: parsedDate.toISOString(),
-      note: settlementNote.value
-    };
-
-    if (!props.isProductionBranch) console.log('Created last_invoice object:', JSON.stringify(lastInvoice, null, 2));
-
-    try {
-      const eventData = {
-        insurer: props.insurer,
-        newDate: parsedDate,
-        displayDate,
-        last_invoice: lastInvoice
-      };
-
-      if (!props.isProductionBranch) console.log('Emitting settlement-completed event with data:', JSON.stringify(eventData, null, 2));
-      emit('settlement-completed', eventData);
-      if (!props.isProductionBranch) console.log('settlement-completed event emitted successfully');
-    } catch (error) {
-      if (!props.isProductionBranch) console.error('Error updating insurer data:', error);
-      throw error;
-    }
-
-    if (!props.isProductionBranch) console.log('Date picker closed');
-    showDatePicker.value = false;
-    settlementNote.value = ''; // Reset note on submit
-  } catch (error) {
-    if (!props.isProductionBranch) console.error('Error in handleDateSubmit:', error);
-    if (error instanceof Error) {
-      if (!props.isProductionBranch) console.error('Error name:', error.name);
-      if (!props.isProductionBranch) console.error('Error message:', error.message);
-      if (!props.isProductionBranch) console.error('Error stack:', error.stack);
-    }
-    throw error;
+const executeDeleteSettlement = async () => {
+  if (settlementToDeleteId.value) {
+    await insurerStore.deleteSettlement(props.insurer.id, settlementToDeleteId.value);
+    cancelSettlementDelete();
   }
 };
 
 const handleCancel = () => {
   showDatePicker.value = false;
-  settlementNote.value = ''; // Reset note on cancel
+  settlementNote.value = '';
+};
+
+const handleDateSubmit = async () => {
+  if (!selectedDate.value) return;
+
+  const newInvoiceData = {
+    date: new Date(selectedDate.value),
+    note: settlementNote.value,
+  };
+
+  // This function returns the newly created settlement with its ID
+  const newSettlement = await insurerStore.addInvoiceToHistory(props.insurer.id, newInvoiceData);
+
+  if (newSettlement) {
+    // Emit event for parent component
+    emit('settlement-completed', { insurer: props.insurer, last_invoice: newSettlement });
+
+    // Manually and directly update the local state to guarantee reactivity.
+    localSettlementHistory.value.unshift(newSettlement);
+        // Update the ref for the summary bar by passing the raw Timestamp object.
+    localLastInvoice.value = newSettlement.date;
+  }
+
+  handleCancel(); // Close picker after submission
+};
+
+
+// Lifecycle and Watchers
+// This watcher is now the single source of truth for reactivity.
+// It fetches the initial history and updates the local last invoice when the history changes.
+watch(() => props.insurer, (newInsurer) => {
+  if (newInsurer) {
+    // Initialize local history when the insurer changes
+    localSettlementHistory.value = [...(insurerStore.settlementHistories[newInsurer.id] || [])];
+  }
+}, { immediate: true, deep: true });
+
+
+
+
+
+
+
+
+
+onMounted(() => {
   const today = new Date();
-  const day = String(today.getDate()).padStart(2, '0');
-  const month = String(today.getMonth() + 1).padStart(2, '0');
   const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
   selectedDate.value = `${year}-${month}-${day}`;
-};
-
-const formattedLastInvoice = computed(() => {
-  if (!props.isProductionBranch) console.log('formattedLastInvoice called with:', props.insurer.last_invoice);
-
-  if (!props.insurer.last_invoice) {
-    if (!props.isProductionBranch) console.log('No last_invoice, returning empty string');
-    return '';
-  }
-
-  let dateStr = '';
-  const lastInvoice = props.insurer.last_invoice;
-
-  if (typeof lastInvoice === 'object' && lastInvoice !== null) {
-    if (!props.isProductionBranch) console.log('last_invoice is an object with keys:', Object.keys(lastInvoice));
-
-    if (lastInvoice.date) {
-      if (!props.isProductionBranch) console.log('Using date property (ISO):', lastInvoice.date);
-      const date = new Date(lastInvoice.date);
-      if (!isNaN(date.getTime())) {
-        dateStr = date.toLocaleDateString('de-DE', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric'
-        });
-        if (!props.isProductionBranch) console.log('Formatted date from ISO string:', dateStr);
-      }
-    } else if (lastInvoice.display) {
-      if (!props.isProductionBranch) console.log('Using display property:', lastInvoice.display);
-      dateStr = lastInvoice.display.split(',')[0].trim();
-      if (!props.isProductionBranch) console.log('Extracted date from display:', dateStr);
-    } else if (lastInvoice.timestamp) {
-      if (!props.isProductionBranch) console.log('Using timestamp property:', lastInvoice.timestamp);
-      const date = new Date(Number(lastInvoice.timestamp));
-      if (!isNaN(date.getTime())) {
-        dateStr = date.toLocaleDateString('de-DE', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric'
-        });
-        if (!props.isProductionBranch) console.log('Formatted date from timestamp:', dateStr);
-      }
-    }
-  } else if (typeof lastInvoice === 'string' && lastInvoice.trim() !== '') {
-    if (!props.isProductionBranch) console.log('last_invoice is a string:', lastInvoice);
-    if (lastInvoice.includes('T') && !isNaN(Date.parse(lastInvoice))) {
-      const date = new Date(lastInvoice);
-      dateStr = date.toLocaleDateString('de-DE', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-      if (!props.isProductionBranch) console.log('Formatted ISO date string:', dateStr);
-    } else {
-      dateStr = lastInvoice.split(',')[0].trim();
-      if (!props.isProductionBranch) console.log('Extracted date from string:', dateStr);
-    }
-  }
-
-  if (!dateStr) {
-    if (!props.isProductionBranch) console.log('No date string extracted, returning empty string');
-    return '';
-  }
-
-  if (!props.isProductionBranch) console.log('Final date string to format:', dateStr);
-
-  try {
-    if (/^\d{1,2}\.\d{1,2}\.\d{4}$/.test(dateStr)) {
-      const [day, month, year] = dateStr.split('.').map(Number);
-      const date = new Date(year, month - 1, day);
-
-      if (isNaN(date.getTime())) {
-        if (!props.isProductionBranch) console.log('Invalid date from DD.MM.YYYY format, returning as is');
-        return dateStr;
-      }
-
-      const formatted = date.toLocaleDateString('de-DE', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-
-      if (!props.isProductionBranch) console.log('Formatted date from DD.MM.YYYY:', formatted);
-      return formatted;
-    }
-
-    const date = new Date(dateStr);
-    if (!isNaN(date.getTime())) {
-      const formatted = date.toLocaleDateString('de-DE', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      });
-      if (!props.isProductionBranch) console.log('Formatted date from Date object:', formatted);
-      return formatted;
-    }
-
-    if (!props.isProductionBranch) console.log('Could not parse date, returning as is:', dateStr);
-    return dateStr;
-
-  } catch (e) {
-    if (!props.isProductionBranch) console.error('Error formatting date:', e);
-    const result = dateStr.split(' ')[0].split(',')[0].trim();
-    if (!props.isProductionBranch) console.log('Error case, returning:', result);
-    return result;
-  }
 });
-
-const formatSettlementDate = (dateValue) => {
-  if (!dateValue) return 'N/A';
-  
-  let dateString = '';
-  if (typeof dateValue === 'object' && dateValue.toDate) {
-    // Handle Firebase Timestamp
-    dateString = dateValue.toDate().toISOString();
-  } else {
-    dateString = String(dateValue);
-  }
-
-  // Aggressively take the first part of the string, assuming it's the date
-  const datePart = dateString.split(' ')[0].split('T')[0].split(',')[0];
-
-  try {
-    const date = new Date(datePart);
-    if (isNaN(date.getTime())) {
-      return datePart; // Return the cleaned string if it's not a valid date
-    }
-    const day = String(date.getUTCDate()).padStart(2, '0');
-    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
-    const year = date.getUTCFullYear();
-    return `${day}.${month}.${year}`;
-  } catch (e) {
-    return datePart; // Return the cleaned part as a fallback
-  }
-};
 </script>

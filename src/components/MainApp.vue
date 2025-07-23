@@ -86,6 +86,9 @@
               v-model="simulatedDate"
             />
 
+            <!-- BiPRO Tester -->
+            <BiproTester v-if="!isProduction" />
+            
             <!-- Environment Switcher -->
             <EnvironmentUserInfo 
               v-if="!isProduction"
@@ -216,35 +219,21 @@
           </div>
         </div>
         
-        <!-- Overlay that appears when detail view is open -->
-        <transition name="fade">
-          <div 
-            v-if="selectedInsurer" 
-            @click="handleClearSelection()"
-            class="fixed inset-0 bg-black bg-opacity-50 z-20 transition-opacity duration-300"
-          ></div>
-        </transition>
-
-        <!-- Insurer Detail Slide-out Panel -->
-        <transition name="slide-in-right">
-          <div 
-            v-if="selectedInsurer" 
-            class="fixed inset-y-0 right-0 w-full max-w-2xl bg-white shadow-2xl z-30 transform transition-transform duration-300 ease-in-out border-l border-gray-100"
-            @click.stop
-          >
-            <div class="p-6 overflow-y-auto" style="height: 100vh;">
-              <InsurerDetail 
-                :insurer="selectedInsurer" 
-                :current-date="currentDate"
-                :is-production="isProduction"
-                @settlement-completed="handleSettlementCompleted"
-                @close="handleClearSelection"
-              />
-            </div>
-          </div>
-        </transition>
       </div>
     </div>
+
+    <!-- Insurer Detail Modal, teleported to the body to escape container constraints -->
+    <Teleport to="body">
+      <InsurerDetail 
+        v-if="selectedInsurer" 
+        :insurer="selectedInsurer" 
+        :last-invoice="lastInvoices[selectedInsurer.id]"
+        @update:insurer="handleUpdateInsurer"
+        @settlement-completed="handleSettlementCompleted"
+        @insurer-deleted="handleInsurerDeleted"
+        @close="handleClearSelection"
+      />
+    </Teleport>
 
     <!-- Create Insurer Modal -->
     <CreateInsurerForm 
@@ -258,7 +247,8 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { storeToRefs } from 'pinia';
-import { useInsurerStore } from '../stores/insurerStore';
+import { useInsurerStore } from '@/stores/insurerStore';
+import { useInsurerUtils } from '@/composables/useInsurerUtils';
 import { useAbrechnungStore } from '../stores/abrechnungStore';
 import { useAuthStore } from '../stores/auth';
 import { useRoute } from 'vue-router';
@@ -275,12 +265,14 @@ import InsurerDetail from './InsurerDetail.vue';
 import TestDateSimulator from './TestDateSimulator.vue';
 import EnvironmentUserInfo from './EnvironmentUserInfo.vue';
 import CreateInsurerForm from './CreateInsurerForm.vue';
+import BiproTester from './BiproTester.vue';
 
 // Utility imports
-import { calculateDaysOverdue } from '../utils/insurerUtils';
+
 
 // Initialize Pinia store
 const insurerStore = useInsurerStore();
+const { calculateDaysOverdue } = useInsurerUtils();
 const abrechnungStore = useAbrechnungStore();
 
 // Destructure state and getters from the store
@@ -432,6 +424,17 @@ const handleClearSelection = () => {
   // Refresh insurer data to update the tiles with the latest invoice dates
   console.log('Refreshing insurer data after closing details view...');
   insurerStore.switchEnvironmentAndFetchData(dataMode.value);
+};
+
+// Handle insurer deletion
+const handleInsurerDeleted = (insurerId) => {
+  console.log(`Insurer deleted: ${insurerId}`);
+  
+  // Clear the selected insurer since it's been deleted
+  insurerStore.clearSelectedInsurer();
+  
+  // No need to refresh data as the store's deleteInsurer method already updates the local state
+  // But we can add a notification or toast here if desired
 };
 
 // Handle saving a new insurer from the form
@@ -935,47 +938,27 @@ const filteredInsurers = computed(() => {
 });
 
 // Handle settlement completion from the detail view
-const handleSettlementCompleted = async (event) => {
-  console.log('Settlement completed event received in MainApp:', event);
-  const { insurer, last_invoice } = event;
+const handleSettlementCompleted = async ({ insurer, last_invoice }) => {
+  console.log('Settlement completed for:', insurer.name, 'with invoice:', last_invoice);
+  // The store now handles its own state updates optimistically.
+  // We no longer need to call an update function from here, which was causing a race condition.
+  // The store now handles its own state updates optimistically from within the 'addInvoiceToHistory' action.
+  // The call from MainApp was causing a race condition and has been removed.
 
-  if (!insurer || !insurer.id || !last_invoice) {
-    console.error('Invalid settlement data received:', event);
-    return;
-  }
+  // Do not close the detail panel automatically. This allows the user to see the
+  // updated state and add more settlements if needed. The premature closing
+  // was the root cause of the UI not appearing to update.
 
-  isLoading.value = true;
+  // Asynchronously refresh the full history in the background if needed
   try {
-    // The new invoice object is the `last_invoice` from the event
-    const newInvoice = {
-      ...last_invoice,
-      createdAt: new Date().toISOString(),
-      insurerName: insurer.name, // Add insurer name for better display in Abrechnungen
-      documentType: 'invoice',
-      status: 'completed'
-    };
-
-    // Save the new invoice to the insurer's invoice history in Firebase
-    const docRef = await insurerStore.addInvoiceToHistory(insurer.id, newInvoice);
-    console.log(`New invoice for ${insurer.name} saved successfully with ID: ${docRef.id}`);
-    
-    // Refresh the abrechnungen data if we're on the history tab
+    await insurerStore.fetchSettlementHistory(insurer.id);
     if (activeTab.value === 'history') {
-      console.log('Refreshing abrechnungen data after new invoice save...');
       await abrechnungStore.fetchAbrechnungen();
     }
-
-    // Close the detail panel
-    handleClearSelection();
-
   } catch (error) {
-    console.error('Error in handleSettlementCompleted:', error);
-  } finally {
-    isLoading.value = false;
+    console.error('Error refreshing history after settlement:', error);
   }
 };
-
-
 
 // Use real data from abrechnung store
 const formattedAbrechnungen = computed(() => {
@@ -987,7 +970,7 @@ const debugInsurerStatus = () => {
   console.log('--- Insurer Status Debug ---');
   insurersData.value.forEach(insurer => {
     const lastInv = lastInvoices.value[insurer.id];
-    const daysOverdue = calculateDaysOverdue(insurer, getCurrentDate());
+        const daysOverdue = calculateDaysOverdue(insurer, currentDate.value);
     console.log(
       `${insurer.name}: ` +
       `Last Invoice: ${lastInv ? format(new Date(lastInv[0].date), 'dd.MM.yyyy') : 'N/A'}, ` +

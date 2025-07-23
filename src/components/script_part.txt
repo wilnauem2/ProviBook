@@ -1,0 +1,442 @@
+﻿
+> <script setup>
+  import { ref, computed, onMounted, defineProps, defineEmits, watch } from 'vue';
+  import { useInsurerStore } from '../stores/insurerStore';
+  import { getStatusColor, getStatusText } from '../utils/insurerUtils';
+  
+  // Initialize Pinia store
+  const insurerStore = useInsurerStore();
+  const settlementHistory = computed(() => insurerStore.settlementHistory);
+  
+  // Edit mode state
+  const isEditing = ref(false);
+  const editField = ref(null);
+  const editedName = ref('');
+  const editedComment = ref('');
+  const editedTurnus = ref('');
+  const editedBezugsweg = ref('');
+  const editedDokumentenart = ref([]);
+  const availableFormats = ['CSV', 'PDF', 'Paper', 'XLS', 'XML', 'Papier'];
+  
+  // Delete confirmation state
+  const showDeleteConfirmation = ref(false);
+  
+  // Format helpers
+  const getFormatClass = (format) => {
+    switch(format) {
+      case 'CSV': return 'bg-blue-100 text-blue-800';
+      case 'PDF': return 'bg-red-100 text-red-800';
+      case 'Paper': return 'bg-yellow-100 text-yellow-800';
+      case 'XLS': return 'bg-green-100 text-green-800';
+      case 'XML': return 'bg-purple-100 text-purple-800';
+      case 'Papier': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+  
+  const filteredFormats = computed(() => {
+    if (!props.insurer) return [];
+    
+    // Ensure dokumentenart is an array
+    const dokumentenart = Array.isArray(props.insurer.dokumentenart) 
+      ? props.insurer.dokumentenart 
+      : (props.insurer.dokumentenart ? [props.insurer.dokumentenart] : []);
+    
+    // Filter out single letters and only keep valid format names
+    const validFormats = ['CSV', 'PDF', 'Paper', 'XLS', 'XML', 'Papier'];
+    return dokumentenart.filter(format => 
+      validFormats.includes(format) && format.length > 1
+    );
+  });
+  
+  const formattedTurnus = computed(() => {
+    if (props.insurer && typeof props.insurer.turnus === 'number') {
+      return `${props.insurer.turnus} Tage`;
+    }
+    return props.insurer.turnus; // Fallback for old string data
+  });
+  
+  const showDatePicker = ref(false);
+  const selectedDate = ref('');
+  const settlementNote = ref('');
+  const dateInputRef = ref(null);
+  
+  // BiPRO status toggle
+  const toggleBiproStatus = async () => {
+    try {
+      const newBiproValue = !props.insurer.bipro;
+      const result = await insurerStore.updateInsurer(props.insurer.id, { bipro: newBiproValue });
+      if (result) {
+        // Success notification could be added here
+        console.log(`BiPRO fÃ¼r ${props.insurer.name} wurde ${newBiproValue ? 'aktiviert' : 'deaktiviert'}.`);
+      } else {
+        console.error(`Fehler beim Aktualisieren von ${props.insurer.name}.`);
+      }
+    } catch (error) {
+      console.error(`Fehler: ${error.message}`);
+    }
+  };
+  
+  // Delete insurer functionality
+  const deleteInsurer = async () => {
+    try {
+      console.log(`Deleting insurer: ${props.insurer.id} - ${props.insurer.name}`);
+      
+      // Call the store's deleteInsurer method
+      const success = await insurerStore.deleteInsurer(props.insurer.id);
+      
+      if (success) {
+        console.log('Insurer deleted successfully');
+        
+        // Close the confirmation dialog
+        showDeleteConfirmation.value = false;
+        
+        // Emit an event to notify the parent component
+        emit('insurer-deleted', props.insurer.id);
+        
+        // Close the detail view
+        emit('close');
+      } else {
+        console.error('Failed to delete insurer');
+        // Could add error handling UI here
+      }
+    } catch (error) {
+      console.error('Error deleting insurer:', error);
+      // Could add error handling UI here
+    }
+  };
+  
+  // Edit mode functions
+  const startEditing = (field) => {
+    isEditing.value = true;
+    editField.value = field;
+    
+    // Initialize edit values from current insurer data
+    if (field === 'name') {
+      editedName.value = props.insurer.name || '';
+    } else if (field === 'comment') {
+      editedComment.value = props.insurer.comment || '';
+    } else if (field === 'turnus') {
+      editedTurnus.value = props.insurer.turnus || 'monatlich';
+    } else if (field === 'bezugsweg') {
+      editedBezugsweg.value = props.insurer.bezugsweg || 'E-Mail';
+    } else if (field === 'dokumentenart') {
+      editedDokumentenart.value = props.insurer.dokumentenart ? [...props.insurer.dokumentenart] : [];
+    }
+  };
+  
+  const cancelEditing = () => {
+    isEditing.value = false;
+    editField.value = null;
+  };
+  
+  const saveField = async (field) => {
+    if (!props.isProductionBranch) console.log(`Saving ${field} field`);
+    
+    try {
+      let updateData = {};
+      
+      if (field === 'name') {
+        updateData = { name: editedName.value };
+      } else if (field === 'comment') {
+        updateData = { comment: editedComment.value };
+      } else if (field === 'turnus') {
+        updateData = { turnus: editedTurnus.value };
+      } else if (field === 'bezugsweg') {
+        updateData = { bezugsweg: editedBezugsweg.value };
+      } else if (field === 'dokumentenart') {
+        updateData = { dokumentenart: editedDokumentenart.value };
+      }
+      
+      if (Object.keys(updateData).length > 0) {
+        if (!props.isProductionBranch) console.log('Update data:', updateData);
+        
+        const success = await insurerStore.updateInsurer(props.insurer.id, updateData);
+        
+        if (success) {
+          if (!props.isProductionBranch) console.log(`${field} updated successfully`);
+        } else {
+          if (!props.isProductionBranch) console.error(`Failed to update ${field}`);
+        }
+      }
+    } catch (error) {
+      if (!props.isProductionBranch) console.error(`Error saving ${field}:`, error);
+    } finally {
+      isEditing.value = false;
+      editField.value = null;
+    }
+  };
+  
+  // Set initial date to today and log insurer data when component mounts
+  onMounted(() => {
+    // Set default date
+    const today = new Date();
+    const day = String(today.getDate()).padStart(2, '0');
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const year = today.getFullYear();
+    selectedDate.value = `${year}-${month}-${day}`;
+  
+    // Debug logs
+    if (!props.isProductionBranch) console.log('Insurer data:', props.insurer);
+    if (props.insurer) {
+      if (!props.isProductionBranch) console.log('Dokumentenart:', props.insurer.dokumentenart);
+      insurerStore.fetchSettlementHistory(props.insurer.id);
+    }
+  });
+  
+  const props = defineProps({
+    insurer: {
+      type: Object,
+      required: true
+    },
+  
+    currentDate: {
+      type: [Date, String],
+      required: true
+    },
+    isProductionBranch: {
+      type: Boolean,
+      default: true
+    }
+  });
+  
+  const emit = defineEmits(['close', 'settlement-completed']);
+  
+  watch(() => props.insurer, (newInsurer) => {
+    if (newInsurer && newInsurer.id) {
+      insurerStore.fetchSettlementHistory(newInsurer.id);
+    }
+  }, { immediate: true });
+  
+  const handleClose = () => {
+    emit('close');
+  };
+  
+  const openDatePicker = () => {
+    showDatePicker.value = true;
+    // Focus the date input when the dialog opens
+    setTimeout(() => {
+      if (dateInputRef.value) {
+        dateInputRef.value.focus();
+      }
+    }, 100);
+  };
+  
+  const handleDateSubmit = async (date) => {
+    if (!props.isProductionBranch) console.log('=== handleDateSubmit ===');
+  
+    try {
+      if (!props.isProductionBranch) console.log('Starting handleDateSubmit with date:', date);
+  
+      const dateToUse = date || selectedDate.value;
+  
+      if (!dateToUse) {
+        if (!props.isProductionBranch) console.error('No date provided');
+        return;
+      }
+  
+      if (!props.isProductionBranch) console.log('Input date:', dateToUse);
+  
+      const parsedDate = new Date(dateToUse);
+      parsedDate.setHours(14, 0, 0, 0);
+  
+      const timestamp = parsedDate.getTime();
+  
+      const formattedDay = String(parsedDate.getDate()).padStart(2, '0');
+      const formattedMonth = String(parsedDate.getMonth() + 1).padStart(2, '0');
+      const formattedYear = parsedDate.getFullYear();
+      const displayDate = `${formattedDay}.${formattedMonth}.${formattedYear}`;
+  
+      if (!props.isProductionBranch) console.log('Creating date object:', {
+        inputDate: dateToUse,
+        parsedDate: parsedDate.toString(),
+        isoString: parsedDate.toISOString(),
+        timestamp,
+        displayDate
+      });
+  
+      const lastInvoice = {
+        display: displayDate,
+        timestamp: timestamp,
+        date: parsedDate.toISOString(),
+        note: settlementNote.value
+      };
+  
+      if (!props.isProductionBranch) console.log('Created last_invoice object:', JSON.stringify(lastInvoice, null, 2));
+  
+      try {
+        const eventData = {
+          insurer: props.insurer,
+          newDate: parsedDate,
+          displayDate,
+          last_invoice: lastInvoice
+        };
+  
+        if (!props.isProductionBranch) console.log('Emitting settlement-completed event with data:', JSON.stringify(eventData, null, 2));
+        emit('settlement-completed', eventData);
+        if (!props.isProductionBranch) console.log('settlement-completed event emitted successfully');
+      } catch (error) {
+        if (!props.isProductionBranch) console.error('Error updating insurer data:', error);
+        throw error;
+      }
+  
+      if (!props.isProductionBranch) console.log('Date picker closed');
+      showDatePicker.value = false;
+      settlementNote.value = ''; // Reset note on submit
+    } catch (error) {
+      if (!props.isProductionBranch) console.error('Error in handleDateSubmit:', error);
+      if (error instanceof Error) {
+        if (!props.isProductionBranch) console.error('Error name:', error.name);
+        if (!props.isProductionBranch) console.error('Error message:', error.message);
+        if (!props.isProductionBranch) console.error('Error stack:', error.stack);
+      }
+      throw error;
+    }
+  };
+  
+  const handleCancel = () => {
+    showDatePicker.value = false;
+    settlementNote.value = ''; // Reset note on cancel
+    const today = new Date();
+    const day = String(today.getDate()).padStart(2, '0');
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const year = today.getFullYear();
+    selectedDate.value = `${year}-${month}-${day}`;
+  };
+  
+  const formattedLastInvoice = computed(() => {
+    if (!props.isProductionBranch) console.log('formattedLastInvoice called with:', props.insurer.last_invoice);
+  
+    if (!props.insurer.last_invoice) {
+      if (!props.isProductionBranch) console.log('No last_invoice, returning empty string');
+      return '';
+    }
+  
+    let dateStr = '';
+    const lastInvoice = props.insurer.last_invoice;
+  
+    if (typeof lastInvoice === 'object' && lastInvoice !== null) {
+      if (!props.isProductionBranch) console.log('last_invoice is an object with keys:', Object.keys(lastInvoice));
+  
+      if (lastInvoice.date) {
+        if (!props.isProductionBranch) console.log('Using date property (ISO):', lastInvoice.date);
+        const date = new Date(lastInvoice.date);
+        if (!isNaN(date.getTime())) {
+          dateStr = date.toLocaleDateString('de-DE', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+          });
+          if (!props.isProductionBranch) console.log('Formatted date from ISO string:', dateStr);
+        }
+      } else if (lastInvoice.display) {
+        if (!props.isProductionBranch) console.log('Using display property:', lastInvoice.display);
+        dateStr = lastInvoice.display.split(',')[0].trim();
+        if (!props.isProductionBranch) console.log('Extracted date from display:', dateStr);
+      } else if (lastInvoice.timestamp) {
+        if (!props.isProductionBranch) console.log('Using timestamp property:', lastInvoice.timestamp);
+        const date = new Date(Number(lastInvoice.timestamp));
+        if (!isNaN(date.getTime())) {
+          dateStr = date.toLocaleDateString('de-DE', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+          });
+          if (!props.isProductionBranch) console.log('Formatted date from timestamp:', dateStr);
+        }
+      }
+    } else if (typeof lastInvoice === 'string' && lastInvoice.trim() !== '') {
+      if (!props.isProductionBranch) console.log('last_invoice is a string:', lastInvoice);
+      if (lastInvoice.includes('T') && !isNaN(Date.parse(lastInvoice))) {
+        const date = new Date(lastInvoice);
+        dateStr = date.toLocaleDateString('de-DE', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        });
+        if (!props.isProductionBranch) console.log('Formatted ISO date string:', dateStr);
+      } else {
+        dateStr = lastInvoice.split(',')[0].trim();
+        if (!props.isProductionBranch) console.log('Extracted date from string:', dateStr);
+      }
+    }
+  
+    if (!dateStr) {
+      if (!props.isProductionBranch) console.log('No date string extracted, returning empty string');
+      return '';
+    }
+  
+    if (!props.isProductionBranch) console.log('Final date string to format:', dateStr);
+  
+    try {
+      if (/^\d{1,2}\.\d{1,2}\.\d{4}$/.test(dateStr)) {
+        const [day, month, year] = dateStr.split('.').map(Number);
+        const date = new Date(year, month - 1, day);
+  
+        if (isNaN(date.getTime())) {
+          if (!props.isProductionBranch) console.log('Invalid date from DD.MM.YYYY format, returning as is');
+          return dateStr;
+        }
+  
+        const formatted = date.toLocaleDateString('de-DE', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        });
+  
+        if (!props.isProductionBranch) console.log('Formatted date from DD.MM.YYYY:', formatted);
+        return formatted;
+      }
+  
+      const date = new Date(dateStr);
+      if (!isNaN(date.getTime())) {
+        const formatted = date.toLocaleDateString('de-DE', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        });
+        if (!props.isProductionBranch) console.log('Formatted date from Date object:', formatted);
+        return formatted;
+      }
+  
+      if (!props.isProductionBranch) console.log('Could not parse date, returning as is:', dateStr);
+      return dateStr;
+  
+    } catch (e) {
+      if (!props.isProductionBranch) console.error('Error formatting date:', e);
+      const result = dateStr.split(' ')[0].split(',')[0].trim();
+      if (!props.isProductionBranch) console.log('Error case, returning:', result);
+      return result;
+    }
+  });
+  
+  const formatSettlementDate = (dateValue) => {
+    if (!dateValue) return 'N/A';
+    
+    let dateString = '';
+    if (typeof dateValue === 'object' && dateValue.toDate) {
+      // Handle Firebase Timestamp
+      dateString = dateValue.toDate().toISOString();
+    } else {
+      dateString = String(dateValue);
+    }
+  
+    // Aggressively take the first part of the string, assuming it's the date
+    const datePart = dateString.split(' ')[0].split('T')[0].split(',')[0];
+  
+    try {
+      const date = new Date(datePart);
+      if (isNaN(date.getTime())) {
+        return datePart; // Return the cleaned string if it's not a valid date
+      }
+      const day = String(date.getUTCDate()).padStart(2, '0');
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const year = date.getUTCFullYear();
+      return `${day}.${month}.${year}`;
+    } catch (e) {
+      return datePart; // Return the cleaned part as a fallback
+    }
+  };
+  </script>
+
+

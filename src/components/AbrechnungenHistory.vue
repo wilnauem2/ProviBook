@@ -529,12 +529,47 @@ const getDocumentTypeClass = (abrechnung) => {
 }
 
 const formatDate = (date) => {
-  if (!date) return ''
-  return new Date(date).toLocaleDateString('de-DE', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  })
+  if (!date) return 'Kein Datum'
+  
+  let dateObj
+  
+  try {
+    // Handle Firestore timestamp objects (with seconds and nanoseconds)
+    if (date && typeof date === 'object' && date.seconds !== undefined) {
+      dateObj = new Date(date.seconds * 1000)
+    } 
+    // Handle Date objects
+    else if (date instanceof Date) {
+      dateObj = date
+    }
+    // Handle timestamp numbers
+    else if (typeof date === 'number') {
+      dateObj = new Date(date)
+    }
+    // Handle ISO strings and other string formats
+    else if (typeof date === 'string') {
+      // Try to parse the date string
+      dateObj = new Date(date)
+    }
+    else {
+      // Fallback for other formats
+      dateObj = new Date(date)
+    }
+    
+    // Check if date is valid before formatting
+    if (isNaN(dateObj.getTime())) {
+      return 'Ungültiges Datum'
+    }
+    
+    return dateObj.toLocaleDateString('de-DE', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    })
+  } catch (error) {
+    console.error('Error formatting date:', error, date)
+    return 'Fehler beim Formatieren'
+  }
 }
 
 const showDetails = (abrechnung) => {

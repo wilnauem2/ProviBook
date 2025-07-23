@@ -125,7 +125,7 @@
                   <div>
                     <div class="text-xs text-gray-500">Letzte Rechnung</div>
                     <div class="font-medium" :class="isOverdue(insurer) ? 'text-red-600' : 'text-green-600'">
-                      {{ formatLastInvoice(lastInvoices[insurer.id] || insurer.last_invoice) }}
+                      {{ formatLastInvoice(lastInvoices[insurer.id] || (insurer.last_invoice !== null ? insurer.last_invoice : null)) }}
                     </div>
                   </div>
                 </div>
@@ -362,13 +362,18 @@ const formatDate = (dateValue) => {
 };
 
 const formatLastInvoice = (lastInvoice) => {
+  // Handle null or undefined explicitly
+  if (lastInvoice === null || lastInvoice === undefined) {
+    return 'Keine Abrechnung';
+  }
+
   // Priority 1: Object with a 'display' property.
-  if (lastInvoice && typeof lastInvoice === 'object' && lastInvoice.display) {
+  if (typeof lastInvoice === 'object' && lastInvoice.display) {
     return lastInvoice.display;
   }
 
   // Priority 2: Object with a 'datum' or 'date' property (likely a Firestore timestamp).
-  if (lastInvoice && typeof lastInvoice === 'object' && (lastInvoice.datum || lastInvoice.date)) {
+  if (typeof lastInvoice === 'object' && (lastInvoice.datum || lastInvoice.date)) {
     return formatDate(lastInvoice.datum || lastInvoice.date);
   }
 
@@ -377,7 +382,7 @@ const formatLastInvoice = (lastInvoice) => {
       return lastInvoice;
   }
 
-  // Fallback for all other cases (null, undefined, arrays, other objects).
-  return 'Keine Angabe';
+  // Fallback for all other cases (arrays, other objects).
+  return 'Keine Abrechnung';
 };
 </script>

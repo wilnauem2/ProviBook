@@ -229,7 +229,7 @@
         :insurer="selectedInsurer" 
         :last-invoice="selectedInsurerLastInvoice"
         @update:insurer="handleUpdateInsurer"
-
+        @settlement-completed="handleSettlementCompleted"
         @insurer-deleted="handleInsurerDeleted"
         @close="handleClearSelection"
       />
@@ -444,6 +444,62 @@ const handleSaveInsurer = (insurerData) => {
   isCreateInsurerModalVisible.value = false;
 };
 
+// Handle settlement completed event
+const handleSettlementCompleted = (data) => {
+  const { insurer, last_invoice } = data;
+  
+  if (insurer && insurer.id) {
+    // Create a new object to ensure reactivity
+    const updatedLastInvoices = { ...lastInvoices.value };
+    
+    if (last_invoice === null) {
+      // If last_invoice is null, it means the last settlement was deleted
+      // Delete the property from our copy
+      delete updatedLastInvoices[insurer.id];
+      // Replace the entire object to ensure reactivity
+      lastInvoices.value = updatedLastInvoices;
+      
+      // Also update the insurer object in the insurers array to clear last_invoice
+      const insurerIndex = insurersData.value.findIndex(ins => ins.id === insurer.id);
+      if (insurerIndex !== -1) {
+        // Create a new object to ensure reactivity
+        const updatedInsurer = { ...insurersData.value[insurerIndex] };
+        updatedInsurer.last_invoice = null;
+        
+        // Replace the insurer in the array
+        insurersData.value[insurerIndex] = updatedInsurer;
+      }
+    } else {
+      // Otherwise, update with the new settlement
+      updatedLastInvoices[insurer.id] = last_invoice;
+      // Replace the entire object to ensure reactivity
+      lastInvoices.value = updatedLastInvoices;
+      
+      // Also update the insurer object in the insurers array
+      const insurerIndex = insurersData.value.findIndex(ins => ins.id === insurer.id);
+      if (insurerIndex !== -1) {
+        // Create a new object to ensure reactivity
+        const updatedInsurer = { ...insurersData.value[insurerIndex] };
+        updatedInsurer.last_invoice = last_invoice;
+        
+        // Replace the insurer in the array
+        insurersData.value[insurerIndex] = updatedInsurer;
+      }
+    }
+    
+    // If this is the currently selected insurer, update its display
+    if (selectedInsurer.value && selectedInsurer.value.id === insurer.id) {
+      // Force reactivity update for the selected insurer
+      selectedInsurer.value = { ...selectedInsurer.value };
+      if (last_invoice === null) {
+        selectedInsurer.value.last_invoice = null;
+      } else {
+        selectedInsurer.value.last_invoice = last_invoice;
+      }
+    }
+  }
+};
+
 // Create sample abrechnungen data for testing
 const createSampleData = async () => {
   isCreatingSampleData.value = true;
@@ -477,13 +533,6 @@ const createSampleData = async () => {
       // Re-fetch insurers
       insurersSnapshot = await getDocs(insurersCollection);
       console.log(`🔄 Now have ${insurersSnapshot.size} test insurers`);
-    }
-    
-    if (insurersSnapshot.empty) {
-      console.error('❌ No insurers found. Cannot create sample abrechnungen.');
-      alert('Keine Versicherer gefunden. Kann keine Beispieldaten erstellen.');
-      isCreatingSampleData.value = false;
-      return;
     }
     
     console.log(`Found ${insurersSnapshot.size} insurers to create sample data for`);

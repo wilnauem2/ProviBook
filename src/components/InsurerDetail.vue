@@ -391,8 +391,17 @@ const cancelSettlementDelete = () => {
 const executeDeleteSettlement = async () => {
   if (settlementToDeleteId.value) {
     await insurerStore.deleteSettlement(props.insurer.id, settlementToDeleteId.value);
+    
     // Manually update local state for immediate UI feedback
     localSettlementHistory.value = localSettlementHistory.value.filter(s => s.id !== settlementToDeleteId.value);
+    
+    // Check if this was the last settlement and update UI accordingly
+    if (localSettlementHistory.value.length === 0) {
+      // If we just deleted the last settlement, ensure the localLastInvoice is updated
+      // This is redundant with the store update but ensures UI consistency
+      emit('settlement-completed', { insurer: props.insurer, last_invoice: null });
+    }
+    
     cancelSettlementDelete();
   }
 };

@@ -225,6 +225,29 @@ export const useInsurerStore = defineStore('insurer', () => {
 
       if (settlementHistories.value[insurerId]) {
         settlementHistories.value[insurerId] = settlementHistories.value[insurerId].filter(s => s.id !== settlementId);
+        
+        // If this was the last settlement, also clear the last_invoice
+        if (settlementHistories.value[insurerId].length === 0) {
+          // Update Firestore document
+          const insurerDocRef = doc(db, collections.value.insurers, insurerId);
+          await updateDoc(insurerDocRef, { last_invoice: null });
+          
+          // Update local state
+          if (lastInvoices.value[insurerId]) {
+            delete lastInvoices.value[insurerId];
+          }
+          
+          // Update the insurer object if it exists in the insurers array
+          const insurerIndex = insurers.value.findIndex(ins => ins.id === insurerId);
+          if (insurerIndex !== -1) {
+            insurers.value[insurerIndex].last_invoice = null;
+          }
+          
+          // Update selected insurer if it's the one we're modifying
+          if (selectedInsurer.value && selectedInsurer.value.id === insurerId) {
+            selectedInsurer.value.last_invoice = null;
+          }
+        }
       }
     } catch (err) {
       console.error('Error deleting settlement:', err);

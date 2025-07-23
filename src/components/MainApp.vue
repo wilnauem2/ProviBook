@@ -166,7 +166,7 @@
                   :currentDate="currentDate"
                   :selectedInsurer="selectedInsurer"
                   @select-insurer="handleInsurerSelection($event)"
-                  @clear-selection="handleClearSelection()"
+                  @clear-selection="handleClearSelection"
                 />
               </div>
             </div>
@@ -288,33 +288,20 @@ const isCreatingSampleData = ref(false);
 // Watch for tab changes to load appropriate data
 watch(activeTab, (newTab) => {
   if (newTab === 'history') {
-    console.log('🔄 Switching to Abrechnungen tab, fetching data...');
-    console.log('🔄 Current data mode:', dataMode.value);
-    console.log('🔄 Current abrechnungen data:', abrechnungStore.abrechnungen);
+    console.log('Switching to Abrechnungen tab, fetching data...');
+    console.log('Current data mode:', dataMode.value);
+    console.log('Current abrechnungen data:', abrechnungStore.abrechnungen);
     
     // Explicitly refresh the data in the current mode
-    console.log('🔄 Calling abrechnungStore.switchEnvironmentAndFetchData with mode:', dataMode.value);
+    console.log('Calling abrechnungStore.switchEnvironmentAndFetchData with mode:', dataMode.value);
     abrechnungStore.switchEnvironmentAndFetchData(dataMode.value)
       .then(result => {
-        console.log('🔄 Data fetch completed. Result:', result);
-        console.log('🔄 Abrechnungen after fetch:', abrechnungStore.abrechnungen?.length || 0);
-        
-        // Force a UI update
-        nextTick(() => {
-          console.log('🔄 After nextTick - Abrechnungen count:', abrechnungStore.abrechnungen?.length || 0);
-        });
-        
-        console.log('🔄 Sample data creation complete');
+        console.log('Data fetch completed. Result:', result);
+        console.log('Abrechnungen after fetch:', abrechnungStore.abrechnungen?.length || 0);
       })
       .catch(error => {
-        console.error('🔄 Error fetching abrechnungen data:', error);
+        console.error('Error fetching abrechnungen data:', error);
       });
-    
-    // Add a delayed check to see if data was loaded
-    setTimeout(() => {
-      console.log('🔄 Delayed check - Abrechnungen data after fetch:', abrechnungStore.abrechnungen);
-      console.log('🔄 Abrechnungen length:', abrechnungStore.abrechnungen?.length || 0);
-    }, 2000);
   }
 });
 const sortOption = ref('name');
@@ -501,20 +488,20 @@ const handleSettlementCompleted = (data) => {
 const createSampleData = async () => {
   isCreatingSampleData.value = true;
   try {
-    console.log('🔄 Creating sample abrechnungen data in insurer subcollections...');
+    console.log('Creating sample abrechnungen data in insurer subcollections...');
     
     // Get all insurers first - use the correct collection based on environment mode
     const insurersCollectionName = dataMode.value === 'test' ? 'insurers_test' : 'insurers';
-    console.log(`🔄 Creating sample data in ${dataMode.value} mode, using collection: ${insurersCollectionName}`);
+    console.log(`Creating sample data in ${dataMode.value} mode, using collection: ${insurersCollectionName}`);
     
     const insurersCollection = collection(db, insurersCollectionName);
     let insurersSnapshot = await getDocs(insurersCollection);
     
-    console.log(`🔄 Found ${insurersSnapshot.size} insurers in ${insurersCollectionName}`);
+    console.log(`Found ${insurersSnapshot.size} insurers in ${insurersCollectionName}`);
     
     // If we're in test mode and no insurers exist, create some test insurers first
     if (insurersSnapshot.empty && dataMode.value === 'test') {
-      console.log('🔄 No test insurers found. Creating test insurers first...');
+      console.log('No test insurers found. Creating test insurers first...');
       
       // Create some test insurers
       const testInsurerData = [
@@ -524,12 +511,12 @@ const createSampleData = async () => {
       
       for (const insurer of testInsurerData) {
         const docRef = await addDoc(insurersCollection, insurer);
-        console.log(`🔄 Created test insurer with ID: ${docRef.id}`);
+        console.log(`Created test insurer with ID: ${docRef.id}`);
       }
       
       // Re-fetch insurers
       insurersSnapshot = await getDocs(insurersCollection);
-      console.log(`🔄 Now have ${insurersSnapshot.size} test insurers`);
+      console.log(`Now have ${insurersSnapshot.size} test insurers`);
     }
     
     console.log(`Found ${insurersSnapshot.size} insurers to create sample data for`);
@@ -620,27 +607,22 @@ const createSampleData = async () => {
     console.log(`Sample data creation complete! Created ${totalCreated} invoices across ${insurersSnapshot.size} insurers.`);
     
     // Refresh the data
-    console.log('🔄 Refreshing data after sample creation...');
-    console.log('🔄 Current data mode:', dataMode.value);
+    console.log('Refreshing data after sample creation...');
+    console.log('Current data mode:', dataMode.value);
     
     try {
       // Force a refresh of the abrechnungen store
       const result = await abrechnungStore.switchEnvironmentAndFetchData(dataMode.value);
-      console.log('🔄 Data refresh result:', result);
-      console.log('🔄 Abrechnungen after refresh:', abrechnungStore.abrechnungen?.length || 0);
+      console.log('Data refresh result:', result);
+      console.log('Abrechnungen after refresh:', abrechnungStore.abrechnungen?.length || 0);
       
-      // Force a UI update
-      nextTick(() => {
-        console.log('🔄 After nextTick - Abrechnungen count:', abrechnungStore.abrechnungen?.length || 0);
-      });
-      
-      console.log('🔄 Sample data creation complete');
+      console.log('Sample data creation complete');
       alert(`${totalCreated} Beispiel-Abrechnungen erstellt`);
     } catch (refreshError) {
-      console.error('❌ Error refreshing data after sample creation:', refreshError);
+      console.error('Error refreshing data after sample creation:', refreshError);
     }
   } catch (error) {
-    console.error('❌ Error creating sample data:', error);
+    console.error('Error creating sample data:', error);
     alert('Fehler beim Erstellen von Beispieldaten: ' + error.message);
   } finally {
     isCreatingSampleData.value = false;
@@ -670,7 +652,7 @@ const refreshAbrechnungen = async () => {
 // Inspect Firestore collections for debugging
 const inspectFirestore = async () => {
   try {
-    console.log('🔍 Inspecting Firestore collections...');
+    console.log('Inspecting Firestore collections...');
     
     // Check both production and test collections
     const prodCollectionName = 'abrechnungen';
@@ -732,7 +714,7 @@ const inspectFirestore = async () => {
 // Test function to save an invoice directly to an insurer's subcollection
 const testSaveInvoice = async () => {
   try {
-    console.log('🧪 Testing invoice saving functionality...');
+    console.log('Testing invoice saving functionality...');
     
     // Select a test insurer (first one in the list)
     if (!insurersData.value || insurersData.value.length === 0) {
@@ -757,12 +739,12 @@ const testSaveInvoice = async () => {
     console.log('Test invoice data:', testInvoice);
     
     // Method 1: Use the store function
-    console.log('Method 1: Using insurerStore.addInvoiceToHistory...');
+    console.log('Using insurerStore.addInvoiceToHistory...');
     const docId = await insurerStore.addInvoiceToHistory(testInsurer.id, testInvoice);
     console.log(`Invoice saved with ID: ${docId}`);
     
     // Method 2: Direct Firestore access
-    console.log('Method 2: Direct Firestore access to invoice-history subcollection...');
+    console.log('Direct Firestore access to invoice-history subcollection...');
     const directCollectionRef = collection(db, 'insurers', testInsurer.id, 'invoice-history');
     const directDocRef = await addDoc(directCollectionRef, {
       ...testInvoice,
@@ -772,7 +754,7 @@ const testSaveInvoice = async () => {
     console.log(`Direct invoice saved with ID: ${directDocRef.id}`);
     
     // Method 3: Using settlement_history (legacy name) to test if it's still being used
-    console.log('Method 3: Direct Firestore access to settlement_history subcollection...');
+    console.log('Direct Firestore access to settlement_history subcollection...');
     const legacyCollectionRef = collection(db, 'insurers', testInsurer.id, 'settlement_history');
     const legacyDocRef = await addDoc(legacyCollectionRef, {
       ...testInvoice,
@@ -794,7 +776,7 @@ const testSaveInvoice = async () => {
 // Check subcollection names in Firestore
 const checkSubcollectionNames = async () => {
   try {
-    console.log('🔍 Checking subcollection names in insurers collection...');
+    console.log('Checking subcollection names in insurers collection...');
     
     // Get all insurers
     const insurersCollection = collection(db, 'insurers');
@@ -845,7 +827,7 @@ const checkSubcollectionNames = async () => {
 
 // Debug component state and data flow
 const debugComponentState = () => {
-  console.log('🔍 Debugging component state and data flow...');
+  console.log('Debugging component state and data flow...');
   
   // Check MainApp.vue state
   console.log('MainApp.vue state:');
@@ -878,7 +860,7 @@ const debugComponentState = () => {
 // Create a sample invoice in an insurer's subcollection
 const createSampleInvoice = async () => {
   try {
-    console.log('🔍 Creating sample invoice in insurer subcollection...');
+    console.log('Creating sample invoice in insurer subcollection...');
     
     // Find an insurer to add the invoice to - use the correct collection based on environment mode
     const insurersCollectionName = dataMode.value === 'test' ? 'insurers_test' : 'insurers';

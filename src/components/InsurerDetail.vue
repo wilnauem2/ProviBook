@@ -391,6 +391,8 @@ const cancelSettlementDelete = () => {
 const executeDeleteSettlement = async () => {
   if (settlementToDeleteId.value) {
     await insurerStore.deleteSettlement(props.insurer.id, settlementToDeleteId.value);
+    // Manually update local state for immediate UI feedback
+    localSettlementHistory.value = localSettlementHistory.value.filter(s => s.id !== settlementToDeleteId.value);
     cancelSettlementDelete();
   }
 };

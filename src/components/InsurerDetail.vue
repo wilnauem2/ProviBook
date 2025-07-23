@@ -129,7 +129,7 @@
                   </div>
                   <dd v-if="!isEditing || editField !== 'turnus'" class="text-sm text-gray-900 font-semibold">{{ formattedTurnus }}</dd>
                   <div v-else>
-                    <input v-model="editedTurnus" type="number" class="w-full text-sm border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="z.B. 30"/>
+                    <input v-model="editedTurnus" type="text" @blur="formatTurnus" class="w-32 text-base font-semibold border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" autofocus/>
                     <div class="mt-2 flex justify-end gap-2">
                       <button @click="cancelEditing()" class="px-3 py-1 text-sm font-medium bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Abbrechen</button>
                       <button @click="saveField('turnus')" class="px-3 py-1 text-sm font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700">Speichern</button>
@@ -248,7 +248,7 @@ const insurerStore = useInsurerStore();
 const { getStatusColor, getStatusText, calculateDaysOverdue, getNormalizedDocTypes, formatLastInvoice } = useInsurerUtils();
 
 // State
-const localLastInvoice = ref(props.lastInvoice);
+const localLastInvoice = computed(() => insurerStore.lastInvoices[props.insurer.id]);
 
 const sortedLocalSettlements = computed(() => {
   return [...localSettlementHistory.value].sort((a, b) => {
@@ -274,10 +274,13 @@ const settlementToDeleteId = ref(null);
 
 // Computed Properties
 const formattedLastInvoiceDate = computed(() => {
-  const invoice = localLastInvoice.value;
-  if (!invoice) return 'N/A';
-  // Use the robust formatter from the composable
-  return formatLastInvoice(invoice) || 'N/A';
+  if (!localLastInvoice.value) return 'N/A';
+  const dateValue = localLastInvoice.value.date || localLastInvoice.value.datum;
+  if (!dateValue) return 'N/A';
+  
+  const dateToFormat = dateValue.toDate ? dateValue.toDate() : new Date(dateValue);
+  if (isNaN(dateToFormat.getTime())) return 'Ungültig';
+  return format(dateToFormat, 'dd.MM.yyyy');
 });
 
 const nextDueDate = computed(() => {
@@ -302,7 +305,8 @@ const statusInfo = computed(() => {
 
 const formattedTurnus = computed(() => {
   if (!props.insurer || !props.insurer.turnus) return 'N/A';
-  return `${props.insurer.turnus} Tage`;
+  // The turnus is now stored as 'XX-tägig', so just return it.
+  return props.insurer.turnus;
 });
 
 const sortedSettlements = computed(() => {
@@ -332,13 +336,28 @@ const cancelEditing = () => {
   editField.value = null;
 };
 
+const formatTurnus = () => {
+  const turnusValue = String(editedTurnus.value);
+  const numbers = turnusValue.match(/\d+/);
+  if (numbers) {
+    editedTurnus.value = `${numbers[0]}-tägig`;
+  }
+};
+
 const saveField = async (field) => {
   let updatedData = {};
-  if (field === 'name') updatedData = { name: editedName.value };
-  else if (field === 'comment') updatedData = { comment: editedComment.value };
-  else if (field === 'turnus') updatedData = { turnus: editedTurnus.value };
-  else if (field === 'bezugsweg') updatedData = { bezugsweg: editedBezugsweg.value };
-  else if (field === 'dokumentenart') updatedData = { dokumentenart: editedDokumentenart.value };
+  if (field === 'name') {
+    updatedData = { name: editedName.value };
+  } else if (field === 'comment') {
+    updatedData = { comment: editedComment.value };
+  } else if (field === 'turnus') {
+    formatTurnus();
+    updatedData = { turnus: editedTurnus.value };
+  } else if (field === 'bezugsweg') {
+    updatedData = { bezugsweg: editedBezugsweg.value };
+  } else if (field === 'dokumentenart') {
+    updatedData = { dokumentenart: editedDokumentenart.value };
+  }
 
   if (Object.keys(updatedData).length > 0) {
     await insurerStore.updateInsurer(props.insurer.id, updatedData);
@@ -397,9 +416,8 @@ const handleDateSubmit = async () => {
     emit('settlement-completed', { insurer: props.insurer, last_invoice: newSettlement });
 
     // Manually and directly update the local state to guarantee reactivity.
+    // The localLastInvoice is now a computed property and updates automatically.
     localSettlementHistory.value.unshift(newSettlement);
-        // Update the ref for the summary bar by passing the raw Timestamp object.
-    localLastInvoice.value = newSettlement.date;
   }
 
   handleCancel(); // Close picker after submission

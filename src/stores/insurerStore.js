@@ -35,45 +35,23 @@ export const useInsurerStore = defineStore('insurer', () => {
 
     try {
       const insurerCollectionName = collections.value.insurers;
-      const invoicesCollectionName = collections.value.invoices;
-      const invoicesDocName = dataMode.value === 'production' ? 'last_invoices_prod' : 'last_invoices_test';
-
       const insurersSnapshot = await getDocs(collection(db, insurerCollectionName));
-      insurers.value = insurersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      
-      lastInvoices.value = {};
-      
-      if (dataMode.value === 'test') {
-        for (const insurer of insurers.value) {
-          try {
-            const invoicesSubcollection = 'invoice-history-test';
-            const invoicesCollectionRef = collection(db, insurerCollectionName, insurer.id, invoicesSubcollection);
-            const invoicesSnapshot = await getDocs(invoicesCollectionRef);
-            
-            if (!invoicesSnapshot.empty) {
-              const invoices = invoicesSnapshot.docs
-                .map(doc => ({ id: doc.id, ...doc.data() }))
-                .sort((a, b) => {
-                  const dateA = a.date?.seconds ? new Date(a.date.seconds * 1000) : new Date(a.date || 0);
-                  const dateB = b.date?.seconds ? new Date(b.date.seconds * 1000) : new Date(b.date || 0);
-                  return dateB - dateA;
-                });
-              
-              if (invoices.length > 0) {
-                lastInvoices.value[insurer.id] = invoices[0];
-              }
-            }
-          } catch (err) {
-            console.error(`Error fetching invoices for insurer ${insurer.id}:`, err);
-          }
-        }
-      } else {
-        const invoicesDocRef = doc(db, invoicesCollectionName, invoicesDocName);
-        const invoicesDoc = await getDoc(invoicesDocRef);
-        if (invoicesDoc.exists()) {
-          lastInvoices.value = invoicesDoc.data();
+
+      const newInsurers = [];
+      const newLastInvoices = {};
+
+      for (const doc of insurersSnapshot.docs) {
+        const insurerData = { id: doc.id, ...doc.data() };
+        newInsurers.push(insurerData);
+
+        // Correctly and robustly read the last_invoice from the insurer document.
+        if (insurerData.last_invoice) {
+          newLastInvoices[doc.id] = insurerData.last_invoice;
         }
       }
+
+      insurers.value = newInsurers;
+      lastInvoices.value = newLastInvoices;
     } catch (err) {
       console.error('Error fetching data from store:', err);
       error.value = err.message;
@@ -169,6 +147,16 @@ export const useInsurerStore = defineStore('insurer', () => {
       const currentHistory = settlementHistories.value[insurerId] || [];
       settlementHistories.value[insurerId] = [newSettlement, ...currentHistory];
 
+      // Also update the lastInvoices map to ensure the tile UI updates reactively.
+      lastInvoices.value[insurerId] = { ...newSettlement };
+
+            // Persist this new settlement to the parent insurer's `last_invoice` field.
+      const insurerDocRef = doc(db, collections.value.insurers, insurerId);
+      await updateDoc(insurerDocRef, { 
+        last_invoice: newSettlement 
+      });
+
+      // Also update the local state for immediate UI reactivity.
       updateLastInvoice(insurerId, newSettlement);
 
       return newSettlement;

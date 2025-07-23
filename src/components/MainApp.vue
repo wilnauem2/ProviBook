@@ -227,9 +227,9 @@
       <InsurerDetail 
         v-if="selectedInsurer" 
         :insurer="selectedInsurer" 
-        :last-invoice="lastInvoices[selectedInsurer.id]"
+        :last-invoice="selectedInsurerLastInvoice"
         @update:insurer="handleUpdateInsurer"
-        @settlement-completed="handleSettlementCompleted"
+
         @insurer-deleted="handleInsurerDeleted"
         @close="handleClearSelection"
       />
@@ -937,28 +937,7 @@ const filteredInsurers = computed(() => {
   return filtered;
 });
 
-// Handle settlement completion from the detail view
-const handleSettlementCompleted = async ({ insurer, last_invoice }) => {
-  console.log('Settlement completed for:', insurer.name, 'with invoice:', last_invoice);
-  // The store now handles its own state updates optimistically.
-  // We no longer need to call an update function from here, which was causing a race condition.
-  // The store now handles its own state updates optimistically from within the 'addInvoiceToHistory' action.
-  // The call from MainApp was causing a race condition and has been removed.
 
-  // Do not close the detail panel automatically. This allows the user to see the
-  // updated state and add more settlements if needed. The premature closing
-  // was the root cause of the UI not appearing to update.
-
-  // Asynchronously refresh the full history in the background if needed
-  try {
-    await insurerStore.fetchSettlementHistory(insurer.id);
-    if (activeTab.value === 'history') {
-      await abrechnungStore.fetchAbrechnungen();
-    }
-  } catch (error) {
-    console.error('Error refreshing history after settlement:', error);
-  }
-};
 
 // Use real data from abrechnung store
 const formattedAbrechnungen = computed(() => {

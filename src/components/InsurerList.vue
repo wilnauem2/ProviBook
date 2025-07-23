@@ -101,7 +101,7 @@
                   </svg>
                   <div>
                     <div class="text-xs text-gray-500">Turnus</div>
-                    <div class="font-medium">{{ insurer.turnus }}</div>
+                    <div class="font-medium">{{ insurer.turnus && String(insurer.turnus).match(/\d+/)?.[0] ? `${String(insurer.turnus).match(/\d+/)[0]}-tägig` : insurer.turnus.includes('-tägig') ? insurer.turnus : '' }}</div>
                   </div>
                 </div>
                 
@@ -342,6 +342,8 @@ const getNormalizedDocTypes = (docArt) => {
   return [...new Set(types.map(t => t.toUpperCase()))];
 };
 
+
+
 const isOverdue = (insurer) => {
   const days = calculateDaysOverdue(insurer, props.currentDate, props.lastInvoices[insurer.id]);
   return days > 0;
@@ -365,9 +367,9 @@ const formatLastInvoice = (lastInvoice) => {
     return lastInvoice.display;
   }
 
-  // Priority 2: Object with a 'datum' property (likely a Firestore timestamp).
-  if (lastInvoice && typeof lastInvoice === 'object' && lastInvoice.datum) {
-    return formatDate(lastInvoice.datum);
+  // Priority 2: Object with a 'datum' or 'date' property (likely a Firestore timestamp).
+  if (lastInvoice && typeof lastInvoice === 'object' && (lastInvoice.datum || lastInvoice.date)) {
+    return formatDate(lastInvoice.datum || lastInvoice.date);
   }
 
   // Priority 3: A simple string that is not an array or object representation.

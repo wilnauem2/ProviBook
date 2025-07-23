@@ -30,8 +30,8 @@
 
             <!-- Turnus -->
             <div>
-              <label for="insurer-turnus" class="block mb-2 text-sm font-medium text-gray-900">Turnus (in Tagen)</label>
-              <input type="number" id="insurer-turnus" v-model.number="insurerData.turnus" min="1" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required>
+              <label for="insurer-turnus" class="block mb-2 text-sm font-medium text-gray-900">Turnus</label>
+              <input type="text" id="insurer-turnus" v-model="insurerData.turnus" @blur="formatTurnus" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" placeholder="z.B. 30-tägig" required>
             </div>
 
             <!-- Bezugsweg -->
@@ -80,10 +80,19 @@ const insurerData = ref({
 
 const availableDokumentenarten = ['CSV', 'PDF', 'XLS', 'XML', 'Papier'];
 
+const formatTurnus = () => {
+  const turnusValue = String(insurerData.value.turnus);
+  const numbers = turnusValue.match(/\d+/);
+  if (numbers) {
+    insurerData.value.turnus = `${numbers[0]}-tägig`;
+  }
+};
+
 const handleSubmit = () => {
   if (!insurerData.value.name || !insurerData.value.turnus) {
     alert('Name und Turnus des Versicherers sind erforderlich.');
   } else {
+    formatTurnus(); // Ensure formatting before save
     emit('save', { ...insurerData.value });
   }
 };

@@ -90,7 +90,8 @@ export const useInsurerStore = defineStore('insurer', () => {
   const fetchSettlementHistory = async (insurerId) => {
     isLoading.value = true;
     try {
-      const invoicesSubcollection = dataMode.value === 'test' ? 'invoice-history-test' : 'invoice-history';
+      // Environment mapping matches actual Firestore data structure
+      const invoicesSubcollection = dataMode.value === 'production' ? 'invoice-history' : 'invoice-history-test';
       const invoicesCollectionRef = collection(db, collections.value.insurers, insurerId, invoicesSubcollection);
       const invoicesSnapshot = await getDocs(invoicesCollectionRef);
       
@@ -131,7 +132,8 @@ export const useInsurerStore = defineStore('insurer', () => {
     try {
       if (!insurerId || !invoiceData) throw new Error('Invalid insurer ID or invoice data');
 
-      const invoicesSubcollection = dataMode.value === 'test' ? 'invoice-history-test' : 'invoice-history';
+      // Environment mapping matches actual Firestore data structure
+      const invoicesSubcollection = dataMode.value === 'production' ? 'invoice-history' : 'invoice-history-test';
       const invoicesCollectionRef = collection(db, collections.value.insurers, insurerId, invoicesSubcollection);
 
       const invoiceToSave = {
@@ -219,7 +221,8 @@ export const useInsurerStore = defineStore('insurer', () => {
   const deleteSettlement = async (insurerId, settlementId) => {
     isLoading.value = true;
     try {
-      const invoicesSubcollection = dataMode.value === 'test' ? 'invoice-history-test' : 'invoice-history';
+      // Environment mapping matches actual Firestore data structure
+      const invoicesSubcollection = dataMode.value === 'production' ? 'invoice-history' : 'invoice-history-test';
       const settlementDocRef = doc(db, collections.value.insurers, insurerId, invoicesSubcollection, settlementId);
       await deleteDoc(settlementDocRef);
 

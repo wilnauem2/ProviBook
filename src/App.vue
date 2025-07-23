@@ -1,40 +1,46 @@
 <template> 
   <div class="app">
-    <!-- Debug Panel (only shown in development) -->
-    <div v-if="isDevelopment" class="debug-panel">
-      <div class="debug-header" @click="toggleDebug">
-        <span>Debug Panel ({{ isOpen ? '▼' : '▶' }})</span>
-        <span class="debug-status" :class="{ 'status-ok': isFirebaseConnected, 'status-error': !isFirebaseConnected }">
-          {{ isFirebaseConnected ? 'Firebase: Connected' : 'Firebase: Disconnected' }}
-        </span>
-      </div>
-      
-      <div v-if="isOpen" class="debug-content">
-        <div class="debug-section">
-          <h4>App State</h4>
-          <pre>Environment: {{ environment }}</pre>
-          <pre>Loading: {{ isLoading }}</pre>
-          <pre v-if="error" class="error">Error: {{ error }}</pre>
-        </div>
-        
-        <div class="debug-section">
-          <h4>Actions</h4>
-          <button @click="testFirebase">Test Firebase Connection</button>
-          <button @click="showStoreState">Show Store State</button>
-          <button @click="clearError">Clear Error</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Error Boundary -->
+    <!-- Error Boundary: Catches errors from children -->
     <div v-if="hasError" class="error-boundary">
       <h2>Something went wrong</h2>
       <p>{{ errorMessage }}</p>
       <button @click="reloadApp">Reload App</button>
     </div>
-    
-    <!-- Main App Content -->
-    <router-view v-else></router-view>
+
+    <!-- Main App Content: Rendered if no error is captured -->
+    <div v-else class="main-content">
+      <!-- Debug Panel (only shown in development) -->
+      <div v-if="isDevelopment" class="debug-panel">
+        <div class="debug-header" @click="toggleDebug">
+          <span>Debug Panel ({{ isOpen ? '▼' : '▶' }})</span>
+          <span
+            class="debug-status"
+            :class="{ 'status-ok': isFirebaseConnected, 'status-error': !isFirebaseConnected }"
+          >
+            {{ isFirebaseConnected ? 'Firebase: Connected' : 'Firebase: Disconnected' }}
+          </span>
+        </div>
+
+        <div v-if="isOpen" class="debug-content">
+          <div class="debug-section">
+            <h4>App State</h4>
+            <pre>Environment: {{ environment }}</pre>
+            <pre>Loading: {{ isLoading }}</pre>
+            <pre v-if="error" class="error">Error: {{ error }}</pre>
+          </div>
+
+          <div class="debug-section">
+            <h4>Actions</h4>
+            <button @click="testFirebase">Test Firebase Connection</button>
+            <button @click="showStoreState">Show Store State</button>
+            <button @click="clearError">Clear Error</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- This is where your pages will be rendered -->
+      <router-view></router-view>
+    </div>
   </div>
 </template>
 

@@ -27,3 +27,4 @@ serviceAccountKey.json
 .env
 .env.example
 .env.production
+.env.development

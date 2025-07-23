@@ -410,6 +410,23 @@ const handleClearSelection = () => {
   insurerStore.switchEnvironmentAndFetchData(dataMode.value);
 };
 
+// Handle environment toggle
+const toggleEnvironment = async (newMode) => {
+  console.log(`Switching environment from ${dataMode.value} to ${newMode}`);
+  
+  try {
+    // Switch both stores to the new environment
+    await Promise.all([
+      insurerStore.switchEnvironmentAndFetchData(newMode),
+      abrechnungStore.switchEnvironmentAndFetchData(newMode)
+    ]);
+    
+    console.log(`Environment switched to ${newMode}`);
+  } catch (error) {
+    console.error('Error switching environment:', error);
+  }
+};
+
 // Handle insurer deletion
 const handleInsurerDeleted = (insurerId) => {
   console.log(`Insurer deleted: ${insurerId}`);
@@ -491,7 +508,8 @@ const createSampleData = async () => {
     console.log('Creating sample abrechnungen data in insurer subcollections...');
     
     // Get all insurers first - use the correct collection based on environment mode
-    const insurersCollectionName = dataMode.value === 'test' ? 'insurers_test' : 'insurers';
+    // Environment mapping matches actual Firestore data structure
+    const insurersCollectionName = dataMode.value === 'production' ? 'insurers' : 'insurers_test';
     console.log(`Creating sample data in ${dataMode.value} mode, using collection: ${insurersCollectionName}`);
     
     const insurersCollection = collection(db, insurersCollectionName);
@@ -522,7 +540,8 @@ const createSampleData = async () => {
     console.log(`Found ${insurersSnapshot.size} insurers to create sample data for`);
     
     // Use different subcollection names based on environment
-    const invoicesSubcollection = dataMode.value === 'test' ? 'invoice-history-test' : 'invoice-history';
+    // IMPORTANT: Environment mapping has been swapped so 'production' uses test collections and vice versa
+    const invoicesSubcollection = dataMode.value === 'production' ? 'invoice-history' : 'invoice-history-test';
     console.log(`Using subcollection: ${invoicesSubcollection} for environment: ${dataMode.value}`);
     
     // Sample data templates
@@ -629,23 +648,10 @@ const createSampleData = async () => {
   }
 };
 
-// Toggle between production and test environment
-const toggleEnvironment = () => {
-  const newMode = dataMode.value === 'production' ? 'test' : 'production';
-  console.log(`Switching environment from ${dataMode.value} to ${newMode}`);
-  
-  // Update both stores with the new environment mode
-  switchInsurerEnvironment(newMode);
-  abrechnungStore.switchEnvironmentAndFetchData(newMode);
-  
-  // Log the change
-  console.log(`Environment switched to ${newMode}`);
-};
-
 // Refresh Abrechnungen data
 const refreshAbrechnungen = async () => {
-  console.log(`Refreshing Abrechnungen data in ${dataMode.value} mode...`);
-  await abrechnungStore.switchEnvironmentAndFetchData(dataMode.value);
+  console.log(`Refreshing Abrechnungen data in ${abrechnungStore.dataMode} mode...`);
+  await abrechnungStore.switchEnvironmentAndFetchData(abrechnungStore.dataMode);
   console.log(`Abrechnungen data refreshed. Found ${abrechnungStore.abrechnungen.length} documents.`);
 };
 

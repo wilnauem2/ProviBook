@@ -1,5 +1,5 @@
 <template>
-  <div v-if="insurer" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-40 overflow-y-auto" @click.self="handleClose">
+  <div v-if="insurer" class="fixed inset-0 bg-black bg-opacity-20 flex items-center justify-center z-40 overflow-y-auto" @click.self="handleClose">
 
     <!-- Main Insurer Detail Modal -->
     <div class="bg-gray-50 rounded-xl w-[60vw] max-h-[90vh] overflow-y-auto shadow-2xl transform transition-all" role="dialog" aria-modal="true" :aria-labelledby="`insurer-name-${insurer.id}`">

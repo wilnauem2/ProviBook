@@ -1,49 +1,14 @@
 <template>
   <div class="app-container">
-    <!-- Main Layout -->
     <div class="min-h-screen bg-gray-50">
-      <!-- Header with Tabs -->
-      <header class="bg-white shadow-sm sticky top-0 z-10" :class="{ 'bg-yellow-100': !isProduction }">
-        <div class="container mx-auto px-4">
-          <div class="flex justify-between items-center py-4">
-            <h1 class="text-xl font-semibold text-gray-900">Versicherungsübersicht</h1>
-            <div v-if="!isProduction" class="text-xs text-blue-500 font-mono ml-4">Branch: {{ gitBranch }}</div>
+      <AppHeader 
+        :isProduction="isProduction"
+        :gitBranch="gitBranch"
+        v-model:activeTab="activeTab"
+      />
 
-          </div>
-          
-          <!-- Simple fixed tabs -->
-          <div class="border-b border-gray-200 -mb-px">
-            <nav class="flex space-x-8">
-              <button
-                @click="activeTab = 'main'"
-                :class="[
-                  'py-4 px-1 border-b-2 font-medium text-sm focus:outline-none',
-                  activeTab === 'main'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                ]"
-              >
-                Übersicht
-              </button>
-              <button
-                @click="activeTab = 'history'"
-                :class="[
-                  'py-4 px-1 border-b-2 font-medium text-sm focus:outline-none',
-                  activeTab === 'history'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                ]"
-              >
-                Abrechnungen
-              </button>
-            </nav>
-          </div>
-        </div>
-      </header>
-
-      <!-- Main Content -->
-      <div class="container mx-auto px-4 py-6">
-        <!-- Loading overlay -->
+      <main class="container mx-auto px-4 py-6">
+        <!-- Loading Overlay -->
         <div v-if="isLoading" class="fixed inset-0 bg-white bg-opacity-80 flex items-center justify-center z-50">
           <div class="text-center">
             <svg class="animate-spin h-10 w-10 text-blue-600 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -54,179 +19,88 @@
             <p class="text-sm text-gray-500">{{ dataMode === 'production' ? 'Produktionsumgebung' : 'Testumgebung' }}</p>
           </div>
         </div>
-        
-        <!-- Main Tab Content -->
-        <div 
-          v-if="activeTab === 'main'" 
-          class="grid grid-cols-1 lg:grid-cols-4 gap-6"
-          :class="{ 'filter blur-sm': selectedInsurer }"
-        >
-          <!-- Left Sidebar -->
-          <div class="lg:col-span-1 space-y-4">
-            <!-- Status summary cards -->
-            <StatusSummary 
-              :statusCounts="statusCounts"
-              :activeStatus="statusFilter"
-              @status-clicked="handleStatusClicked" 
-            />
-            
-            <!-- Search bar -->
-            <div class="bg-white rounded-lg shadow overflow-hidden">
-              <div class="p-4">
-                <SearchBar 
-                  v-model="searchFilter" 
-                  placeholder="Versicherer suchen..."
-                />
-              </div>
-            </div>
-            
-                        <!-- TestDateSimulator for non-production branches -->
-            <TestDateSimulator 
-              v-if="!isProduction"
-              v-model="simulatedDate"
-            />
 
-            <!-- BiPRO Tester -->
-            <BiproTester v-if="!isProduction" />
-            
-            <!-- Environment Switcher -->
-            <EnvironmentUserInfo 
-              v-if="!isProduction"
-              :current-mode="dataMode"
-              @switch-mode="toggleEnvironment"
-            />
-          </div>
-          
-          <!-- Main Content Area -->
-          <div class="lg:col-span-3">
-            <div class="bg-white shadow overflow-hidden sm:rounded-md">
-              <div class="border-b border-gray-200 px-4 py-4 sm:px-6 flex justify-between items-center">
-                <div class="flex items-center">
-                  <h2 class="text-lg font-medium text-gray-900">Versicherer</h2>
-                  
-                  <!-- Active filter indicator -->
-                  <div v-if="statusFilter !== 'all'" class="ml-3 flex items-center">
-                    <span class="text-sm text-gray-500">Filter:</span>
-                    <span 
-                      class="ml-1 px-2 py-1 text-xs rounded-full" 
-                      :class="{
-                        'bg-yellow-100 text-yellow-800': statusFilter === 'warning',
-                        'bg-red-100 text-red-800': statusFilter === 'critical',
-                        'bg-green-100 text-green-800': statusFilter === 'on_time'
-                      }"
-                    >
-                      {{ getStatusFilterLabel(statusFilter) }}
-                    </span>
-                    <button 
-                      @click="clearStatusFilter"
-                      class="ml-1 text-gray-400 hover:text-gray-600"
-                      title="Filter zurücksetzen"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-                
-                <!-- Sort options -->
-                <div class="flex items-center">
-                  <button @click="isCreateInsurerModalVisible = true" class="mr-4 px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                    + Neuer Versicherer
-                  </button>
-                  <div class="inline-flex">
-                  <select 
-                    v-model="sortOption"
-                    class="form-select appearance-none rounded-md border-gray-300 text-sm focus:border-blue-500 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                  >
-                    <option value="name">Name</option>
-                    <option value="date">Letztes Abrechnungsdatum</option>
-                    <option value="overdue">Tage überfällig</option>
-                  </select>
-                  </div>
-                </div>
-              </div>
-              
-              <!-- Loading state -->
-              <div v-if="isLoading" class="py-12 flex justify-center">
-                <div class="animate-pulse flex space-x-4 items-center">
-                  <div class="h-3 w-3 bg-blue-400 rounded-full"></div>
-                  <div class="h-3 w-3 bg-blue-400 rounded-full"></div>
-                  <div class="h-3 w-3 bg-blue-400 rounded-full"></div>
-                  <div class="text-sm text-gray-500">Laden...</div>
-                </div>
-              </div>
-              
-              <!-- Insurer list -->
-              <div v-else>
-                <InsurerList
-                  :insurers="filteredInsurers" 
-                  :sortBy="sortOption"
-                  :lastInvoices="lastInvoices"
-                  :currentDate="currentDate"
-                  :selectedInsurer="selectedInsurer"
-                  @select-insurer="handleInsurerSelection($event)"
-                  @clear-selection="handleClearSelection"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
+        <!-- Conditional Views -->
+        <DashboardView 
+          v-if="activeTab === 'main'"
+          :isLoading="isLoading"
+          :isProduction="isProduction"
+          :filteredInsurers="filteredInsurers"
+          :statusCounts="statusCounts"
+          :statusFilter="statusFilter"
+          v-model:searchFilter="searchFilter"
+          v-model:simulatedDate="simulatedDate"
+          :dataMode="dataMode"
+          v-model:sortOption="sortOption"
+          :lastInvoices="lastInvoices"
+          :currentDate="currentDate"
+          :selectedInsurer="selectedInsurer"
+          @status-clicked="handleStatusClicked"
+          @switch-mode="toggleEnvironment"
+          @clear-status-filter="clearStatusFilter"
+          @create-insurer="isCreateInsurerModalVisible = true"
+          @select-insurer="handleInsurerSelection"
+          @clear-selection="handleClearSelection"
+          @change-date="changeDate"
+          @reset-date="resetDate"
+        />
 
-
-
-        <!-- History Tab -->
-        <div 
-          v-else-if="activeTab === 'history'" 
-          class="w-full"
-          :class="{ 'filter blur-sm': selectedInsurer }"
-        >
-
-          
-
-          
-          <!-- Always render AbrechnungenHistory and let it handle empty state -->
-          <AbrechnungenHistory 
-            :is-production="dataMode.value === 'production'"
-            :abrechnungen="abrechnungStore.abrechnungen"
-          />
-          
-          <!-- Only show this when explicitly in test mode with no data -->
-          <div v-if="dataMode.value === 'test' && (!abrechnungStore.abrechnungen || abrechnungStore.abrechnungen.length === 0)" class="bg-white shadow rounded-lg p-6 mt-4">
-            <p class="text-gray-500 text-center mb-4">Keine Testdaten verfügbar. Erstellen Sie Testdaten mit dem Button unten.</p>
-            <div class="flex justify-center">
-              <button 
-                @click="createSampleData"
-                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                :disabled="isCreatingSampleData"
-              >
-                <svg v-if="isCreatingSampleData" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                {{ isCreatingSampleData ? 'Erstelle Testdaten...' : 'Testdaten erstellen' }}
-              </button>
-            </div>
-          </div>
-        </div>
-        
-      </div>
+        <HistoryView 
+          v-else-if="activeTab === 'history'"
+          :selectedInsurer="selectedInsurer"
+          :dataMode="dataMode"
+          :abrechnungen="abrechnungStore.abrechnungen"
+          :isCreatingSampleData="isCreatingSampleData"
+          :isLoading="abrechnungStore.isLoading"
+          @create-sample-data="createSampleData"
+        />
+      </main>
     </div>
 
-    <!-- Insurer Detail Modal, teleported to the body to escape container constraints -->
+    <!-- Modals and Overlays -->
     <Teleport to="body">
-      <InsurerDetail 
-        v-if="selectedInsurer" 
-        :insurer="selectedInsurer" 
-        :last-invoice="selectedInsurerLastInvoice"
-        @update:insurer="handleUpdateInsurer"
-        @settlement-completed="handleSettlementCompleted"
-        @insurer-deleted="handleInsurerDeleted"
-        @close="handleClearSelection"
-      />
+      <Transition
+        enter-active-class="transition-opacity duration-300 ease-out"
+        leave-active-class="transition-opacity duration-200 ease-in"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div v-if="selectedInsurer" class="fixed inset-0 z-50">
+          <!-- Backdrop -->
+          <div 
+            class="fixed inset-0 bg-black bg-opacity-50"
+            @click="handleClearSelection"
+          ></div>
+          
+          <!-- Modal -->
+          <div class="fixed inset-0 flex items-center justify-center p-4">
+            <Transition
+              enter-active-class="transition-all duration-300 ease-out"
+              leave-active-class="transition-all duration-200 ease-in"
+              enter-from-class="opacity-0 translate-y-4"
+              enter-to-class="opacity-100 translate-y-0"
+              leave-from-class="opacity-100 translate-y-0"
+              leave-to-class="opacity-0 -translate-y-4"
+            >
+              <div v-if="selectedInsurer" class="w-full max-w-3xl">
+                <InsurerDetail 
+                  :insurer="selectedInsurer" 
+                  :last-invoice="storeLastInvoices[selectedInsurer.id]"
+                  :data-mode="dataMode"
+                  @update:insurer="handleUpdateInsurer"
+                  @settlement-completed="handleSettlementCompleted"
+                  @insurer-deleted="handleInsurerDeleted"
+                  @close="handleClearSelection"
+                />
+              </div>
+            </Transition>
+          </div>
+        </div>
+      </Transition>
     </Teleport>
 
-    <!-- Create Insurer Modal -->
     <CreateInsurerForm 
       v-if="isCreateInsurerModalVisible" 
       @close="isCreateInsurerModalVisible = false"
@@ -236,207 +110,155 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
+
+// Store Imports
 import { useInsurerStore } from '@/stores/insurerStore';
+import { useAbrechnungStore } from '@/stores/abrechnungStore';
+import { useAuthStore } from '@/stores/auth.js';
+
+// Composables
 import { useInsurerUtils } from '@/composables/useInsurerUtils';
-import { useAbrechnungStore } from '../stores/abrechnungStore';
-import { useAuthStore } from '../stores/auth';
-import { useRoute } from 'vue-router';
-import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
-import { db } from '../firebase';
-import { de } from 'date-fns/locale';
 
-// Component imports
-import AbrechnungenHistory from './AbrechnungenHistory.vue';
-import StatusSummary from './StatusSummary.vue';
-import SearchBar from './SearchBar.vue';
-import InsurerList from './InsurerList.vue';
-import InsurerDetail from './InsurerDetail.vue';
-import TestDateSimulator from './TestDateSimulator.vue';
-import EnvironmentUserInfo from './EnvironmentUserInfo.vue';
-import CreateInsurerForm from './CreateInsurerForm.vue';
-import BiproTester from './BiproTester.vue';
+// Layout and View Components
+import AppHeader from './layout/AppHeader.vue';
+import DashboardView from '@/views/DashboardView.vue';
+import HistoryView from '@/views/HistoryView.vue';
 
-// Utility imports
+// Other Components
 
+import InsurerDetail from '@/components/InsurerDetail.vue';
+import CreateInsurerForm from '@/components/CreateInsurerForm.vue';
 
-// Initialize Pinia store
-const insurerStore = useInsurerStore();
-const { calculateDaysOverdue } = useInsurerUtils();
-const abrechnungStore = useAbrechnungStore();
-
-// Destructure state and getters from the store
-// Use storeToRefs to keep reactivity
-const {
-  insurers: insurersData,
-  lastInvoices,
-  selectedInsurer,
-  isLoading,
-  dataMode,
-  error
-} = storeToRefs(insurerStore);
-
-// Destructure actions from the store
-const { switchEnvironmentAndFetchData: switchInsurerEnvironment, setSelectedInsurer, clearSelectedInsurer } = insurerStore;
-
-// Local UI state
-const searchFilter = ref('');
+// --- App State ---
 const activeTab = ref('main');
+const searchFilter = ref('');
+const statusFilter = ref('all');
+const sortOption = ref('name');
+
+const isCreateInsurerModalVisible = ref(false);
 const isCreatingSampleData = ref(false);
 
-// Watch for tab changes to load appropriate data
-watch(activeTab, (newTab) => {
-  if (newTab === 'history') {
-    console.log('Switching to Abrechnungen tab, fetching data...');
-    console.log('Current data mode:', dataMode.value);
-    console.log('Current abrechnungen data:', abrechnungStore.abrechnungen);
-    
-    // Explicitly refresh the data in the current mode
-    console.log('Calling abrechnungStore.switchEnvironmentAndFetchData with mode:', dataMode.value);
-    abrechnungStore.switchEnvironmentAndFetchData(dataMode.value)
-      .then(result => {
-        console.log('Data fetch completed. Result:', result);
-        console.log('Abrechnungen after fetch:', abrechnungStore.abrechnungen?.length || 0);
-      })
-      .catch(error => {
-        console.error('Error fetching abrechnungen data:', error);
-      });
-  }
-});
-const sortOption = ref('name');
-const statusFilter = ref('all'); // 'all', 'warning', 'critical', 'on_time'
-const simulatedDate = ref(new Date()); // For the date simulator
-const isCreateInsurerModalVisible = ref(false);
+// --- Environment Info ---
+const gitBranch = ref(import.meta.env.VITE_GIT_BRANCH || 'unknown');
+const isProduction = computed(() => gitBranch.value === 'main' || gitBranch.value === 'master');
 
-const isProduction = computed(() => {
-  // Check if we're in production environment
-  // First check VITE environment variable
-  if (import.meta.env.VITE_ENV === 'production') return true;
-  
-  // Check window.IS_PRODUCTION flag
-  if (typeof window !== 'undefined' && window.IS_PRODUCTION) return true;
-  
-  // If neither condition is met, assume development environment
-  return false;
+// Initialize Pinia stores
+const insurerStore = useInsurerStore();
+const abrechnungStore = useAbrechnungStore();
+const userStore = useAuthStore();
+
+const { calculateDaysOverdue } = useInsurerUtils();
+
+// Get store state
+const { selectedInsurer, lastInvoices: storeLastInvoices } = storeToRefs(insurerStore);
+
+// --- Lifecycle Hooks ---
+onMounted(async () => {
+  const initialMode = import.meta.env.PROD ? 'production' : 'test';
+  await insurerStore.switchEnvironmentAndFetchData(initialMode);
+  await abrechnungStore.switchEnvironmentAndFetchData(initialMode);
 });
 
-const gitBranch = computed(() => import.meta.env.VITE_GIT_BRANCH);
+// Destructure state from stores
+const { 
+  insurers: insurersData, 
+  isLoading, 
+  lastInvoices, 
+  dataMode 
+} = storeToRefs(insurerStore);
 
-// When the component mounts, trigger the initial data fetch.
-// The store defaults to 'production', so this will load production data initially.
-onMounted(() => {
-  console.log('MainApp component mounted. Fetching initial data...');
-  switchInsurerEnvironment(dataMode.value);
-  
-  // Also fetch abrechnungen data if we're starting on the history tab
-  if (activeTab.value === 'history') {
-    abrechnungStore.switchEnvironmentAndFetchData(dataMode.value);
-  }
-});
-
-onUnmounted(() => {
-  console.log('MainApp component unmounted');
-  // Clear selection when leaving the page to avoid stale data
-  clearSelectedInsurer();
-});
-
-// Data from Pinia store is already reactive thanks to storeToRefs
-
-// Status counts for summary
-const statusCounts = computed(() => {
-  const counts = { on_time: 0, warning: 0, critical: 0 };
-  if (!insurersData.value) return counts;
-
-  insurersData.value.forEach(insurer => {
-    const days = calculateDaysOverdue(insurer, currentDate.value);
-    if (days > 5) {
-      counts.critical++;
-    } else if (days > 0) {
-      counts.warning++;
-    } else {
-      counts.on_time++;
-    }
-  });
-  return counts;
-});
-
-// Get current date (real or simulated)
-const currentDate = computed(() => {
-  if (!isProduction.value && simulatedDate.value) {
-    return new Date(simulatedDate.value);
-  }
-  return new Date();
-});
-
-// Get a human-readable label for the status filter
-const getStatusFilterLabel = (status) => {
-  const labels = {
-    warning: 'Mahnung',
-    critical: 'Kritisch',
-    on_time: 'Im Zeitplan'
-  };
-  return labels[status] || 'Alle';
-};
-
-// Clear the status filter
-const clearStatusFilter = () => {
-  statusFilter.value = 'all';
-};
-
-// Handle status button clicks from StatusSummary component
-const handleStatusClicked = (data) => {
-  console.log('Status clicked:', data);
-  if (statusFilter.value === data.status) {
-    statusFilter.value = 'all'; // Toggle off if already active
-  } else {
-    statusFilter.value = data.status;
-  }
-};
-
-// Handle insurer selection
-const handleInsurerSelection = (insurer) => {
-  console.log('Insurer selected:', insurer.name);
-  insurerStore.setSelectedInsurer(insurer);
-};
-
-// Handle clearing insurer selection
-const handleClearSelection = () => {
-  console.log('Clearing selection');
-  insurerStore.clearSelectedInsurer();
-  
-  // Refresh insurer data to update the tiles with the latest invoice dates
-  console.log('Refreshing insurer data after closing details view...');
-  insurerStore.switchEnvironmentAndFetchData(dataMode.value);
-};
-
-// Handle environment toggle
-const toggleEnvironment = async (newMode) => {
-  console.log(`Switching environment from ${dataMode.value} to ${newMode}`);
-  
+const toggleEnvironment = async () => {
+  const newMode = dataMode.value === 'production' ? 'test' : 'production';
   try {
-    // Switch both stores to the new environment
-    await Promise.all([
-      insurerStore.switchEnvironmentAndFetchData(newMode),
-      abrechnungStore.switchEnvironmentAndFetchData(newMode)
-    ]);
-    
-    console.log(`Environment switched to ${newMode}`);
+    await insurerStore.switchEnvironmentAndFetchData(newMode);
+    await abrechnungStore.switchEnvironmentAndFetchData(newMode);
   } catch (error) {
     console.error('Error switching environment:', error);
   }
 };
 
-// Handle insurer deletion
-const handleInsurerDeleted = (insurerId) => {
-  console.log(`Insurer deleted: ${insurerId}`);
-  
-  // Clear the selected insurer since it's been deleted
-  insurerStore.clearSelectedInsurer();
-  
-  // No need to refresh data as the store's deleteInsurer method already updates the local state
-  // But we can add a notification or toast here if desired
+
+// --- Date Management ---
+const simulatedDate = ref(null);
+
+const changeDate = (days) => {
+  const newDate = new Date(currentDate.value);
+  newDate.setDate(newDate.getDate() + days);
+  simulatedDate.value = newDate;
 };
+
+const resetDate = () => {
+  simulatedDate.value = null;
+};
+const currentDate = computed(() => simulatedDate.value || new Date());
+
+
+// --- Lifecycle Hooks ---
+onMounted(async () => {
+  await userStore.initialize();
+  const initialMode = 'production';
+  await insurerStore.switchEnvironmentAndFetchData(initialMode);
+  await abrechnungStore.fetchAbrechnungen(initialMode);
+});
+
+// --- Computed Properties ---
+const statusCounts = computed(() => {
+  if (!insurersData.value) return { critical: 0, warning: 0, on_time: 0 };
+  return insurersData.value.reduce((acc, insurer) => {
+    const days = calculateDaysOverdue(insurer, currentDate.value, lastInvoices.value);
+    if (days > 5) acc.critical++;
+    else if (days > 0) acc.warning++;
+    else acc.on_time++;
+    return acc;
+  }, { critical: 0, warning: 0, on_time: 0 });
+});
+
+const selectedInsurerLastInvoice = computed(() => {
+  if (!selectedInsurer.value || !lastInvoices.value) return null;
+  return lastInvoices.value[selectedInsurer.value.id];
+});
+
+const filteredInsurers = computed(() => {
+  if (!insurersData.value) return [];
+  let filtered = insurersData.value;
+
+  if (searchFilter.value) {
+    const lowerCaseFilter = searchFilter.value.toLowerCase();
+    filtered = filtered.filter(insurer => 
+      insurer.name.toLowerCase().includes(lowerCaseFilter)
+    );
+  }
+
+  if (statusFilter.value !== 'all') {
+    filtered = filtered.filter(insurer => {
+      const days = calculateDaysOverdue(insurer, currentDate.value, lastInvoices.value);
+      if (statusFilter.value === 'critical') return days > 5;
+      if (statusFilter.value === 'warning') return days > 0 && days <= 5;
+      if (statusFilter.value === 'on_time') return days <= 0;
+      return false;
+    });
+  }
+  return filtered;
+});
+
+// --- Event Handlers ---
+const handleInsurerSelection = (insurer) => {
+  insurerStore.setSelectedInsurer(insurer);
+  console.log('Selected insurer:', insurer);
+};
+
+const handleClearSelection = () => {
+  insurerStore.clearSelectedInsurer();  
+  console.log('Cleared insurer selection');
+};
+
+const handleUpdateInsurer = (updatedInsurer) => {
+  insurerStore.setSelectedInsurer(updatedInsurer);
+};
+
+const handleInsurerDeleted = () => { handleClearSelection(); };
 
 // Handle saving a new insurer from the form
 const handleSaveInsurer = (insurerData) => {
@@ -650,8 +472,13 @@ const createSampleData = async () => {
 
 // Refresh Abrechnungen data
 const refreshAbrechnungen = async () => {
-  console.log(`Refreshing Abrechnungen data in ${abrechnungStore.dataMode} mode...`);
-  await abrechnungStore.switchEnvironmentAndFetchData(abrechnungStore.dataMode);
+  try {
+    const currentMode = dataMode.value;
+    await abrechnungStore.switchEnvironmentAndFetchData(currentMode);
+    await insurerStore.switchEnvironmentAndFetchData(currentMode);
+  } catch (error) {
+    console.error('Error refreshing data:', error);
+  }
   console.log(`Abrechnungen data refreshed. Found ${abrechnungStore.abrechnungen.length} documents.`);
 };
 
@@ -843,8 +670,10 @@ const debugComponentState = () => {
   
   // Check if abrechnungStore has data
   console.log('AbrechnungStore state:');
-  console.log('- abrechnungen length:', abrechnungStore.abrechnungen?.length || 0);
-  console.log('- abrechnungen sample:', abrechnungStore.abrechnungen?.[0] || 'No data');
+  console.log('- isLoading:', abrechnungStore.isLoading);
+  console.log('- abrechnungen:', abrechnungStore.abrechnungen);
+  console.log('- hasMorePages:', abrechnungStore.hasMorePages);
+  console.log('- lastDocument:', abrechnungStore.lastDocument);
   console.log('- dataMode:', abrechnungStore.dataMode);
   
   // Check AbrechnungenHistory component props and data
@@ -943,62 +772,21 @@ const createSampleInvoice = async () => {
   }
 };
 
-// Main filtered insurers list
-const filteredInsurers = computed(() => {
-  if (!insurersData.value) return [];
-  
-  let filtered = insurersData.value;
-
-  // Apply search filter
-  if (searchFilter.value) {
-    const lowerCaseFilter = searchFilter.value.toLowerCase();
-    filtered = filtered.filter(insurer => 
-      insurer.name.toLowerCase().includes(lowerCaseFilter)
-    );
-  }
-
-  // Apply status filter
-  if (statusFilter.value !== 'all') {
-    filtered = filtered.filter(insurer => {
-      const days = calculateDaysOverdue(insurer, currentDate.value);
-      if (statusFilter.value === 'critical') return days > 5;
-      if (statusFilter.value === 'warning') return days > 0 && days <= 5;
-      if (statusFilter.value === 'on_time') return days <= 0;
-      return false;
-    });
-  }
-
-  return filtered;
-});
-
-
-
-// Use real data from abrechnung store
-const formattedAbrechnungen = computed(() => {
-  return abrechnungStore.abrechnungen;
-});
-
-// Debug function to check insurer data and overdue status
-const debugInsurerStatus = () => {
-  console.log('--- Insurer Status Debug ---');
-  insurersData.value.forEach(insurer => {
-    const lastInv = lastInvoices.value[insurer.id];
-        const daysOverdue = calculateDaysOverdue(insurer, currentDate.value);
-    console.log(
-      `${insurer.name}: ` +
-      `Last Invoice: ${lastInv ? format(new Date(lastInv[0].date), 'dd.MM.yyyy') : 'N/A'}, ` +
-      `Turnus: ${insurer.turnus}, ` +
-      `Days Overdue: ${daysOverdue}, ` +
-      `Status: ${getStatusText(daysOverdue)}`
-    );
-  });
-  console.log('--------------------------');
-};
-
 
 </script>
 
 <style>
+/* Ensure transforms work properly */
+.transform {
+  --tw-translate-y: 0;
+  --tw-translate-x: 0;
+  --tw-rotate: 0;
+  --tw-skew-x: 0;
+  --tw-skew-y: 0;
+  --tw-scale-x: 1;
+  --tw-scale-y: 1;
+  transform: translateX(var(--tw-translate-x)) translateY(var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
+}
 .app-container {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

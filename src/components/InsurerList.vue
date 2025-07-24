@@ -3,12 +3,12 @@
     <div class="flex items-center justify-between mb-4">
       <div class="text-gray-800">
         <span class="ml-2 px-2 py-0.5 bg-gray-100 text-gray-600 text-xs font-medium rounded-full">
-          {{ insurers.length }} Einträge
+          {{ safeInsurers.length }} Einträge
         </span>
       </div>
       <div class="flex items-center space-x-2">
         <button 
-          v-if="selectedInsurer"
+          v-if="safeSelectedInsurer"
           @click="$emit('clear-selection')"
           class="text-xs text-gray-500 hover:text-gray-700 flex items-center transition-colors"
         >
@@ -23,28 +23,27 @@
     <div class="flex-1 overflow-y-auto w-full -mr-3 pr-1">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6 p-3">
         <div
-          v-for="insurer in sortedInsurers"
-          :key="insurer.name"
+          v-for="insurer in (sortedInsurers || [])"
+          :key="insurer.id"
+          @click="emit('select-insurer', insurer)"
+          class="relative group cursor-pointer"
           :class="[
             'group relative p-6 rounded-xl cursor-pointer',
             'bg-white border border-gray-200',
             'hover:shadow-lg hover:border-transparent',
             'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50',
-            selectedInsurer?.name === insurer.name
+            safeSelectedInsurer?.name === insurer.name
               ? 'ring-2 ring-blue-500 ring-opacity-50 border-transparent transform scale-[0.99] shadow-md'
               : 'hover:scale-[1.01]',
             'h-full min-h-[140px] flex flex-col',
             'transition-all duration-200 hover:shadow-md',
             isInsurerIncomplete(insurer) ? 'opacity-50 grayscale' : ''
           ]"
-          @click="selectInsurer(insurer)"
-          @keydown.enter="selectInsurer(insurer)"
-          tabindex="0"
         >
           <!-- Status indicator bar -->
           <div 
             class="absolute top-0 left-0 w-1.5 h-full rounded-l-lg"
-            :class="getStatusColor(insurer, props.currentDate, props.lastInvoices[insurer.id])"
+            :class="insurer && utils && utils.getStatusColor ? utils.getStatusColor(insurer, props.currentDate, safeLastInvoices) : ''"
           ></div>
           
           <div class="flex flex-1 flex-col h-full">
@@ -53,15 +52,24 @@
               <div class="flex items-center min-w-0">
                 <div class="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-lg mr-3"
                      :class="{
-                       'bg-red-500': getStatusCode(insurer, props.currentDate, props.lastInvoices[insurer.id]) === 'red',
-                       'bg-yellow-500': getStatusCode(insurer, props.currentDate, props.lastInvoices[insurer.id]) === 'yellow',
-                       'bg-blue-500': getStatusCode(insurer, props.currentDate, props.lastInvoices[insurer.id]) === 'green'
+                       'bg-red-500': utils.getStatusCode(insurer, props.currentDate, props.lastInvoices) === 'red',
+                       'bg-yellow-500': utils.getStatusCode(insurer, props.currentDate, props.lastInvoices) === 'yellow',
+                       'bg-blue-500': utils.getStatusCode(insurer, props.currentDate, props.lastInvoices) === 'green'
                      }">
                   {{ getInitials(insurer.name) }}
                 </div>
-                <h3 class="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors break-words">
-                  {{ insurer.name }}
-                </h3>
+                <div class="flex items-center">
+                  <h3 class="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors break-words">
+                    {{ insurer.name }}
+                  </h3>
+                  <span v-if="insurer.bipro || insurer.bezugsweg === 'BiPRO'" class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
+                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                    BiPRO
+                    <span v-if="insurer.bipro_version" class="ml-1 opacity-90 text-xs">{{ insurer.bipro_version }}</span>
+                  </span>
+                </div>
               </div>
               
               <!-- Status badge -->
@@ -72,16 +80,16 @@
                 Unvollständig
               </span>
               <span 
-                v-else-if="getStatusCode(insurer, props.currentDate, props.lastInvoices[insurer.id]) === 'red'"
+                v-else-if="utils.getStatusCode(insurer, props.currentDate, props.lastInvoices) === 'red'"
                 class="flex-shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-2 bg-red-100 text-red-800"
               >
                 Überfällig (>5 Tage)
               </span>
               <span 
-                v-else-if="getStatusCode(insurer, props.currentDate, props.lastInvoices[insurer.id]) === 'yellow'"
+                v-else-if="utils.getStatusCode(insurer, props.currentDate, props.lastInvoices) === 'yellow'"
                 class="flex-shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-2 bg-yellow-100 text-yellow-800"
               >
-                {{ getStatusText(insurer) }}
+                                {{ utils.getStatusText(insurer, props.currentDate, props.lastInvoices) }}
               </span>
               <span 
                 v-else
@@ -125,7 +133,7 @@
                   <div>
                     <div class="text-xs text-gray-500">Letzte Rechnung</div>
                     <div class="font-medium" :class="isOverdue(insurer) ? 'text-red-600' : 'text-green-600'">
-                      {{ formatLastInvoice(lastInvoices[insurer.id] || (insurer.last_invoice !== null ? insurer.last_invoice : null)) }}
+                      {{ insurer && formatLastInvoice ? formatLastInvoice(safeLastInvoices[insurer.id] || (insurer.last_invoice !== null ? insurer.last_invoice : null)) : '' }}
                     </div>
                   </div>
                 </div>
@@ -230,27 +238,41 @@
 </style>
 
 <script setup>
-import { computed } from 'vue';
+import { defineProps, defineEmits, computed } from 'vue';
 import { format, add } from 'date-fns';
 import { de } from 'date-fns/locale';
 import InsurerStatus from './InsurerStatus.vue';
 import { useInsurerUtils, docTypeColors } from '@/composables/useInsurerUtils';
 
 const props = defineProps({
-  insurers: { type: Array, required: true },
+  insurers: { type: Array, default: () => [] },
   sortBy: { type: String, default: 'name' },
-  lastInvoices: { type: Object, required: true },
-  currentDate: { type: Date, required: true },
-  selectedInsurer: { type: Object, default: null }
+  lastInvoices: { type: Object, default: () => ({}) },
+  currentDate: { type: Date, default: () => new Date() },
+  selectedInsurer: { type: Object, default: () => null }
+});
+
+// Create safe computed properties with proper defaults
+const safeInsurers = computed(() => {
+  return Array.isArray(props.insurers) ? props.insurers : [];
+});
+
+const safeSelectedInsurer = computed(() => {
+  return props.selectedInsurer || null;
+});
+
+const safeLastInvoices = computed(() => {
+  return props.lastInvoices || {};
 });
 
 const emit = defineEmits(['select-insurer', 'clear-selection']);
 
 const sortedInsurers = computed(() => {
-  if (!props.insurers) return [];
+  const insurers = safeInsurers.value || [];
+  if (!Array.isArray(insurers)) return [];
   
   // Make a deep copy of the insurers array to avoid reactivity issues
-  const sorted = [...props.insurers];
+  const sorted = [...insurers];
 
   
   // Ensure BiPRO property is set for display purposes
@@ -276,8 +298,8 @@ const sortedInsurers = computed(() => {
       }
       case 'overdue': {
         const { calculateDaysOverdue } = useInsurerUtils();
-        const overdueA = calculateDaysOverdue(a, props.currentDate, props.lastInvoices?.[a.id]);
-        const overdueB = calculateDaysOverdue(b, props.currentDate, props.lastInvoices?.[b.id]);
+        const overdueA = utils.calculateDaysOverdue(a, props.currentDate, props.lastInvoices);
+        const overdueB = utils.calculateDaysOverdue(b, props.currentDate, props.lastInvoices);
         return overdueB - overdueA;
       }
       case 'name':
@@ -319,12 +341,12 @@ const isInsurerIncomplete = (insurer) => {
   const turnusEmpty = isFieldEmpty(insurer.turnus);
   const bezugswegEmpty = isFieldEmpty(insurer.bezugsweg);
   // For dokumentenart, we check if the *normalized* list is empty.
-  const dokArtEmpty = getNormalizedDocTypes(insurer.dokumentenart).length === 0;
+  const dokArtEmpty = utils.getNormalizedDocTypes(insurer.dokumentenart).length === 0;
 
   return turnusEmpty || bezugswegEmpty || dokArtEmpty;
 };
 
-const { getStatusCode, getStatusColor, getStatusText, calculateDaysOverdue } = useInsurerUtils();
+const utils = useInsurerUtils();
 
 const getNormalizedDocTypes = (docArt) => {
   if (!docArt) return [];
@@ -345,7 +367,7 @@ const getNormalizedDocTypes = (docArt) => {
 
 
 const isOverdue = (insurer) => {
-  const days = calculateDaysOverdue(insurer, props.currentDate, props.lastInvoices[insurer.id]);
+  const days = utils.calculateDaysOverdue(insurer, props.currentDate, props.lastInvoices);
   return days > 0;
 };
 

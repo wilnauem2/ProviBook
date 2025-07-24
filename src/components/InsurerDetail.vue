@@ -56,16 +56,10 @@
               </div>
             </div>
 
-            <!-- Column 2: Next Due & Turnus -->
-            <div class="grid grid-cols-2 gap-4 border-l border-r border-gray-200 px-4">
-              <div>
-                <dt class="text-xs font-medium text-gray-500">Nächste Fälligkeit</dt>
-                <dd class="text-base font-semibold text-gray-800">{{ nextDueDate }}</dd>
-              </div>
-              <div>
-                <dt class="text-xs font-medium text-gray-500">Turnus</dt>
-                <dd class="text-base font-semibold text-gray-800">{{ formattedTurnus }}</dd>
-              </div>
+            <!-- Column 2: Turnus -->
+            <div class="border-l border-r border-gray-200 px-4">
+              <dt class="text-xs font-medium text-gray-500">Turnus</dt>
+              <dd class="text-base font-semibold text-gray-800">{{ formattedTurnus }}</dd>
             </div>
 
             <!-- Column 3: Action -->
@@ -105,9 +99,16 @@
             <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 transition-shadow duration-200 hover:shadow-md">
               <h3 class="text-lg font-semibold text-gray-800 mb-4">Abrechnungsverlauf</h3>
               <ul v-if="sortedLocalSettlements.length > 0" class="space-y-3">
-                <li v-for="settlement in sortedLocalSettlements" :key="settlement.id" class="flex items-center justify-between p-2 rounded-md hover:bg-gray-50">
-                  <span class="text-sm text-gray-700">{{ format(settlement.date.toDate ? settlement.date.toDate() : new Date(settlement.date), 'dd.MM.yyyy') }}</span>
-                  <button @click="confirmSettlementDelete(settlement.id)" class="text-gray-400 hover:text-red-500 transition-colors duration-200" title="Diesen Eintrag löschen">
+                <li v-for="settlement in sortedLocalSettlements" :key="settlement.id" 
+                    @click="showSettlementDetails(settlement)"
+                    class="flex items-center justify-between p-2 rounded-md hover:bg-gray-50 cursor-pointer group">
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm text-gray-700">{{ format(settlement.date.toDate ? settlement.date.toDate() : new Date(settlement.date), 'dd.MM.yyyy') }}</span>
+                    <svg v-if="settlement.note" class="w-4 h-4 text-gray-400 group-hover:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" title="Mit Kommentar">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
+                    </svg>
+                  </div>
+                  <button @click.stop="confirmSettlementDelete(settlement.id)" class="text-gray-400 hover:text-red-500 transition-colors duration-200" title="Diesen Eintrag löschen">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                   </button>
                 </li>
@@ -123,13 +124,24 @@
               <dl class="space-y-4">
                 <!-- Turnus -->
                 <div>
-                  <div class="flex items-center justify-between mb-1">
+                  <div class="flex justify-between items-center group">
                     <dt class="text-sm font-medium text-gray-500">Turnus</dt>
+                    <button v-if="insurer.turnus" @click="deleteField('turnus')" class="invisible group-hover:visible text-gray-400 hover:text-red-600 transition-opacity duration-200" title="Turnus löschen">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
                     <button @click="startEditing('turnus')" class="text-gray-400 hover:text-blue-600 transition-colors duration-200 text-sm font-medium">Bearbeiten</button>
                   </div>
                   <dd v-if="!isEditing || editField !== 'turnus'" class="text-sm text-gray-900 font-semibold">{{ formattedTurnus }}</dd>
                   <div v-else>
-                    <input v-model="editedTurnus" type="text" @blur="formatTurnus" class="w-32 text-base font-semibold border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" autofocus/>
+                    <select 
+                      v-model="editedTurnus" 
+                      class="w-32 text-base font-semibold border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                      autofocus
+                    >
+                      <option v-for="option in turnusOptions" :key="option" :value="option">
+                        {{ option }}
+                      </option>
+                    </select>
                     <div class="mt-2 flex justify-end gap-2">
                       <button @click="cancelEditing()" class="px-3 py-1 text-sm font-medium bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Abbrechen</button>
                       <button @click="saveField('turnus')" class="px-3 py-1 text-sm font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700">Speichern</button>
@@ -139,13 +151,23 @@
 
                 <!-- Bezugsweg -->
                 <div>
-                  <div class="flex items-center justify-between mb-1">
+                  <div class="flex justify-between items-center group">
                     <dt class="text-sm font-medium text-gray-500">Bezugsweg</dt>
+                    <button v-if="insurer.bezugsweg" @click="deleteField('bezugsweg')" class="invisible group-hover:visible text-gray-400 hover:text-red-600 transition-opacity duration-200" title="Bezugsweg löschen">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
                     <button @click="startEditing('bezugsweg')" class="text-gray-400 hover:text-blue-600 transition-colors duration-200 text-sm font-medium">Bearbeiten</button>
                   </div>
                   <dd v-if="!isEditing || editField !== 'bezugsweg'" class="text-sm text-gray-900 font-semibold">{{ insurer.bezugsweg || 'Keine Angabe' }}</dd>
                   <div v-else>
-                    <input v-model="editedBezugsweg" class="w-full text-sm border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" placeholder="z.B. E-Mail, Portal"/>
+                    <select 
+                      v-model="editedBezugsweg" 
+                      class="w-full text-sm border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option v-for="option in bezugswegOptions" :key="option" :value="option">
+                        {{ option }}
+                      </option>
+                    </select>
                     <div class="mt-2 flex justify-end gap-2">
                       <button @click="cancelEditing()" class="px-3 py-1 text-sm font-medium bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Abbrechen</button>
                       <button @click="saveField('bezugsweg')" class="px-3 py-1 text-sm font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700">Speichern</button>
@@ -155,12 +177,15 @@
 
                 <!-- Dokumentenart -->
                 <div>
-                  <div class="flex items-center justify-between mb-1">
+                  <div class="flex justify-between items-center group">
                     <dt class="text-sm font-medium text-gray-500">Dokumentenart</dt>
+                    <button v-if="insurer.dokumentenart" @click="deleteField('dokumentenart')" class="invisible group-hover:visible text-gray-400 hover:text-red-600 transition-opacity duration-200" title="Dokumentenart löschen">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
                     <button @click="startEditing('dokumentenart')" class="text-gray-400 hover:text-blue-600 transition-colors duration-200 text-sm font-medium">Bearbeiten</button>
                   </div>
                   <div v-if="!isEditing || editField !== 'dokumentenart'">
-                                        <div v-if="insurer.dokumentenart && getNormalizedDocTypes(insurer.dokumentenart).length" class="flex flex-wrap gap-2 mt-2">
+                    <div v-if="insurer.dokumentenart && getNormalizedDocTypes(insurer.dokumentenart).length" class="flex flex-wrap gap-2 mt-2">
                       <span v-for="docType in getNormalizedDocTypes(insurer.dokumentenart)" :key="docType" 
                             class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
                             :class="docTypeColors[docType]?.classes || 'bg-gray-100 text-gray-800'">
@@ -227,22 +252,68 @@
       </div>
     </div>
 
+    <!-- Settlement Details Modal -->
+    <div v-if="showSettlementModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" @click.self="showSettlementModal = false">
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
+        <div class="p-6">
+          <div class="flex justify-between items-start">
+            <h3 class="text-lg font-medium text-gray-900">Abrechnungsdetails</h3>
+            <button @click="showSettlementModal = false" class="text-gray-400 hover:text-gray-500">
+              <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          
+          <div class="mt-4 space-y-4">
+            <div>
+              <dt class="text-sm font-medium text-gray-500">Datum</dt>
+              <dd class="mt-1 text-sm text-gray-900">{{ selectedSettlement ? format(selectedSettlement.date.toDate ? selectedSettlement.date.toDate() : new Date(selectedSettlement.date), 'dd.MM.yyyy') : '' }}</dd>
+            </div>
+            
+            <div v-if="selectedSettlement?.note">
+              <dt class="text-sm font-medium text-gray-500">Kommentar</dt>
+              <dd class="mt-1 text-sm text-gray-900 whitespace-pre-line">{{ selectedSettlement.note }}</dd>
+            </div>
+            <div v-else>
+              <dt class="text-sm font-medium text-gray-500">Kommentar</dt>
+              <dd class="mt-1 text-sm text-gray-500 italic">Kein Kommentar vorhanden</dd>
+            </div>
+          </div>
+          
+          <div class="mt-6 flex justify-end">
+            <button @click="showSettlementModal = false" type="button" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+              Schließen
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, inject } from 'vue';
 import { useInsurerStore } from '@/stores/insurerStore';
 import { useInsurerUtils, allDocTypes, docTypeColors } from '@/composables/useInsurerUtils';
 import { format, differenceInDays, addDays } from 'date-fns';
 
 const props = defineProps({
-  insurer: Object,
-  lastInvoice: Object,
-  currentDate: Date,
+  insurer: {
+    type: Object,
+    required: true
+  },
+  show: {
+    type: Boolean,
+    default: false
+  },
+  dataMode: {
+    type: String,
+    default: 'production'
+  }
 });
 
-const emit = defineEmits(['close', 'delete-insurer', 'settlement-completed']);
+const emit = defineEmits(['close', 'delete-insurer', 'settlement-completed', 'update:insurer']);
 
 const insurerStore = useInsurerStore();
 const { getStatusColor, getStatusText, calculateDaysOverdue, getNormalizedDocTypes, formatLastInvoice } = useInsurerUtils();
@@ -261,13 +332,18 @@ const localSettlementHistory = ref([]);
 const showDatePicker = ref(false);
 const selectedDate = ref('');
 const settlementNote = ref('');
-const isEditing = ref(false);
-const editField = ref(null);
+const isCreatingSettlement = ref(false);
+const deletingSettlementId = ref(null);
+const selectedSettlement = ref(null);
+const showSettlementModal = ref(false);
 const editedName = ref('');
 const editedComment = ref('');
 const editedTurnus = ref('');
 const editedBezugsweg = ref('');
 const editedDokumentenart = ref([]);
+const turnusOptions = ['7-tägig', '14-tägig', '31-tägig'];
+const bezugswegOptions = ['E-Mail', 'Maklerportal', 'Post', 'BiPRO'];
+
 const showDeleteConfirmation = ref(false);
 const showSettlementDeleteConfirmation = ref(false);
 const settlementToDeleteId = ref(null);
@@ -289,8 +365,29 @@ const nextDueDate = computed(() => {
   return format(date, 'dd.MM.yyyy');
 });
 
+const isInsurerIncomplete = computed(() => {
+  if (!props.insurer) return true;
+  
+  const isFieldEmpty = (field) => {
+    if (field === null || field === undefined) return true;
+    if (typeof field === 'string') return field.trim() === '';
+    return false;
+  };
+
+  const utils = useInsurerUtils();
+  const turnusEmpty = isFieldEmpty(props.insurer.turnus);
+  const bezugswegEmpty = isFieldEmpty(props.insurer.bezugsweg);
+  const dokArtEmpty = utils.getNormalizedDocTypes(props.insurer.dokumentenart).length === 0;
+
+  return turnusEmpty || bezugswegEmpty || dokArtEmpty;
+});
+
 const statusInfo = computed(() => {
   if (!props.insurer) return { text: 'Unbekannt', badgeClass: 'bg-gray-100 text-gray-800', dotClass: 'text-gray-400' };
+  
+  if (isInsurerIncomplete.value) {
+    return { text: 'Unvollständig', badgeClass: 'bg-gray-100 text-gray-800 border-gray-200', dotClass: 'text-gray-500' };
+  }
   
   const daysOverdue = calculateDaysOverdue(props.insurer, props.currentDate, localLastInvoice.value);
 
@@ -298,9 +395,10 @@ const statusInfo = computed(() => {
     return { text: 'Kritisch', badgeClass: 'bg-red-100 text-red-800 border-red-200', dotClass: 'text-red-500' };
   } else if (daysOverdue > 0) {
     return { text: 'Überfällig', badgeClass: 'bg-yellow-100 text-yellow-800 border-yellow-200', dotClass: 'text-yellow-500' };
-  } else {
-    return { text: 'Aktuell', badgeClass: 'bg-green-100 text-green-800 border-green-200', dotClass: 'text-green-500' };
+  } else if (daysOverdue < 0) {
+    return { text: 'Bald fällig', badgeClass: 'bg-blue-100 text-blue-800 border-blue-200', dotClass: 'text-blue-500' };
   }
+  return { text: 'Aktuell', badgeClass: 'bg-green-100 text-green-800 border-green-200', dotClass: 'text-green-500' };
 });
 
 const formattedTurnus = computed(() => {
@@ -320,6 +418,12 @@ const sortedSettlements = computed(() => {
 
 // Methods
 const handleClose = () => emit('close');
+
+const showSettlementDetails = (settlement) => {
+  console.log('Settlement data:', JSON.parse(JSON.stringify(settlement))); // Debug log
+  selectedSettlement.value = settlement;
+  showSettlementModal.value = true;
+};
 
 const startEditing = (field) => {
   isEditing.value = true;
@@ -341,6 +445,18 @@ const formatTurnus = () => {
   const numbers = turnusValue.match(/\d+/);
   if (numbers) {
     editedTurnus.value = `${numbers[0]}-tägig`;
+  }
+};
+
+const deleteField = async (field) => {
+  if (confirm(`Sind Sie sicher, dass Sie das Feld '${field}' löschen möchten?`)) {
+    const updatedData = { [field]: null };
+    const success = await insurerStore.updateInsurer(props.insurer.id, updatedData);
+    if (success) {
+      // Create a new object for the updated insurer to ensure reactivity.
+      const updatedInsurer = { ...props.insurer, ...updatedData };
+      emit('update:insurer', updatedInsurer);
+    }
   }
 };
 
@@ -438,14 +554,17 @@ const handleDateSubmit = async () => {
 };
 
 
-// Lifecycle and Watchers
-// This watcher is now the single source of truth for reactivity.
-// It fetches the initial history and updates the local last invoice when the history changes.
-watch(() => props.insurer, (newInsurer) => {
-  if (newInsurer) {
-    // Initialize local history when the insurer changes
-    localSettlementHistory.value = [...(insurerStore.settlementHistories[newInsurer.id] || [])];
+// Fetch settlement history when component mounts or dataMode changes
+const fetchSettlements = async () => {
+  if (props.insurer?.id) {
+    await insurerStore.fetchSettlementHistory(props.insurer.id);
+    localSettlementHistory.value = [...(insurerStore.settlementHistories[props.insurer.id] || [])];
   }
+};
+
+// Watch for changes to insurer or dataMode
+watch([() => props.insurer, () => props.dataMode], () => {
+  fetchSettlements();
 }, { immediate: true, deep: true });
 
 

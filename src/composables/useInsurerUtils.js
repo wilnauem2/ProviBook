@@ -1,5 +1,5 @@
 import { useInsurerStore } from '@/stores/insurerStore';
-import { addMonths, addYears } from 'date-fns';
+import { addMonths, addYears, addDays } from 'date-fns';
 
 export const allDocTypes = ['PDF', 'CSV', 'XLS', 'XML', 'Papier'];
 
@@ -12,38 +12,62 @@ export const docTypeColors = {
 };
 
 export function useInsurerUtils() {
-  const insurerStore = useInsurerStore();
 
-  const parseDateString = (dateStr) => {
+    const parseDateString = (dateStr) => {
+    if (!dateStr || typeof dateStr !== 'string') return null;
     try {
-      const [datePart] = dateStr.split(',');
-      const [day, month, year] = datePart.trim().split('.').map(Number);
-      if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
-        return new Date(year, month - 1, day);
+      // Handle formats like '23.07.2025, 00:00:00'
+      const datePart = dateStr.split(',')[0].trim();
+      const parts = datePart.split('.');
+      
+      if (parts.length === 3) {
+        const [day, month, year] = parts.map(Number);
+        if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+          // Create date in UTC to avoid timezone issues
+          const d = new Date(Date.UTC(year, month - 1, day));
+          if (!isNaN(d.getTime())) return d;
+        }
       }
-      return new Date(dateStr); // Fallback for ISO strings
+
+      // Fallback for ISO strings or other formats recognized by new Date()
+      const d = new Date(dateStr);
+      if (!isNaN(d.getTime())) return d;
+
+      return null;
     } catch (error) {
-      console.error('Error parsing date string:', dateStr, error);
       return null;
     }
   };
 
   const parseInvoiceDate = (invoice) => {
     if (!invoice) return null;
-    if (typeof invoice === 'object' && invoice !== null) {
-      if (invoice.timestamp) return new Date(invoice.timestamp);
-      if (invoice.date) return new Date(invoice.date);
-      if (invoice.display) return parseDateString(invoice.display);
-      return null;
+
+    // Handle Firebase Timestamp object: { date: { seconds: ... } }
+    if (invoice.date && typeof invoice.date.seconds === 'number') {
+      return new Date(invoice.date.seconds * 1000);
     }
+
+    // Handle plain string date
     if (typeof invoice === 'string') {
       return parseDateString(invoice);
     }
+
+    // Handle object with 'datum' or 'display' property
+    if (typeof invoice === 'object') {
+      if (typeof invoice.datum === 'string') return parseDateString(invoice.datum);
+      if (typeof invoice.display === 'string') return parseDateString(invoice.display);
+    }
+
     return null;
   };
 
-          const calculateDaysOverdue = (insurer, currentDate = new Date(), lastInvoice = null) => {
+            const calculateDaysOverdue = (insurer, currentDate, lastInvoices) => {
     if (!insurer) return 0;
+
+    // Ensure we have a valid turnus value to work with.
+    if (!insurer.turnus || typeof insurer.turnus !== 'string' || insurer.turnus.trim() === '') {
+      return 0;
+    }
 
     const today = new Date(currentDate);
     today.setHours(0, 0, 0, 0);
@@ -51,30 +75,28 @@ export function useInsurerUtils() {
     let dueDate = null;
 
     // 1. Try to calculate from last invoice
-    const invoice = lastInvoice || insurer.last_invoice;
-    if (invoice && insurer.turnus) {
+            const invoice = lastInvoices?.[insurer.id] ?? insurer.last_invoice;
+    if (invoice) {
       const lastInvoiceDate = parseInvoiceDate(invoice);
       if (lastInvoiceDate) {
-        switch (insurer.turnus) {
-          case 'monatlich':
-            dueDate = addMonths(lastInvoiceDate, 1);
-            break;
-          case 'quartalsweise':
-            dueDate = addMonths(lastInvoiceDate, 3);
-            break;
-          case 'halbjährlich':
-            dueDate = addMonths(lastInvoiceDate, 6);
-            break;
-          case 'jährlich':
-            dueDate = addYears(lastInvoiceDate, 1);
-            break;
+        const turnus = insurer.turnus.toLowerCase();
+        if (turnus.includes('7') || turnus.includes('wöchentlich')) {
+          dueDate = addDays(lastInvoiceDate, 7);
+        } else if (turnus.includes('monatlich')) {
+          dueDate = addMonths(lastInvoiceDate, 1);
+        } else if (turnus.includes('quartalsweise')) {
+          dueDate = addMonths(lastInvoiceDate, 3);
+        } else if (turnus.includes('halbjährlich')) {
+          dueDate = addMonths(lastInvoiceDate, 6);
+        } else if (turnus.includes('jährlich')) {
+          dueDate = addYears(lastInvoiceDate, 1);
         }
       }
     }
 
     // 2. If no due date from invoice, fallback to next_due field
     if (!dueDate && insurer.next_due?.seconds) {
-        dueDate = new Date(insurer.next_due.seconds * 1000);
+      dueDate = new Date(insurer.next_due.seconds * 1000);
     }
 
     // 3. If we still don't have a due date, we can't calculate anything.
@@ -94,15 +116,15 @@ export function useInsurerUtils() {
     return diffDays;
   };
 
-      const getStatusCode = (insurer, date, lastInvoice = null) => {
-    const daysOverdue = calculateDaysOverdue(insurer, date, lastInvoice);
-    if (daysOverdue > 5) return 'red';
-    if (daysOverdue > 0) return 'yellow';
-    return 'green';
+        const getStatusCode = (insurer, date, lastInvoices) => {
+    const daysOverdue = calculateDaysOverdue(insurer, date, lastInvoices);
+    if (daysOverdue > 5) return 'red'; // Critical: More than 5 days overdue
+    if (daysOverdue >= 1 && daysOverdue <= 5) return 'yellow'; // Warning: 1-5 days overdue
+    return 'green'; // OK: On time or not yet due
   };
 
-  const getStatusColor = (insurer, date, lastInvoice = null) => {
-    const code = getStatusCode(insurer, date, lastInvoice);
+  const getStatusColor = (insurer, date, lastInvoices) => {
+    const code = getStatusCode(insurer, date, lastInvoices);
     switch (code) {
       case 'red': return 'bg-red-500';
       case 'yellow': return 'bg-yellow-500';
@@ -110,8 +132,8 @@ export function useInsurerUtils() {
     }
   };
 
-  const getStatusText = (insurer, date) => {
-    const daysOverdue = calculateDaysOverdue(insurer, date);
+  const getStatusText = (insurer, date, lastInvoices) => {
+    const daysOverdue = calculateDaysOverdue(insurer, date, lastInvoices);
     if (daysOverdue > 0) return `${daysOverdue} Tage überfällig`;
     return 'Im Plan';
   };

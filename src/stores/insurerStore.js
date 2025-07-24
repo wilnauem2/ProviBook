@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { getFirestore, doc, updateDoc, getDoc, collection, getDocs, addDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
+import { getFirestore, doc, updateDoc, getDoc, collection, getDocs, addDoc, serverTimestamp, deleteDoc, query, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 
 export const useInsurerStore = defineStore('insurer', () => {
@@ -90,18 +90,32 @@ export const useInsurerStore = defineStore('insurer', () => {
   const fetchSettlementHistory = async (insurerId) => {
     isLoading.value = true;
     try {
-      // Environment mapping matches actual Firestore data structure
+      // Use the correct collection name based on the environment
       const invoicesSubcollection = dataMode.value === 'production' ? 'invoice-history' : 'invoice-history-test';
-      const invoicesCollectionRef = collection(db, collections.value.insurers, insurerId, invoicesSubcollection);
+      const insurerCollection = collections.value.insurers; // This already has the correct environment suffix
+      
+      console.log(`Fetching settlements for insurer ${insurerId} from collection: ${insurerCollection}/${insurerId}/${invoicesSubcollection}`);
+      
+      const invoicesCollectionRef = collection(db, insurerCollection, insurerId, invoicesSubcollection);
       const invoicesSnapshot = await getDocs(invoicesCollectionRef);
       
-      settlementHistories.value[insurerId] = invoicesSnapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .sort((a, b) => {
-          const dateA = a.date?.seconds ? new Date(a.date.seconds * 1000) : new Date(a.date || 0);
-          const dateB = b.date?.seconds ? new Date(b.date.seconds * 1000) : new Date(b.date || 0);
-          return dateB - dateA;
-        });
+      const settlements = invoicesSnapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data(),
+        // Ensure date is properly formatted
+        date: doc.data().date?.toDate ? doc.data().date.toDate() : doc.data().date
+      }));
+      
+      console.log(`Found ${settlements.length} settlements:`, settlements);
+      
+      // Sort by date, newest first
+      const sortedSettlements = [...settlements].sort((a, b) => {
+        const dateA = a.date ? (a.date.seconds ? new Date(a.date.seconds * 1000) : new Date(a.date)) : new Date(0);
+        const dateB = b.date ? (b.date.seconds ? new Date(b.date.seconds * 1000) : new Date(b.date)) : new Date(0);
+        return dateB - dateA;
+      });
+      
+      settlementHistories.value[insurerId] = sortedSettlements;
     } catch (err) {
       console.error('Error fetching settlement history:', err);
       error.value = err.message;
@@ -132,9 +146,13 @@ export const useInsurerStore = defineStore('insurer', () => {
     try {
       if (!insurerId || !invoiceData) throw new Error('Invalid insurer ID or invoice data');
 
-      // Environment mapping matches actual Firestore data structure
+      // Use the correct collection name based on the environment
       const invoicesSubcollection = dataMode.value === 'production' ? 'invoice-history' : 'invoice-history-test';
-      const invoicesCollectionRef = collection(db, collections.value.insurers, insurerId, invoicesSubcollection);
+      const insurerCollection = collections.value.insurers; // This already has the correct environment suffix
+      
+      console.log(`Adding invoice to collection: ${insurerCollection}/${insurerId}/${invoicesSubcollection}`);
+      
+      const invoicesCollectionRef = collection(db, insurerCollection, insurerId, invoicesSubcollection);
 
       const invoiceToSave = {
         ...invoiceData,
@@ -142,18 +160,28 @@ export const useInsurerStore = defineStore('insurer', () => {
         createdAt: serverTimestamp(),
       };
 
+      // Add the document to Firestore
       const docRef = await addDoc(invoicesCollectionRef, invoiceToSave);
       const newSettlementDoc = await getDoc(docRef);
-      const newSettlement = { id: newSettlementDoc.id, ...newSettlementDoc.data() };
+      const newSettlement = { 
+        id: newSettlementDoc.id, 
+        ...newSettlementDoc.data(),
+        // Ensure date is properly formatted
+        date: newSettlementDoc.data().date?.toDate ? newSettlementDoc.data().date.toDate() : newSettlementDoc.data().date
+      };
 
+      console.log('New settlement added:', newSettlement);
+
+      // Update local state
       const currentHistory = settlementHistories.value[insurerId] || [];
-      settlementHistories.value[insurerId] = [newSettlement, ...currentHistory];
+      const updatedHistory = [newSettlement, ...currentHistory];
+      settlementHistories.value[insurerId] = updatedHistory;
 
       // Also update the lastInvoices map to ensure the tile UI updates reactively.
       lastInvoices.value[insurerId] = { ...newSettlement };
 
-            // Persist this new settlement to the parent insurer's `last_invoice` field.
-      const insurerDocRef = doc(db, collections.value.insurers, insurerId);
+      // Persist this new settlement to the parent insurer's `last_invoice` field.
+      const insurerDocRef = doc(db, insurerCollection, insurerId);
       await updateDoc(insurerDocRef, { 
         last_invoice: newSettlement 
       });
@@ -172,10 +200,9 @@ export const useInsurerStore = defineStore('insurer', () => {
   };
 
   const updateInsurer = async (insurerId, updateData) => {
-    isLoading.value = true;
     try {
-      const insurerDocRef = doc(db, collections.value.insurers, insurerId);
-      await updateDoc(insurerDocRef, updateData);
+      const insurerRef = doc(db, collections.value.insurers, insurerId);
+      await updateDoc(insurerRef, updateData);
 
       const insurerIndex = insurers.value.findIndex(ins => ins.id === insurerId);
       if (insurerIndex !== -1) {
@@ -184,9 +211,11 @@ export const useInsurerStore = defineStore('insurer', () => {
       if (selectedInsurer.value && selectedInsurer.value.id === insurerId) {
         selectedInsurer.value = { ...selectedInsurer.value, ...updateData };
       }
+      return true;
     } catch (err) {
       console.error('Error updating insurer:', err);
       error.value = err.message;
+      return false;
     } finally {
       isLoading.value = false;
     }
@@ -216,6 +245,18 @@ export const useInsurerStore = defineStore('insurer', () => {
   const updateLastInvoice = (insurerId, newInvoice) => {
     if (!lastInvoices.value) lastInvoices.value = {};
     lastInvoices.value[insurerId] = newInvoice;
+  };
+
+  const testFirestoreConnection = async () => {
+    try {
+      const testCollectionRef = collection(db, collections.value.insurers);
+      const q = query(testCollectionRef, limit(1));
+      await getDocs(q);
+      return true;
+    } catch (err) {
+      console.error('Firestore connection test failed:', err);
+      return false;
+    }
   };
 
   const deleteSettlement = async (insurerId, settlementId) => {
@@ -279,6 +320,7 @@ export const useInsurerStore = defineStore('insurer', () => {
     updateInsurer,
     deleteInsurer,
     deleteSettlement,
-    updateLastInvoice
+    updateLastInvoice,
+    testFirestoreConnection
   };
 });

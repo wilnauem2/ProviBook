@@ -47,4 +47,3 @@ const initApp = async () => {
 
 // Start the app
 initApp();
-

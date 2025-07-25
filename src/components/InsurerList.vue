@@ -162,6 +162,15 @@
               </span>
 
               <!-- Document Types -->
+              <template v-if="insurer.name === 'Test-Versicherer 9' || insurer.name === 'Drupal A'">
+                <!-- Debug info for specific insurers -->
+                <div class="w-full text-xs text-red-600 bg-yellow-50 p-1 mb-1 rounded">
+                  <div>Debug for {{ insurer.name }}:</div>
+                  <div>Raw dokumentenart: {{ JSON.stringify(insurer.dokumentenart) }}</div>
+                  <div>Processed types: {{ JSON.stringify(getNormalizedDocTypes(insurer.dokumentenart)) }}</div>
+                </div>
+              </template>
+              
               <span v-for="docType in getNormalizedDocTypes(insurer.dokumentenart)" :key="docType" 
                     class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium"
                     :class="docTypeColors[docType]?.classes || 'bg-gray-100 text-gray-800'">
@@ -349,19 +358,85 @@ const isInsurerIncomplete = (insurer) => {
 const utils = useInsurerUtils();
 
 const getNormalizedDocTypes = (docArt) => {
-  if (!docArt) return [];
+  console.log('=== getNormalizedDocTypes called with ===', docArt);
+  if (!docArt) {
+    console.log('No document type data provided');
+    return [];
+  }
   
   let types = [];
+  
+  // Handle different input formats
   if (Array.isArray(docArt)) {
-    // Handles messy arrays like ['C','S','V',',','PDF'] by filtering for valid, multi-character types.
-    types = docArt.filter(d => typeof d === 'string' && d.trim().length > 1 && d.trim() !== ',');
+    console.log('Processing as array');
+    // Handle array of strings or objects
+    types = docArt.flatMap(item => {
+      console.log('Processing array item:', item);
+      if (typeof item === 'string') {
+        const result = item.split(',').map(s => s.trim()).filter(Boolean);
+        console.log('Processed string item, result:', result);
+        return result;
+      } else if (item && typeof item === 'object') {
+        console.log('Processing object item:', item);
+        // Handle object with documentType property
+        if (item.documentType) {
+          const result = Array.isArray(item.documentType) 
+            ? item.documentType.map(t => String(t).trim()).filter(Boolean)
+            : [String(item.documentType).trim()].filter(Boolean);
+          console.log('Processed documentType property, result:', result);
+          return result;
+        }
+        // Handle other object formats
+        const result = Object.entries(item)
+          .map(([key, value]) => {
+            console.log(`Processing key '${key}':`, value);
+            return String(value).trim();
+          })
+          .filter(Boolean);
+        console.log('Processed object entries, result:', result);
+        return result;
+      }
+      console.log('Unhandled item type:', typeof item);
+      return [];
+    });
   } else if (typeof docArt === 'string') {
-    // Handles string formats like "CSV, PDF"
+    console.log('Processing as string');
+    // Handle comma-separated strings
     types = docArt.split(',').map(s => s.trim()).filter(Boolean);
+    console.log('Processed string, result:', types);
+  } else if (docArt && typeof docArt === 'object') {
+    console.log('Processing as object');
+    // Handle single object with document types
+    if (docArt.documentType) {
+      types = Array.isArray(docArt.documentType)
+        ? docArt.documentType.map(t => String(t).trim())
+        : [String(docArt.documentType).trim()];
+    } else {
+      // Extract all values from the object
+      console.log('Extracting values from object:', docArt);
+      types = Object.entries(docArt)
+        .map(([key, value]) => {
+          console.log(`Processing key '${key}':`, value);
+          return String(value).trim();
+        })
+        .filter(Boolean);
+    }
+    console.log('Processed object, result:', types);
+  } else {
+    console.log('Unhandled type:', typeof docArt);
   }
 
-  // Return a unique set of uppercase types to avoid duplicates and ensure consistency.
-  return [...new Set(types.map(t => t.toUpperCase()))];
+  console.log('Before normalization:', types);
+  
+  // Normalize and deduplicate
+  const normalized = types
+    .map(t => t.toUpperCase())
+    .filter(t => t && t !== ',');
+    
+  const deduped = [...new Set(normalized)];
+  
+  console.log('After normalization and deduplication:', deduped);
+  return deduped;
 };
 
 

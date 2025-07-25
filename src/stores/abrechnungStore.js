@@ -176,19 +176,108 @@ export const useAbrechnungStore = defineStore('abrechnung', () => {
                     const insurerId = pathParts.length > 1 ? pathParts[pathParts.length - 3] : null;
                     const insurerData = insurerId ? insurerMap.get(insurerId) : null;
 
+                    // Document type normalization - treats all insurers equally
+                    const normalizeDocTypes = (docType) => {
+                        try {
+                            // If no document type is provided, use the insurer's dokumentenart or default to PDF
+                            if (!docType) {
+                                return insurerData?.dokumentenart?.length > 0 
+                                    ? [...new Set(insurerData.dokumentenart.map(t => t.toUpperCase()))]
+                                    : ['PDF'];
+                            }
+                            
+                            let result = [];
+                            
+                            // Handle array input
+                            if (Array.isArray(docType)) {
+                                result = docType.flatMap(item => {
+                                    if (!item) return [];
+                                    // If item is an object, extract its values
+                                    if (typeof item === 'object') {
+                                        return Object.values(item)
+                                            .map(v => String(v).toUpperCase())
+                                            .filter(Boolean);
+                                    }
+                                    // Handle string values
+                                    return String(item).toUpperCase().split(',').map(t => t.trim());
+                                });
+                            } 
+                            // Handle string input (comma-separated or single value)
+                            else if (typeof docType === 'string') {
+                                result = docType.toUpperCase().split(',').map(t => t.trim());
+                            }
+                            // Handle object input
+                            else if (typeof docType === 'object') {
+                                result = Object.values(docType)
+                                    .map(v => String(v).toUpperCase())
+                                    .filter(Boolean);
+                            }
+                            
+                            // Clean and deduplicate results
+                            result = [...new Set(
+                                result
+                                    .flat()
+                                    .filter(Boolean)
+                                    .map(t => t.trim())
+                            )];
+                            
+                            // If no valid types found, use insurer's dokumentenart or default to PDF
+                            if (result.length === 0) {
+                                return insurerData?.dokumentenart?.length > 0 
+                                    ? [...new Set(insurerData.dokumentenart.map(t => t.toUpperCase()))]
+                                    : ['PDF'];
+                            }
+                            
+                            return result;
+                            
+                        } catch (error) {
+                            console.error('Error normalizing document type:', error, 'Input was:', docType);
+                            // Fall back to insurer's dokumentenart or default to PDF
+                            return insurerData?.dokumentenart?.length > 0 
+                                ? [...new Set(insurerData.dokumentenart.map(t => t.toUpperCase()))]
+                                : ['PDF'];
+                        }
+                    };
+
+                    // Get the normalized document types
+                    const normalizedDocTypes = normalizeDocTypes(insurerData?.dokumentenart || invoice.documentType || 'Unbekannt');
+                    console.log('Normalized document types for invoice:', {
+                        id: invoice.id,
+                        original: invoice.documentType,
+                        normalized: normalizedDocTypes
+                    });
+
                     const processedInvoice = {
                         id: invoice.id,
                         date: invoice.date,
                         reference: invoice.reference || 'Keine Referenz',
-                        documentType: invoice.documentType || 'Unbekannt',
+                        // Ensure we're using the normalized document types
+                        documentType: normalizedDocTypes,
                         status: invoice.status || 'Unbekannt',
                         insurer: insurerData?.name || 'Unbekannter Versicherer',
+                        insurerId: insurerId, // Add insurerId for debugging
                         note: invoice.note || null,
                         bezugsweg: getAbrechnungsweg(insurerData?.bezugsweg) || 'Unbekannt',
-                        path: invoice.path
+                        path: invoice.path,
+                        // Add raw data for debugging
+                        _debug: {
+                            rawDocumentType: invoice.documentType,
+                            hasDokumentenart: !!insurerData?.dokumentenart,
+                            dokumentenart: insurerData?.dokumentenart || []
+                        }
                     };
                     
-                    console.log('Processed invoice:', processedInvoice);
+                    // Enhanced logging for Test-Versicherer 9
+                    if (insurerData?.name === 'Test-Versicherer 9') {
+                        console.log('=== DEBUG: Final Processed Invoice ===');
+                        console.log('Insurer:', insurerData.name);
+                        console.log('Insurer ID:', insurerId);
+                        console.log('Raw documentType:', invoice.documentType);
+                        console.log('Normalized document types:', normalizedDocTypes);
+                        console.log('Insurer data:', insurerData);
+                        console.log('Processed invoice:', JSON.parse(JSON.stringify(processedInvoice)));
+                    }
+                    
                     pageInvoices.push(processedInvoice);
                 } catch (err) {
                     console.error(`Error processing invoice ${doc.id}:`, err);

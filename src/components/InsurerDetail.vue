@@ -318,6 +318,10 @@ const emit = defineEmits(['close', 'delete-insurer', 'settlement-completed', 'up
 const insurerStore = useInsurerStore();
 const { getStatusColor, getStatusText, calculateDaysOverdue, getNormalizedDocTypes, formatLastInvoice } = useInsurerUtils();
 
+// Editing state
+const isEditing = ref(false);
+const editField = ref(null);
+
 // State
 const localLastInvoice = computed(() => insurerStore.lastInvoices[props.insurer.id]);
 
@@ -432,7 +436,31 @@ const startEditing = (field) => {
   else if (field === 'comment') editedComment.value = props.insurer.comment || '';
   else if (field === 'turnus') editedTurnus.value = props.insurer.turnus;
   else if (field === 'bezugsweg') editedBezugsweg.value = props.insurer.bezugsweg;
-  else if (field === 'dokumentenart') editedDokumentenart.value = [...(props.insurer.dokumentenart || [])];
+  else if (field === 'dokumentenart') {
+    // Ensure we have an array and normalize the document types when starting to edit
+    const docTypes = Array.isArray(props.insurer.dokumentenart) 
+      ? props.insurer.dokumentenart 
+      : [props.insurer.dokumentenart].filter(Boolean);
+    
+    // Map single letters to full document types if needed
+    const docTypeMap = {
+      'P': 'PDF',
+      'C': 'CSV',
+      'X': 'XLS',
+      'M': 'XML',
+      'A': 'Papier'
+    };
+    
+    const normalizedTypes = docTypes.map(type => {
+      // If it's a single letter, try to map it to a full type
+      if (typeof type === 'string' && type.length === 1) {
+        return docTypeMap[type.toUpperCase()] || type;
+      }
+      return type;
+    }).filter(type => allDocTypes.includes(type)); // Only keep valid document types
+    
+    editedDokumentenart.value = [...new Set(normalizedTypes)]; // Remove duplicates
+  }
 };
 
 const cancelEditing = () => {
@@ -475,7 +503,29 @@ const saveField = async (field) => {
     }
     updatedData = { bezugsweg: editedBezugsweg.value };
   } else if (field === 'dokumentenart') {
-    updatedData = { dokumentenart: editedDokumentenart.value };
+    // Ensure we have an array and normalize the document types
+    const docTypes = Array.isArray(editedDokumentenart.value) 
+      ? editedDokumentenart.value 
+      : [editedDokumentenart.value].filter(Boolean);
+      
+    // Map single letters to full document types if needed
+    const docTypeMap = {
+      'P': 'PDF',
+      'C': 'CSV',
+      'X': 'XLS',
+      'M': 'XML',
+      'A': 'Papier'
+    };
+    
+    const normalizedTypes = docTypes.map(type => {
+      // If it's a single letter, try to map it to a full type
+      if (typeof type === 'string' && type.length === 1) {
+        return docTypeMap[type.toUpperCase()] || type;
+      }
+      return type;
+    }).filter(type => allDocTypes.includes(type)); // Only keep valid document types
+    
+    updatedData = { dokumentenart: [...new Set(normalizedTypes)] }; // Remove duplicates
   }
 
   if (Object.keys(updatedData).length > 0) {

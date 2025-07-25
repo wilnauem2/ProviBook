@@ -243,6 +243,17 @@ const filteredInsurers = computed(() => {
   return filtered;
 });
 
+// --- Status Filter Handlers ---
+const handleStatusClicked = (status) => {
+  statusFilter.value = status;
+  console.log('Status filter changed to:', status);
+};
+
+const clearStatusFilter = () => {
+  statusFilter.value = 'all';
+  console.log('Status filter cleared');
+};
+
 // --- Event Handlers ---
 const handleInsurerSelection = (insurer) => {
   insurerStore.setSelectedInsurer(insurer);

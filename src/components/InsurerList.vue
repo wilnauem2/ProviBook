@@ -251,7 +251,7 @@ import { defineProps, defineEmits, computed } from 'vue';
 import { format, add } from 'date-fns';
 import { de } from 'date-fns/locale';
 import InsurerStatus from './InsurerStatus.vue';
-import { useInsurerUtils, docTypeColors } from '@/composables/useInsurerUtils';
+import { useInsurerUtils, docTypeColors } from '@/composables/useInsurerUtils.js';
 
 const props = defineProps({
   insurers: { type: Array, default: () => [] },

@@ -119,7 +119,7 @@ import { useAbrechnungStore } from '@/stores/abrechnungStore.js';
 import { useAuthStore } from '@/stores/auth.js';
 
 // Composables
-import { useInsurerUtils } from '@/composables/useInsurerUtils';
+import { useInsurerUtils } from '@/composables/useInsurerUtils.js';
 
 // Layout and View Components
 import AppHeader from './layout/AppHeader.vue';

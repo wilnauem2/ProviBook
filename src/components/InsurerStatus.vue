@@ -9,7 +9,7 @@
 
 <script setup>
 import { computed } from 'vue';
-import { useInsurerUtils } from '@/composables/useInsurerUtils';
+import { useInsurerUtils } from '@/composables/useInsurerUtils.js';
 
 const { calculateDaysOverdue } = useInsurerUtils();
 

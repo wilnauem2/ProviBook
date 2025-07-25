@@ -1,4 +1,4 @@
-import { useInsurerStore } from '@/stores/insurerStore';
+import { useInsurerStore } from '@/stores/insurerStore.js';
 import { addMonths, addYears, addDays } from 'date-fns';
 
 export const allDocTypes = ['PDF', 'CSV', 'XLS', 'XML', 'Papier'];

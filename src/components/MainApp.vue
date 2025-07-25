@@ -114,8 +114,8 @@ import { ref, computed, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
 
 // Store Imports
-import { useInsurerStore } from '@/stores/insurerStore';
-import { useAbrechnungStore } from '@/stores/abrechnungStore';
+import { useInsurerStore } from '@/stores/insurerStore.js';
+import { useAbrechnungStore } from '@/stores/abrechnungStore.js';
 import { useAuthStore } from '@/stores/auth.js';
 
 // Composables

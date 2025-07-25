@@ -217,7 +217,7 @@ import {
 } from '@heroicons/vue/24/solid';
 import { format } from 'date-fns';
 import { useInsurerUtils } from '../composables/useInsurerUtils';
-import { useAbrechnungStore } from '@/stores/abrechnungStore';
+import { useAbrechnungStore } from '@/stores/abrechnungStore.js';
 
 // Initialize store
 const abrechnungStore = useAbrechnungStore();

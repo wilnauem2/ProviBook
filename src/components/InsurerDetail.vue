@@ -294,7 +294,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, inject } from 'vue';
-import { useInsurerStore } from '@/stores/insurerStore';
+import { useInsurerStore } from '@/stores/insurerStore.js';
 import { useInsurerUtils, allDocTypes, docTypeColors } from '@/composables/useInsurerUtils';
 import { format, differenceInDays, addDays } from 'date-fns';
 

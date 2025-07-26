@@ -89,75 +89,108 @@ export function useInsurerUtils() {
   // Cache for memoizing calculateDaysOverdue results
   const daysOverdueCache = new Map();
   
-  const calculateDaysOverdue = (insurer, currentDate, lastInvoices) => {
-    // Create a cache key based on insurer ID and current date
-    const cacheKey = `${insurer?.id}_${currentDate?.getTime()}`;
-    
-    // Return cached result if available
-    if (daysOverdueCache.has(cacheKey)) {
-      return daysOverdueCache.get(cacheKey);
-    }
-    
-    // If no insurer or no current date, cache and return 0 (not overdue)
-    if (!insurer || !currentDate) {
-      daysOverdueCache.set(cacheKey, 0);
-      return 0;
-    }
-    
-    // Early return if no turnus is set
-    if (!insurer.turnus || (typeof insurer.turnus !== 'string') || !insurer.turnus.trim()) {
-      daysOverdueCache.set(cacheKey, 0);
-      return 0;
-    }
-    
-    // Use timestamp for calculations to avoid Date object overhead
-    const today = new Date(currentDate);
-    today.setHours(0, 0, 0, 0);
-    const todayTime = today.getTime();
-    
-    let dueDate = null;
-    const turnus = insurer.turnus.toLowerCase();
-    
-    // 1. Try to calculate from last invoice
-    const invoice = lastInvoices?.[insurer.id] ?? insurer?.last_invoice;
-    
-    if (invoice) {
-      const lastInvoiceDate = parseInvoiceDate(invoice);
-      if (lastInvoiceDate) {
-        const invoiceDate = new Date(lastInvoiceDate);
-        const turnusDays = parseTurnus(turnus);
+  const calculateDaysOverdue = (insurer, currentDate) => {
+    try {
+      // Create a cache key based on insurer ID and current date
+      const cacheKey = `${insurer?.id}_${currentDate?.getTime()}`;
+      
+      // Return cached result if available
+      if (daysOverdueCache.has(cacheKey)) {
+        return daysOverdueCache.get(cacheKey);
+      }
+      
+      // If no insurer or no current date, cache and return 0 (not overdue)
+      if (!insurer || !currentDate) {
+        console.log('No insurer or current date provided');
+        daysOverdueCache.set(cacheKey, 0);
+        return 0;
+      }
+      
+      // Early return if no turnus is set
+      if (!insurer.turnus || (typeof insurer.turnus !== 'string') || !insurer.turnus.trim()) {
+        console.log('No turnus set for insurer:', insurer.id);
+        daysOverdueCache.set(cacheKey, 0);
+        return 0;
+      }
+      
+      // Normalize current date
+      const today = new Date(currentDate);
+      today.setHours(0, 0, 0, 0);
+      
+      if (isNaN(today.getTime())) {
+        console.error('Invalid current date:', currentDate);
+        return 0;
+      }
+      
+      const todayTime = today.getTime();
+      let dueDate = null;
+      const turnus = insurer.turnus.toLowerCase();
+      
+      // 1. Try to calculate from last invoice
+      const invoice = insurer?.last_invoice;
+      console.log('Processing insurer:', insurer.id, 'with turnus:', turnus);
+      
+      if (invoice) {
+        console.log('Found invoice:', invoice);
+        const lastInvoiceDate = parseInvoiceDate(invoice);
+        console.log('Parsed invoice date:', lastInvoiceDate);
         
-        if (turnusDays !== null) {
-          dueDate = addDays(invoiceDate, turnusDays);
+        if (lastInvoiceDate) {
+          const invoiceDate = new Date(lastInvoiceDate);
+          if (isNaN(invoiceDate.getTime())) {
+            console.error('Invalid invoice date:', lastInvoiceDate);
+          } else {
+            const turnusDays = parseTurnus(turnus);
+            console.log('Parsed turnus days:', turnusDays);
+            
+            if (turnusDays !== null) {
+              dueDate = addDays(invoiceDate, turnusDays);
+              console.log('Calculated due date from invoice:', dueDate);
+            }
+          }
         }
       }
-    }
-    
-    // 2. Fallback to next_due if needed
-    if (!dueDate && insurer.next_due) {
-      if (insurer.next_due.seconds) {
-        dueDate = new Date(insurer.next_due.seconds * 1000);
-      } else if (insurer.next_due instanceof Date) {
-        dueDate = new Date(insurer.next_due);
-      } else if (typeof insurer.next_due === 'string') {
-        dueDate = new Date(insurer.next_due);
+      
+      // 2. Fallback to next_due if needed
+      if (!dueDate && insurer.next_due) {
+        console.log('Using next_due as fallback:', insurer.next_due);
+        if (insurer.next_due.seconds) {
+          dueDate = new Date(insurer.next_due.seconds * 1000);
+        } else if (insurer.next_due instanceof Date) {
+          dueDate = new Date(insurer.next_due);
+        } else if (typeof insurer.next_due === 'string') {
+          dueDate = new Date(insurer.next_due);
+        }
+        console.log('Parsed due date from next_due:', dueDate);
       }
+      
+      // Return 0 if no valid due date
+      if (!dueDate || isNaN(dueDate.getTime())) {
+        console.log('No valid due date could be determined');
+        daysOverdueCache.set(cacheKey, 0);
+        return 0;
+      }
+      
+      // Normalize due date and calculate difference
+      dueDate.setHours(0, 0, 0, 0);
+      const diffTime = todayTime - dueDate.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      const result = Math.max(0, diffDays);
+      
+      console.log(`Overdue calculation for ${insurer.id}:`, {
+        today: new Date(todayTime).toISOString().split('T')[0],
+        dueDate: dueDate.toISOString().split('T')[0],
+        diffDays,
+        result
+      });
+      
+      // Cache the result
+      daysOverdueCache.set(cacheKey, result);
+      return result;
+    } catch (error) {
+      console.error('Error in calculateDaysOverdue:', error);
+      return 0; // Return 0 (not overdue) in case of any error
     }
-    
-    // Return 0 if no valid due date
-    if (!dueDate || isNaN(dueDate.getTime())) {
-      daysOverdueCache.set(cacheKey, 0);
-      return 0;
-    }
-    
-    // Normalize due date and calculate difference
-    dueDate.setHours(0, 0, 0, 0);
-    const diffDays = Math.floor((todayTime - dueDate.getTime()) / 86400000);
-    const result = Math.max(0, diffDays);
-    
-    // Cache the result
-    daysOverdueCache.set(cacheKey, result);
-    return result;
   };
 
         const getStatusCode = (insurer, date, lastInvoices) => {

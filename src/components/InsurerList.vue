@@ -43,7 +43,11 @@
           <!-- Status indicator bar -->
           <div 
             class="absolute top-0 left-0 w-1.5 h-full rounded-l-lg"
-            :class="insurerStatuses.get(insurer.id)?.color || ''"
+            :class="{
+              'bg-red-500': insurerStatuses.get(insurer.id)?.status === 'red',
+              'bg-yellow-500': insurerStatuses.get(insurer.id)?.status === 'yellow',
+              'bg-green-500': insurerStatuses.get(insurer.id)?.status === 'green'
+            }"
           ></div>
           
           <div class="flex flex-1 flex-col h-full">
@@ -55,7 +59,7 @@
                   :class="{
                     'bg-red-500': insurerStatuses.get(insurer.id)?.status === 'red',
                     'bg-yellow-500': insurerStatuses.get(insurer.id)?.status === 'yellow',
-                    'bg-blue-500': insurerStatuses.get(insurer.id)?.status === 'green'
+                    'bg-green-500': insurerStatuses.get(insurer.id)?.status === 'green'
                   }"
                 >
                   {{ getInitials(insurer.name) }}
@@ -85,19 +89,19 @@
                 v-else-if="insurerStatuses.get(insurer.id)?.status === 'red'"
                 class="flex-shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-2 bg-red-100 text-red-800"
               >
-                Überfällig (>5 Tage)
+                {{ insurerStatuses.get(insurer.id)?.text || 'Überfällig' }}
               </span>
               <span 
                 v-else-if="insurerStatuses.get(insurer.id)?.status === 'yellow'"
                 class="flex-shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-2 bg-yellow-100 text-yellow-800"
               >
-                {{ insurerStatuses.get(insurer.id)?.text }}
+                {{ insurerStatuses.get(insurer.id)?.text || 'Fällig' }}
               </span>
               <span 
                 v-else
                 class="flex-shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-2 bg-green-100 text-green-800"
               >
-                Aktuell
+                {{ insurerStatuses.get(insurer.id)?.text || 'Aktuell' }}
               </span>
             </div>
             

@@ -6,7 +6,7 @@
   VITE_NETLIFY_CONTEXT = "$CONTEXT"
   NODE_VERSION = "20.12.2"  # LTS version compatible with Vite 7.0.6
   NPM_FLAGS = "--legacy-peer-deps"
-  NPM_VERSION = "latest"
+  NPM_VERSION = "10.5.0"  # Matches Node.js 20.12.2
   NODE_OPTIONS = "--openssl-legacy-provider"
   CI = "false"
 

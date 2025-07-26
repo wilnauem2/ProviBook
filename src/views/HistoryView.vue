@@ -1,212 +1,235 @@
 <template>
-  <div :class="{ 'filter blur-sm': selectedInsurer }">
-    <div class="bg-white shadow-md rounded-lg overflow-hidden">
-      <div class="px-6 py-4 border-b flex justify-between items-center">
-        <h2 class="text-xl font-bold text-gray-800">Abrechnungsverlauf</h2>
-        <div class="flex items-center space-x-2">
-          <button 
-            @click="refreshData" 
-            class="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 flex items-center"
-            :disabled="isLoading"
-          >
-            <svg v-if="isLoading" class="animate-spin -ml-1 mr-2 h-4 w-4 text-blue-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            {{ isLoading ? 'Lädt...' : 'Aktualisieren' }}
-          </button>
-          <div class="text-sm text-gray-500">
-            <span v-if="isLoading" class="flex items-center">
-            <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            Lade Daten...
-          </span>
-          <span v-else>
-            {{ abrechnungen?.length || 0 }} Einträge geladen
-            <span v-if="hasMorePages"> (weitere verfügbar)</span>
-          </span>
-          </div>
-        </div>
-      </div>
-
-      <div v-if="abrechnungen?.length > 0" class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-          <thead class="bg-gray-50">
-            <tr>
-              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Datum</th>
-              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Versicherer</th>
-              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Referenz</th>
-              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dokumenttyp</th>
-              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-48">Notiz</th>
-            </tr>
-          </thead>
-          <tbody class="bg-white divide-y divide-gray-200">
-            <template v-if="!isLoading && abrechnungen.length > 0">
-              <tr 
-                v-for="abrechnung in abrechnungen" 
-                :key="abrechnung.id" 
-                @click="handleAbrechnungClick(abrechnung)"
-                class="hover:bg-gray-50 cursor-pointer transition-colors duration-150"
-              >
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {{ formatDate(abrechnung.date) }}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {{ abrechnung.insurer || 'Unbekannt' }}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {{ abrechnung.reference || 'Keine Referenz' }}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="flex flex-wrap gap-1">
-                    <!-- Document type badges -->
-                    <template v-if="Array.isArray(abrechnung.documentType) && abrechnung.documentType.length > 0">
-                      <span 
-                        v-for="(docType, idx) in abrechnung.documentType" 
-                        :key="idx"
-                        class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
-                        :class="getDocTypeClass(docType)"
-                      >
-                        <component :is="getDocTypeIcon(docType)" class="w-3 h-3 mr-1.5" />
-                        {{ docType }}
-                      </span>
-                    </template>
-                    <span v-else class="text-sm text-gray-500 italic">
-                      Kein Typ
-                    </span>
-                  </div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <span 
-                    :class="[
-                      statusClass(abrechnung.status), 
-                      'px-2 inline-flex text-xs leading-5 font-semibold rounded-full'
-                    ]"
-                  >
-                    {{ abrechnung.status || 'Unbekannt' }}
-                  </span>
-                </td>
-                <td class="px-4 py-4 text-sm text-gray-500 w-48">
-                  <div class="flex items-center overflow-hidden">
-                    <span class="truncate">{{ abrechnung.note || 'Keine Notiz' }}</span>
-                    <span v-if="abrechnung.note" class="ml-2 text-blue-500 flex-shrink-0">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clip-rule="evenodd" />
-                      </svg>
-                    </span>
-                  </div>
-                </td>
-              </tr>
-            </template>
-            <tr v-else>
-              <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">
-                <p v-if="abrechnungStore.isLoading">Lade Abrechnungen...</p>
-                <p v-else>Keine Abrechnungen gefunden.</p>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Load more trigger (invisible element for intersection observer) -->
-      <div ref="loadMoreTrigger" class="h-1 w-full"></div>
-
-      <!-- Load More Button -->
-      <div v-if="hasMorePages" class="px-6 py-4 border-t text-center">
-        <button 
-          @click="loadMore" 
-          class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 transition-colors duration-200"
-          :disabled="isLoading"
-        >
-          <span v-if="isLoading" class="flex items-center justify-center">
-            <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            Lade mehr...
-          </span>
-          <span v-else>Mehr laden</span>
-        </button>
-      </div>
-    </div>
-
-    <div v-if="dataMode === 'test'" class="bg-white shadow rounded-lg p-6 mt-4">
-      <h3 class="text-lg font-medium text-gray-900 mb-2">Test-Aktionen</h3>
-      <div class="flex justify-center">
-        <button @click="$emit('create-sample-data')" :disabled="isCreatingSampleData" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-          <svg v-if="isCreatingSampleData" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          {{ isCreatingSampleData ? 'Erstelle Testdaten...' : 'Testdaten erstellen' }}
-        </button>
-      </div>
-    </div>
-
-    <!-- Abrechnung Details Modal -->
-    <div v-if="showAbrechnungModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" @click.self="showAbrechnungModal = false">
-      <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
-        <div class="p-6">
-          <div class="flex justify-between items-start">
-            <h3 class="text-lg font-medium text-gray-900">Abrechnungsdetails</h3>
-            <button @click="showAbrechnungModal = false" class="text-gray-400 hover:text-gray-500">
-              <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+  <ErrorBoundary>
+    <div :class="{ 'filter blur-sm': selectedInsurer }" v-if="isMounted">
+      <div class="bg-white shadow-md rounded-lg overflow-hidden">
+        <!-- Header Section -->
+        <div class="px-6 py-4 border-b flex justify-between items-center">
+          <h2 class="text-xl font-bold text-gray-800">Abrechnungsverlauf</h2>
+          <div class="flex items-center space-x-2">
+            <button 
+              @click="refreshData" 
+              class="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 flex items-center"
+              :disabled="isLoading"
+            >
+              <svg v-if="isLoading" class="animate-spin -ml-1 mr-2 h-4 w-4 text-blue-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
+              {{ isLoading ? 'Lädt...' : 'Aktualisieren' }}
             </button>
-          </div>
-          
-          <div class="mt-4 space-y-4">
-            <div>
-              <dt class="text-sm font-medium text-gray-500">Datum</dt>
-              <dd class="mt-1 text-sm text-gray-900">{{ formatDate(selectedAbrechnung?.date) }}</dd>
-            </div>
-            
-            <div v-if="selectedAbrechnung?.reference">
-              <dt class="text-sm font-medium text-gray-500">Referenz</dt>
-              <dd class="mt-1 text-sm text-gray-900">{{ selectedAbrechnung.reference }}</dd>
-            </div>
-            
-            <div v-if="selectedAbrechnung?.documentType">
-              <dt class="text-sm font-medium text-gray-500">Dokumententyp</dt>
-              <dd class="mt-1 text-sm text-gray-900">{{ selectedAbrechnung.documentType }}</dd>
-            </div>
-            
-            <div v-if="selectedAbrechnung?.status">
-              <dt class="text-sm font-medium text-gray-500">Status</dt>
-              <dd class="mt-1">
-                <span :class="statusClass(selectedAbrechnung.status)" class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full">
-                  {{ selectedAbrechnung.status }}
-                </span>
-              </dd>
-            </div>
-            
-            <div v-if="selectedAbrechnung?.note">
-              <dt class="text-sm font-medium text-gray-500">Kommentar</dt>
-              <dd class="mt-1 text-sm text-gray-900 whitespace-pre-line">{{ selectedAbrechnung.note }}</dd>
-            </div>
-            <div v-else>
-              <dt class="text-sm font-medium text-gray-500">Kommentar</dt>
-              <dd class="mt-1 text-sm text-gray-500 italic">Kein Kommentar vorhanden</dd>
+            <div class="text-sm text-gray-500">
+              <span v-if="isLoading" class="flex items-center">
+                <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Lade Daten...
+              </span>
+              <span v-else>
+                {{ abrechnungen?.length || 0 }} Einträge geladen
+                <span v-if="hasMorePages"> (weitere verfügbar)</span>
+              </span>
             </div>
           </div>
-          
-          <div class="mt-6 flex justify-end">
-            <button @click="showAbrechnungModal = false" type="button" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-              Schließen
+        </div>
+        
+        <!-- Main Content -->
+        <div v-if="abrechnungen?.length > 0" class="overflow-x-auto w-full">
+          <div class="min-w-[1200px]">
+            <!-- Table Header -->
+            <div class="grid grid-cols-12 gap-0 border-b border-gray-200 bg-gray-50">
+              <div class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider col-span-2">Datum</div>
+              <div class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider col-span-3">Versicherer</div>
+              <div class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider col-span-3">Dokumenttyp</div>
+              <div class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider col-span-2">Bezugsweg</div>
+              <div class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider col-span-2">Notiz</div>
+            </div>
+            
+            <!-- Table Rows -->
+            <div class="bg-white divide-y divide-gray-200">
+              <div 
+                v-for="(abrechnung, index) in abrechnungen" 
+                :key="abrechnung.id ? `abrechnung-${abrechnung.id}` : `abrechnung-${index}-${Date.now()}`"
+                @click="handleAbrechnungClick(abrechnung)"
+                class="grid grid-cols-12 gap-0 hover:bg-gray-50 cursor-pointer transition-colors duration-150"
+              >
+                <!-- Table Cells Here -->
+                <div class="px-2 py-4 whitespace-nowrap text-sm font-medium text-gray-900 col-span-2">
+                  {{ formatDate(abrechnung.date) }}
+                </div>
+                <div class="px-2 py-4 whitespace-nowrap text-sm text-gray-500 col-span-3">
+                  {{ abrechnung.insurer || 'Unbekannt' }}
+                </div>
+                <div class="px-2 py-4 flex flex-wrap gap-1 col-span-3">
+                  <template v-if="Array.isArray(abrechnung.documentType) && abrechnung.documentType.length > 0">
+                    <span 
+                      v-for="(type, index) in abrechnung.documentType" 
+                      :key="index"
+                      class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                      :class="{
+                        'bg-blue-100 text-blue-800': type === 'PDF',
+                        'bg-green-100 text-green-800': type === 'XLS' || type === 'XLSX',
+                        'bg-yellow-100 text-yellow-800': type === 'PAPIER' || type === 'PAPER',
+                        'bg-purple-100 text-purple-800': type === 'CSV',
+                        'bg-pink-100 text-pink-800': type === 'XML',
+                        'bg-gray-100 text-gray-800': !['PDF', 'XLS', 'XLSX', 'PAPIER', 'PAPER', 'CSV', 'XML'].includes(type)
+                      }"
+                    >
+                      {{ type }}
+                    </span>
+                  </template>
+                  <span v-else class="text-sm text-gray-500">
+                    {{ abrechnung.documentType || 'Kein Typ' }}
+                  </span>
+                </div>
+                <div class="px-2 py-4 whitespace-nowrap text-sm text-gray-500 col-span-2">
+                  {{ abrechnung.bezugsweg || 'E-Mail' }}
+                </div>
+                <div class="px-2 py-4 whitespace-nowrap text-sm text-gray-500 col-span-2 truncate">
+                  {{ abrechnung.note || 'Keine Notiz' }}
+                </div>
+              </div>
+            </div>
+            
+            <!-- Load More -->
+            <div v-if="isLoadingMore" class="col-span-12 py-4 text-center">
+              <div class="flex justify-center items-center space-x-2">
+                <svg class="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Lade weitere Einträge...</span>
+              </div>
+            </div>
+            
+            <div v-else-if="!hasMorePages && !isLoadingMore" class="col-span-12 py-4 text-center text-sm text-gray-500">
+              Keine weiteren Einträge vorhanden
+            </div>
+            
+            <div v-else class="col-span-12 py-4 text-center">
+              <button 
+                @click="loadMore" 
+                class="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                :disabled="isLoadingMore"
+              >
+                Mehr laden
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <!-- No Data Message -->
+        <div v-else class="p-6 text-center text-gray-500">
+          Keine Abrechnungen gefunden.
+        </div>
+        
+        <!-- Test Data Section -->
+        <div v-if="dataMode === 'test'" class="bg-white shadow rounded-lg p-6 mt-4">
+          <h3 class="text-lg font-medium text-gray-900 mb-2">Test-Aktionen</h3>
+          <div class="flex justify-center">
+            <button 
+              @click="$emit('create-sample-data')" 
+              :disabled="isCreatingSampleData" 
+              class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <svg v-if="isCreatingSampleData" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              {{ isCreatingSampleData ? 'Erstelle Testdaten...' : 'Testdaten erstellen' }}
             </button>
           </div>
         </div>
       </div>
+      
+      <!-- Abrechnung Details Modal -->
+      <div v-if="showAbrechnungModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" @click.self="showAbrechnungModal = false">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
+          <div class="p-6">
+            <div class="flex justify-between items-start">
+              <h3 class="text-lg font-medium text-gray-900">Abrechnungsdetails</h3>
+              <button @click="showAbrechnungModal = false" class="text-gray-400 hover:text-gray-500">
+                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div class="mt-4 space-y-4">
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Datum</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ formatDate(selectedAbrechnung?.date) }}</dd>
+              </div>
+              
+              <div v-if="selectedAbrechnung?.reference">
+                <dt class="text-sm font-medium text-gray-500">Referenz</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ selectedAbrechnung.reference }}</dd>
+              </div>
+              
+              <div v-if="selectedAbrechnung?.documentType">
+                <dt class="text-sm font-medium text-gray-500">Dokumententyp</dt>
+                <dd class="mt-1 text-sm text-gray-900">{{ selectedAbrechnung.documentType }}</dd>
+              </div>
+              
+              <div v-if="selectedAbrechnung?.status">
+                <dt class="text-sm font-medium text-gray-500">Status</dt>
+                <dd class="mt-1">
+                  <span :class="statusClass(selectedAbrechnung.status)" class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full">
+                    {{ selectedAbrechnung.status }}
+                  </span>
+                </dd>
+              </div>
+              
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Kommentar</dt>
+                <dd v-if="selectedAbrechnung?.note" class="mt-1 text-sm text-gray-900 whitespace-pre-line">
+                  {{ selectedAbrechnung.note }}
+                </dd>
+                <dd v-else class="mt-1 text-sm text-gray-500 italic">
+                  Kein Kommentar vorhanden
+                </dd>
+              </div>
+            </div>
+            
+            <div class="mt-6 flex justify-end">
+              <button 
+                @click="showAbrechnungModal = false" 
+                type="button" 
+                class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Schließen
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-  </div>
+  </ErrorBoundary>
 </template>
 
 <script setup>
-import { defineProps, defineEmits, ref, computed, watch, onMounted, onBeforeUnmount, h } from 'vue';
+import { defineComponent, defineProps, defineEmits, ref, computed, watch, onMounted, onBeforeUnmount, nextTick, h } from 'vue';
+
+// Error Boundary Component
+const ErrorBoundary = defineComponent({
+  data() {
+    return { error: null };
+  },
+  errorCaptured(err, vm, info) {
+    this.error = err;
+    console.error('Error in component:', err);
+    return false;
+  },
+  render() {
+    if (this.error) {
+      return h('div', { class: 'p-4 bg-red-50 text-red-800 rounded' }, [
+        h('h3', { class: 'font-bold' }, 'Ein Fehler ist aufgetreten'),
+        h('p', { class: 'text-sm mt-2' }, this.error.message)
+      ]);
+    }
+    return this.$slots.default ? this.$slots.default() : null;
+  }
+});
 import {
   DocumentTextIcon,
   TableCellsIcon,
@@ -218,6 +241,9 @@ import {
 import { format } from 'date-fns';
 import { useInsurerUtils } from '../composables/useInsurerUtils';
 import { useAbrechnungStore } from '@/stores/abrechnungStore';
+
+// Initialize utils
+const { getNormalizedDocTypes } = useInsurerUtils();
 
 // Initialize store
 const abrechnungStore = useAbrechnungStore();
@@ -637,7 +663,9 @@ const normalizeDocType = (docType) => {
 
 // Computed properties
 const abrechnungen = computed(() => {
-  return abrechnungStore.abrechnungen || [];
+  const items = abrechnungStore.abrechnungen || [];
+  console.log('Abrechnungen data:', JSON.parse(JSON.stringify(items)));
+  return items;
 });
 
 const isLoading = computed(() => abrechnungStore.isLoading || false);
@@ -654,23 +682,23 @@ watch(() => props.dataMode, async (newMode, oldMode) => {
 // Component lifecycle hooks
 onMounted(async () => {
   isMounted.value = true;
-  console.log('HistoryView mounted, initializing...');
-  
-  // Initialize IntersectionObserver for infinite scroll
+  await reloadData();
   setupInfiniteScroll();
   
-  // Load initial data if needed
-  if (abrechnungStore.abrechnungen.length === 0 || 
-      (props.dataMode && props.dataMode !== abrechnungStore.dataMode)) {
-    await reloadData();
-  }
+  // Log the first invoice's structure if available
+  watch(abrechnungen, (newVal) => {
+    if (newVal?.length > 0) {
+      console.log('First invoice structure:', JSON.parse(JSON.stringify(newVal[0])));
+    }
+  }, { immediate: true });
 });
 
 onBeforeUnmount(() => {
-  // Clean up observer
   if (observer.value) {
     observer.value.disconnect();
+    observer.value = null;
   }
+  isMounted.value = false;
 });
 
 // Methods

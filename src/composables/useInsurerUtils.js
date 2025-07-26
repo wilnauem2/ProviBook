@@ -61,75 +61,154 @@ export function useInsurerUtils() {
     return null;
   };
 
-            const calculateDaysOverdue = (insurer, currentDate, lastInvoices) => {
-    if (!insurer) return 0;
+            const parseTurnus = (turnus) => {
+    if (!turnus) return null;
+    
+    // Convert to string if it's a number
+    const turnusStr = String(turnus).trim().toLowerCase();
+    console.log('Parsing turnus:', turnusStr);
+    
+    // Extract number from turnus string (e.g., '14-tägig' -> 14)
+    const match = turnusStr.match(/(\d+)/);
+    if (!match) {
+      // Check for non-numeric turnus values like 'monatlich', 'jährlich', etc.
+      if (turnusStr.includes('monatlich')) return 30;  // Approximate month as 30 days
+      if (turnusStr.includes('quartal')) return 90;    // Approximate quarter as 90 days
+      if (turnusStr.includes('halbj') || turnusStr.includes('halbjähr')) return 180; // Half year as 180 days
+      if (turnusStr.includes('jährlich') || turnusStr.includes('jaehrlich')) return 365; // Year as 365 days
+      
+      console.log('No number found in turnus and no known period matched');
+      return null;
+    }
+    
+    const days = parseInt(match[1], 10);
+    console.log('Extracted days from turnus:', days);
+    return days;
+  };
 
-    // Ensure we have a valid turnus value to work with.
-    if (!insurer.turnus || typeof insurer.turnus !== 'string' || insurer.turnus.trim() === '') {
+  // Cache for memoizing calculateDaysOverdue results
+  const daysOverdueCache = new Map();
+  
+  const calculateDaysOverdue = (insurer, currentDate, lastInvoices) => {
+    // Create a cache key based on insurer ID and current date
+    const cacheKey = `${insurer?.id}_${currentDate?.getTime()}`;
+    
+    // Return cached result if available
+    if (daysOverdueCache.has(cacheKey)) {
+      return daysOverdueCache.get(cacheKey);
+    }
+    
+    // If no insurer or no current date, cache and return 0 (not overdue)
+    if (!insurer || !currentDate) {
+      daysOverdueCache.set(cacheKey, 0);
       return 0;
     }
-
+    
+    // Early return if no turnus is set
+    if (!insurer.turnus || (typeof insurer.turnus !== 'string') || !insurer.turnus.trim()) {
+      daysOverdueCache.set(cacheKey, 0);
+      return 0;
+    }
+    
+    // Use timestamp for calculations to avoid Date object overhead
     const today = new Date(currentDate);
     today.setHours(0, 0, 0, 0);
-
+    const todayTime = today.getTime();
+    
     let dueDate = null;
-
+    const turnus = insurer.turnus.toLowerCase();
+    
     // 1. Try to calculate from last invoice
-            const invoice = lastInvoices?.[insurer.id] ?? insurer.last_invoice;
+    const invoice = lastInvoices?.[insurer.id] ?? insurer?.last_invoice;
+    
     if (invoice) {
       const lastInvoiceDate = parseInvoiceDate(invoice);
       if (lastInvoiceDate) {
-        const turnus = insurer.turnus.toLowerCase();
-        if (turnus.includes('7') || turnus.includes('wöchentlich')) {
-          dueDate = addDays(lastInvoiceDate, 7);
-        } else if (turnus.includes('monatlich')) {
-          dueDate = addMonths(lastInvoiceDate, 1);
-        } else if (turnus.includes('quartalsweise')) {
-          dueDate = addMonths(lastInvoiceDate, 3);
-        } else if (turnus.includes('halbjährlich')) {
-          dueDate = addMonths(lastInvoiceDate, 6);
-        } else if (turnus.includes('jährlich')) {
-          dueDate = addYears(lastInvoiceDate, 1);
+        const invoiceDate = new Date(lastInvoiceDate);
+        const turnusDays = parseTurnus(turnus);
+        
+        if (turnusDays !== null) {
+          dueDate = addDays(invoiceDate, turnusDays);
         }
       }
     }
-
-    // 2. If no due date from invoice, fallback to next_due field
-    if (!dueDate && insurer.next_due?.seconds) {
-      dueDate = new Date(insurer.next_due.seconds * 1000);
+    
+    // 2. Fallback to next_due if needed
+    if (!dueDate && insurer.next_due) {
+      if (insurer.next_due.seconds) {
+        dueDate = new Date(insurer.next_due.seconds * 1000);
+      } else if (insurer.next_due instanceof Date) {
+        dueDate = new Date(insurer.next_due);
+      } else if (typeof insurer.next_due === 'string') {
+        dueDate = new Date(insurer.next_due);
+      }
     }
-
-    // 3. If we still don't have a due date, we can't calculate anything.
-    if (!dueDate) {
+    
+    // Return 0 if no valid due date
+    if (!dueDate || isNaN(dueDate.getTime())) {
+      daysOverdueCache.set(cacheKey, 0);
       return 0;
     }
-
+    
+    // Normalize due date and calculate difference
     dueDate.setHours(0, 0, 0, 0);
-
-    // 4. Calculate the difference
-    if (today <= dueDate) {
-      return 0;
-    }
-
-    const diffTime = today.getTime() - dueDate.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays;
+    const diffDays = Math.floor((todayTime - dueDate.getTime()) / 86400000);
+    const result = Math.max(0, diffDays);
+    
+    // Cache the result
+    daysOverdueCache.set(cacheKey, result);
+    return result;
   };
 
         const getStatusCode = (insurer, date, lastInvoices) => {
+    console.group(`getStatusCode for ${insurer?.name || 'unknown'}`);
+    console.log('Input date:', date);
     const daysOverdue = calculateDaysOverdue(insurer, date, lastInvoices);
-    if (daysOverdue > 5) return 'red'; // Critical: More than 5 days overdue
-    if (daysOverdue >= 1 && daysOverdue <= 5) return 'yellow'; // Warning: 1-5 days overdue
-    return 'green'; // OK: On time or not yet due
+    console.log('Days overdue:', daysOverdue);
+    
+    let status;
+    if (daysOverdue > 5) {
+      status = 'red'; // Critical: More than 5 days overdue
+    } else if (daysOverdue >= 1) {
+      status = 'yellow'; // Warning: 1-5 days overdue
+    } else {
+      status = 'green'; // OK: On time or not yet due
+    }
+    
+    console.log('Status:', status);
+    console.groupEnd();
+    return status;
   };
 
   const getStatusColor = (insurer, date, lastInvoices) => {
+    console.group(`getStatusColor for ${insurer?.name || 'unknown'}`);
+    console.log('Input date:', date);
+    console.log('Date type:', Object.prototype.toString.call(date));
+    console.log('Last invoices:', lastInvoices);
+    console.log('Insurer ID:', insurer?.id);
+    console.log('Turnus value:', insurer?.turnus);
+    
     const code = getStatusCode(insurer, date, lastInvoices);
+    console.log('Status code:', code);
+    
+    let colorClass;
     switch (code) {
-      case 'red': return 'bg-red-500';
-      case 'yellow': return 'bg-yellow-500';
-      default: return 'bg-green-500';
+      case 'red': 
+        colorClass = 'bg-red-500';
+        console.log('Setting status to RED - Critical (more than 5 days overdue)');
+        break;
+      case 'yellow': 
+        colorClass = 'bg-yellow-500';
+        console.log('Setting status to YELLOW - Warning (1-5 days overdue)');
+        break;
+      default: 
+        colorClass = 'bg-green-500';
+        console.log('Setting status to GREEN - On time or not yet due');
     }
+    
+    console.log('Final color class:', colorClass);
+    console.groupEnd();
+    return colorClass;
   };
 
   const getStatusText = (insurer, date, lastInvoices) => {

@@ -8,7 +8,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, onMounted, watch } from 'vue';
 import { useInsurerUtils } from '@/composables/useInsurerUtils.js';
 
 const { calculateDaysOverdue } = useInsurerUtils();
@@ -25,27 +25,77 @@ const props = defineProps({
   currentDate: {
     type: Date,
     required: true
+  },
+  lastInvoices: {
+    type: Object,
+    default: () => ({})
   }
 });
 
+// Debug props
+onMounted(() => {
+  console.group('InsurerStatus mounted');
+  console.log('Insurer:', props.insurer?.name || 'Unknown');
+  console.log('currentDate:', props.currentDate);
+  console.log('currentDate type:', Object.prototype.toString.call(props.currentDate));
+  console.log('lastInvoices:', props.lastInvoices);
+  console.groupEnd();
+});
+
+// Watch for changes to currentDate
+watch(() => props.currentDate, (newDate) => {
+  console.group('InsurerStatus - currentDate changed');
+  console.log('Insurer:', props.insurer?.name || 'Unknown');
+  console.log('New currentDate:', newDate);
+  console.log('New currentDate type:', Object.prototype.toString.call(newDate));
+  console.groupEnd();
+}, { deep: true });
+
+// Watch for changes to lastInvoices
+watch(() => props.lastInvoices, (newInvoices) => {
+  console.group('InsurerStatus - lastInvoices changed');
+  console.log('Insurer:', props.insurer?.name || 'Unknown');
+  console.log('New lastInvoices:', newInvoices);
+  console.groupEnd();
+}, { deep: true });
+
 const status = computed(() => {
-  const days = calculateDaysOverdue(props.insurer, props.currentDate);
+  console.group(`Status calculation for ${props.insurer?.name || 'unknown'}`);
+  console.log('Using currentDate:', props.currentDate);
+  console.log('Insurer turnus:', props.insurer?.turnus);
   
-  if (days > 5) {
+  try {
+    const days = calculateDaysOverdue(props.insurer, props.currentDate, props.lastInvoices);
+    console.log('Calculated days overdue:', days);
+    
+    let result;
+    if (days > 5) {
+      result = {
+        text: `Überfällig (${days} Tage)`,
+        colorClass: 'bg-red-100 text-red-800'
+      };
+    } else if (days > 0) {
+      result = {
+        text: `Mahnung (${days} Tage)`,
+        colorClass: 'bg-yellow-100 text-yellow-800'
+      };
+    } else {
+      result = {
+        text: 'Im Zeitplan',
+        colorClass: 'bg-green-100 text-green-800'
+      };
+    }
+    
+    console.log('Status result:', result);
+    console.groupEnd();
+    return result;
+  } catch (error) {
+    console.error('Error calculating status:', error);
+    console.groupEnd();
     return {
-      text: `Überfällig (${days} Tage)`,
-      colorClass: 'bg-red-100 text-red-800'
+      text: 'Fehler',
+      colorClass: 'bg-gray-100 text-gray-800'
     };
   }
-  if (days > 0) {
-    return {
-      text: `Mahnung (${days} Tage)`,
-      colorClass: 'bg-yellow-100 text-yellow-800'
-    };
-  }
-  return {
-    text: 'Im Zeitplan',
-    colorClass: 'bg-green-100 text-green-800'
-  };
 });
 </script>

@@ -43,19 +43,21 @@
           <!-- Status indicator bar -->
           <div 
             class="absolute top-0 left-0 w-1.5 h-full rounded-l-lg"
-            :class="insurer && utils && utils.getStatusColor ? utils.getStatusColor(insurer, props.currentDate, safeLastInvoices) : ''"
+            :class="insurerStatuses.get(insurer.id)?.color || ''"
           ></div>
           
           <div class="flex flex-1 flex-col h-full">
             <!-- Header with logo/initials and name -->
             <div class="flex items-start justify-between mb-3 min-w-0">
               <div class="flex items-center min-w-0">
-                <div class="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-lg mr-3"
-                     :class="{
-                       'bg-red-500': utils.getStatusCode(insurer, props.currentDate, props.lastInvoices) === 'red',
-                       'bg-yellow-500': utils.getStatusCode(insurer, props.currentDate, props.lastInvoices) === 'yellow',
-                       'bg-blue-500': utils.getStatusCode(insurer, props.currentDate, props.lastInvoices) === 'green'
-                     }">
+                <div 
+                  class="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-lg mr-3"
+                  :class="{
+                    'bg-red-500': insurerStatuses.get(insurer.id)?.status === 'red',
+                    'bg-yellow-500': insurerStatuses.get(insurer.id)?.status === 'yellow',
+                    'bg-blue-500': insurerStatuses.get(insurer.id)?.status === 'green'
+                  }"
+                >
                   {{ getInitials(insurer.name) }}
                 </div>
                 <div class="flex items-center">
@@ -80,16 +82,16 @@
                 Unvollständig
               </span>
               <span 
-                v-else-if="utils.getStatusCode(insurer, props.currentDate, props.lastInvoices) === 'red'"
+                v-else-if="insurerStatuses.get(insurer.id)?.status === 'red'"
                 class="flex-shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-2 bg-red-100 text-red-800"
               >
                 Überfällig (>5 Tage)
               </span>
               <span 
-                v-else-if="utils.getStatusCode(insurer, props.currentDate, props.lastInvoices) === 'yellow'"
+                v-else-if="insurerStatuses.get(insurer.id)?.status === 'yellow'"
                 class="flex-shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-2 bg-yellow-100 text-yellow-800"
               >
-                                {{ utils.getStatusText(insurer, props.currentDate, props.lastInvoices) }}
+                {{ insurerStatuses.get(insurer.id)?.text }}
               </span>
               <span 
                 v-else
@@ -247,11 +249,12 @@
 </style>
 
 <script setup>
-import { defineProps, defineEmits, computed } from 'vue';
+import { defineProps, defineEmits, computed, onMounted, watch } from 'vue';
 import { format, add } from 'date-fns';
 import { de } from 'date-fns/locale';
 import InsurerStatus from './InsurerStatus.vue';
-import { useInsurerUtils, docTypeColors } from '@/composables/useInsurerUtils.js';
+import { useInsurerUtils, docTypeColors } from '@/composables/useInsurerUtils';
+import { debounce } from 'lodash';
 
 const props = defineProps({
   insurers: { type: Array, default: () => [] },
@@ -356,6 +359,37 @@ const isInsurerIncomplete = (insurer) => {
 };
 
 const utils = useInsurerUtils();
+
+// Memoize status calculations
+const insurerStatuses = computed(() => {
+  return new Map(safeInsurers.value.map(insurer => [
+    insurer.id,
+    {
+      status: utils.getStatusCode(insurer, props.currentDate, safeLastInvoices.value),
+      color: utils.getStatusColor(insurer, props.currentDate, safeLastInvoices.value),
+      text: utils.getStatusText(insurer, props.currentDate, safeLastInvoices.value)
+    }
+  ]));
+});
+
+// Debug props
+onMounted(() => {
+  console.group('InsurerList mounted');
+  console.log('currentDate prop:', props.currentDate);
+  console.log('currentDate type:', Object.prototype.toString.call(props.currentDate));
+  console.log('lastInvoices:', props.lastInvoices);
+  console.groupEnd();
+});
+
+// Watch for changes to currentDate
+watch(() => props.currentDate, (newDate) => {
+  console.group('InsurerList - currentDate changed');
+  console.log('New currentDate:', newDate);
+  console.log('Sample insurer status:', 
+    props.insurers.length > 0 ? 
+    utils.getStatusText(props.insurers[0], newDate, props.lastInvoices) : 'No insurers');
+  console.groupEnd();
+}, { deep: true });
 
 const getNormalizedDocTypes = (docArt) => {
   console.log('=== getNormalizedDocTypes called with ===', docArt);

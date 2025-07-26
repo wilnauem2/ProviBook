@@ -114,12 +114,12 @@ import { ref, computed, onMounted } from 'vue';
 import { storeToRefs } from 'pinia';
 
 // Store Imports
-import { useInsurerStore } from '@/stores/insurerStore.js';
-import { useAbrechnungStore } from '@/stores/abrechnungStore.js';
-import { useAuthStore } from '@/stores/auth.js';
+import { useInsurerStore } from '@/stores/insurerStore';
+import { useAbrechnungStore } from '@/stores/abrechnungStore';
+import { useAuthStore } from '@/stores/authStore';
 
 // Composables
-import { useInsurerUtils } from '@/composables/useInsurerUtils.js';
+import { useInsurerUtils } from '@/composables/useInsurerUtils';
 
 // Layout and View Components
 import AppHeader from './layout/AppHeader.vue';
@@ -127,7 +127,7 @@ import DashboardView from '@/views/DashboardView.vue';
 import HistoryView from '@/views/HistoryView.vue';
 
 // Other Components
-
+import InsurerList from '@/components/InsurerList.vue';
 import InsurerDetail from '@/components/InsurerDetail.vue';
 import CreateInsurerForm from '@/components/CreateInsurerForm.vue';
 
@@ -148,6 +148,16 @@ const isProduction = computed(() => gitBranch.value === 'main' || gitBranch.valu
 const insurerStore = useInsurerStore();
 const abrechnungStore = useAbrechnungStore();
 const userStore = useAuthStore();
+
+// Component registration
+const components = {
+  AppHeader,
+  DashboardView,
+  HistoryView,
+  InsurerList,
+  InsurerDetail,
+  CreateInsurerForm
+};
 
 const { calculateDaysOverdue } = useInsurerUtils();
 
@@ -184,15 +194,24 @@ const toggleEnvironment = async () => {
 const simulatedDate = ref(null);
 
 const changeDate = (days) => {
-  const newDate = new Date(currentDate.value);
-  newDate.setDate(newDate.getDate() + days);
-  simulatedDate.value = newDate;
+  console.log('Change date called with days:', days);
+  const date = simulatedDate.value ? new Date(simulatedDate.value) : new Date();
+  date.setDate(date.getDate() + days);
+  date.setHours(0, 0, 0, 0); // Normalize time
+  simulatedDate.value = date;
+  console.log('New simulated date set to:', date);
 };
 
 const resetDate = () => {
+  console.log('Resetting date to current date');
   simulatedDate.value = null;
 };
-const currentDate = computed(() => simulatedDate.value || new Date());
+
+const currentDate = computed(() => {
+  const date = simulatedDate.value || new Date();
+  // Always return a new Date object to ensure reactivity
+  return new Date(date);
+});
 
 
 // --- Lifecycle Hooks ---
@@ -221,8 +240,8 @@ const selectedInsurerLastInvoice = computed(() => {
 });
 
 const filteredInsurers = computed(() => {
-  if (!insurersData.value) return [];
-  let filtered = insurersData.value;
+  if (!insurerStore.insurers) return [];
+  let filtered = insurerStore.insurers;
 
   if (searchFilter.value) {
     const lowerCaseFilter = searchFilter.value.toLowerCase();

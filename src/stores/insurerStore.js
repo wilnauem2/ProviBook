@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { getFirestore, doc, updateDoc, getDoc, collection, getDocs, addDoc, serverTimestamp, deleteDoc, query, limit } from 'firebase/firestore';
+import { getFirestore, doc, updateDoc, getDoc, collection, getDocs, addDoc, serverTimestamp, deleteDoc, query, limit, orderBy, startAfter } from 'firebase/firestore';
 import { db } from '../firebase';
 
 export const useInsurerStore = defineStore('insurer', () => {
@@ -13,6 +13,11 @@ export const useInsurerStore = defineStore('insurer', () => {
   const error = ref(null);
   const dataMode = ref('production'); // 'production' or 'test'
 
+  // Pagination state
+  const pageSize = 20;
+  const lastVisible = ref(null);
+  const hasMore = ref(true);
+
   // Getters
   const collections = computed(() => {
     const isProd = dataMode.value === 'production';
@@ -22,122 +27,130 @@ export const useInsurerStore = defineStore('insurer', () => {
     };
   });
 
-  // Actions
-  const switchEnvironmentAndFetchData = async (newMode) => {
-    if (!['production', 'test'].includes(newMode)) {
-      error.value = 'Invalid environment mode specified.';
-      return;
-    }
-
-    dataMode.value = newMode;
-    isLoading.value = true;
-    error.value = null;
-
+  const fetchInsurers = async (reset = false) => {
     try {
-      const insurerCollectionName = collections.value.insurers;
-      const insurersSnapshot = await getDocs(collection(db, insurerCollectionName));
-
-      const newInsurers = [];
-      const newLastInvoices = {};
-
-      for (const doc of insurersSnapshot.docs) {
-        const insurerData = { id: doc.id, ...doc.data() };
-        newInsurers.push(insurerData);
-
-        // Correctly and robustly read the last_invoice from the insurer document.
-        if (insurerData.last_invoice) {
-          newLastInvoices[doc.id] = insurerData.last_invoice;
-        }
+      if (reset) {
+        insurers.value = [];
+        lastVisible.value = null;
+        hasMore.value = true;
       }
-
-      insurers.value = newInsurers;
-      lastInvoices.value = newLastInvoices;
-    } catch (err) {
-      console.error('Error fetching data from store:', err);
-      error.value = err.message;
-    } finally {
-      isLoading.value = false;
-    }
-  };
-
-  const setSelectedInsurer = (insurer) => {
-    selectedInsurer.value = insurer ? { ...insurer } : null;
-  };
-
-  const clearSelectedInsurer = () => {
-    selectedInsurer.value = null;
-  };
-
-  const updateInsurerLastInvoice = async (insurerId, lastInvoice) => {
-    try {
-      isLoading.value = true;
-      const insurerRef = doc(db, collections.value.insurers, insurerId);
-      await updateDoc(insurerRef, { last_invoice: lastInvoice });
-
-      const index = insurers.value.findIndex(i => i.id === insurerId);
-      if (index !== -1) insurers.value[index].last_invoice = lastInvoice;
       
-      if (selectedInsurer.value && selectedInsurer.value.id === insurerId) {
-        selectedInsurer.value.last_invoice = lastInvoice;
+      if (!hasMore.value && !reset) return;
+      
+      isLoading.value = true;
+      const insurersRef = collection(db, collections.value.insurers);
+      let queryRef = query(
+        insurersRef,
+        orderBy('name'),
+        limit(pageSize + 1) // Get one extra to check if there are more
+      );
+      
+      if (lastVisible.value && !reset) {
+        queryRef = query(
+          insurersRef,
+          orderBy('name'),
+          startAfter(lastVisible.value),
+          limit(pageSize + 1)
+        );
       }
+      
+      const snapshot = await getDocs(queryRef);
+      const docs = snapshot.docs;
+      
+      // Check if there are more documents
+      hasMore.value = docs.length > pageSize;
+      
+      // Remove the extra doc we used to check for more
+      const docsToAdd = hasMore.value ? docs.slice(0, -1) : docs;
+      
+      // Update lastVisible for next pagination
+      if (docsToAdd.length > 0) {
+        lastVisible.value = docsToAdd[docsToAdd.length - 1];
+      }
+      
+      // Add new insurers to the list
+      const newInsurers = docsToAdd.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      if (reset) {
+        insurers.value = newInsurers;
+      } else {
+        insurers.value = [...insurers.value, ...newInsurers];
+      }
+      
+      // Pre-fetch last invoices for the first page
+      if (reset && newInsurers.length > 0) {
+        preloadLastInvoices(newInsurers);
+      }
+      
+      return newInsurers;
     } catch (err) {
+      console.error('Error fetching insurers:', err);
       error.value = err.message;
+      return [];
     } finally {
       isLoading.value = false;
     }
   };
-
-  const fetchSettlementHistory = async (insurerId) => {
-    isLoading.value = true;
+  
+  // Preload last invoices for better performance
+  const preloadLastInvoices = async (insurersToLoad) => {
     try {
-      // Use the correct collection name based on the environment
+      const batch = [];
+      const batchSize = 10;
+      
+      for (let i = 0; i < insurersToLoad.length; i += batchSize) {
+        const batchPromises = insurersToLoad
+          .slice(i, i + batchSize)
+          .filter(insurer => !lastInvoices.value[insurer.id])
+          .map(insurer => 
+            getLastInvoice(insurer.id)
+              .then(invoice => {
+                if (invoice) {
+                  lastInvoices.value = {
+                    ...lastInvoices.value,
+                    [insurer.id]: invoice
+                  };
+                }
+              })
+              .catch(console.error)
+          );
+        
+        await Promise.all(batchPromises);
+      }
+    } catch (err) {
+      console.error('Error preloading invoices:', err);
+    }
+  };
+
+  const getLastInvoice = async (insurerId) => {
+    try {
       const invoicesSubcollection = dataMode.value === 'production' ? 'invoice-history' : 'invoice-history-test';
       const insurerCollection = collections.value.insurers; // This already has the correct environment suffix
-      
-      console.log(`Fetching settlements for insurer ${insurerId} from collection: ${insurerCollection}/${insurerId}/${invoicesSubcollection}`);
       
       const invoicesCollectionRef = collection(db, insurerCollection, insurerId, invoicesSubcollection);
       const invoicesSnapshot = await getDocs(invoicesCollectionRef);
       
-      const settlements = invoicesSnapshot.docs.map(doc => ({ 
+      const invoices = invoicesSnapshot.docs.map(doc => ({ 
         id: doc.id, 
         ...doc.data(),
         // Ensure date is properly formatted
         date: doc.data().date?.toDate ? doc.data().date.toDate() : doc.data().date
       }));
       
-      console.log(`Found ${settlements.length} settlements:`, settlements);
-      
       // Sort by date, newest first
-      const sortedSettlements = [...settlements].sort((a, b) => {
+      const sortedInvoices = [...invoices].sort((a, b) => {
         const dateA = a.date ? (a.date.seconds ? new Date(a.date.seconds * 1000) : new Date(a.date)) : new Date(0);
         const dateB = b.date ? (b.date.seconds ? new Date(b.date.seconds * 1000) : new Date(b.date)) : new Date(0);
         return dateB - dateA;
       });
       
-      settlementHistories.value[insurerId] = sortedSettlements;
+      return sortedInvoices.length > 0 ? sortedInvoices[0] : null;
     } catch (err) {
-      console.error('Error fetching settlement history:', err);
-      error.value = err.message;
-    } finally {
-      isLoading.value = false;
-    }
-  };
-
-  const addInsurer = async (insurerData) => {
-    isLoading.value = true;
-    try {
-      const insurerCollectionName = collections.value.insurers;
-      const docRef = await addDoc(collection(db, insurerCollectionName), {
-        ...insurerData,
-        createdAt: serverTimestamp()
-      });
-      insurers.value.push({ id: docRef.id, ...insurerData });
-    } catch (err) {
-      console.error('Error adding insurer:', err);
-      error.value = err.message;
-    } finally {
-      isLoading.value = false;
+      console.error('Error fetching last invoice:', err);
+      return null;
     }
   };
 
@@ -301,6 +314,138 @@ export const useInsurerStore = defineStore('insurer', () => {
     }
   };
 
+  // Expose pagination controls
+  const loadMoreInsurers = async () => {
+    if (isLoading.value || !hasMore.value) return;
+    return fetchInsurers(false);
+  };
+  
+  // Reset and reload insurers
+  const refreshInsurers = async () => {
+    return fetchInsurers(true);
+  };
+
+  // Set the selected insurer
+  const setSelectedInsurer = (insurer) => {
+    selectedInsurer.value = insurer;
+  };
+
+  // Clear the selected insurer
+  const clearSelectedInsurer = () => {
+    selectedInsurer.value = null;
+  };
+
+  // Update the last invoice for an insurer
+  const updateInsurerLastInvoice = async (insurerId, invoiceData) => {
+    try {
+      const insurerRef = doc(db, collections.value.insurers, insurerId);
+      await updateDoc(insurerRef, { last_invoice: invoiceData });
+      
+      // Update local state
+      if (lastInvoices.value[insurerId]) {
+        lastInvoices.value[insurerId] = invoiceData;
+      }
+      
+      // Update in insurers list if present
+      const insurerIndex = insurers.value.findIndex(ins => ins.id === insurerId);
+      if (insurerIndex !== -1) {
+        insurers.value[insurerIndex].last_invoice = invoiceData;
+      }
+      
+      // Update selected insurer if it's the one being updated
+      if (selectedInsurer.value && selectedInsurer.value.id === insurerId) {
+        selectedInsurer.value.last_invoice = invoiceData;
+      }
+      
+      return true;
+    } catch (err) {
+      console.error('Error updating insurer last invoice:', err);
+      error.value = err.message;
+      throw err;
+    }
+  };
+
+  // Switch between production and test environments
+  async function switchEnvironmentAndFetchData(mode) {
+    try {
+      // Set the data mode based on the provided mode or toggle if not provided
+      if (mode === 'production' || mode === 'test') {
+        dataMode.value = mode;
+      } else {
+        dataMode.value = dataMode.value === 'production' ? 'test' : 'production';
+      }
+      
+      // Reset the insurers and last invoices
+      insurers.value = [];
+      lastInvoices.value = {};
+      
+      // Fetch fresh data for the new environment
+      await fetchInsurers(true);
+      
+      return dataMode.value;
+    } catch (error) {
+      console.error('Error switching environment:', error);
+      error.value = error.message;
+      throw error;
+    }
+  }
+
+  // Fetch settlement history for a specific insurer
+  async function fetchSettlementHistory(insurerId) {
+    if (!insurerId) return [];
+    
+    try {
+      const settlementsRef = collection(db, 'insurers', insurerId, 'settlements');
+      const q = query(settlementsRef, orderBy('date', 'desc'));
+      const querySnapshot = await getDocs(q);
+      
+      const settlements = [];
+      querySnapshot.forEach((doc) => {
+        settlements.push({
+          id: doc.id,
+          ...doc.data()
+        });
+      });
+      
+      return settlements;
+    } catch (error) {
+      console.error('Error fetching settlement history:', error);
+      error.value = error.message;
+      return [];
+    }
+  }
+
+  // Add a new insurer
+  async function addInsurer(insurerData) {
+    try {
+      isLoading.value = true;
+      const insurersRef = collection(db, collections.value.insurers);
+      const docRef = await addDoc(insurersRef, {
+        ...insurerData,
+        created_at: serverTimestamp(),
+        updated_at: serverTimestamp()
+      });
+      
+      const newInsurer = {
+        id: docRef.id,
+        ...insurerData,
+        created_at: new Date(),
+        updated_at: new Date()
+      };
+      
+      // Add to local state
+      insurers.value.unshift(newInsurer);
+      
+      return newInsurer;
+    } catch (error) {
+      console.error('Error adding insurer:', error);
+      error.value = error.message;
+      throw error;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   return {
     insurers,
     selectedInsurer,
@@ -310,7 +455,10 @@ export const useInsurerStore = defineStore('insurer', () => {
     error,
     dataMode,
     collections,
-    switchEnvironmentAndFetchData,
+    hasMore,
+    fetchInsurers,
+    loadMoreInsurers,
+    refreshInsurers,
     setSelectedInsurer,
     clearSelectedInsurer,
     updateInsurerLastInvoice,
@@ -319,8 +467,9 @@ export const useInsurerStore = defineStore('insurer', () => {
     addInvoiceToHistory,
     updateInsurer,
     deleteInsurer,
-    deleteSettlement,
     updateLastInvoice,
-    testFirestoreConnection
+    testFirestoreConnection,
+    deleteSettlement,
+    switchEnvironmentAndFetchData
   };
 });

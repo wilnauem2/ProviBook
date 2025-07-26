@@ -26,11 +26,29 @@
         </p>
         <div v-if="error" class="error-message">
           <p><strong>Error:</strong> {{ error }}</p>
-          <button @click="clearError">Clear</button>
-        </div>
-        <div class="debug-actions">
-          <button @click="testFirebase" :disabled="isLoading">Test Firebase</button>
-          <button @click="showStoreState">Log Store State</button>
+          <div class="flex-1 overflow-y-auto">
+            <InsurerList 
+              :insurers="filteredInsurers" 
+              :last-invoices="insurerStore.lastInvoices" 
+              :current-date="currentDate"
+              @select-insurer="selectInsurer"
+              @update:sort-by="sortBy = $event"
+              :sort-by="sortBy"
+            />
+            
+            <!-- Loading indicator -->
+            <div v-if="isLoading" class="p-4 text-center text-gray-500">
+              Lade weitere Versicherungen...
+            </div>
+            
+            <!-- Load more trigger (for Intersection Observer) -->
+            <div ref="loadMoreTrigger" class="h-1"></div>
+            
+            <!-- End of results message -->
+            <div v-if="!insurerStore.hasMore && !isLoading && insurerStore.insurers.length > 0" class="p-4 text-center text-gray-500">
+              Alle Versicherungen geladen
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -38,8 +56,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onErrorCaptured } from 'vue';
+import { ref, onMounted, onErrorCaptured, watch } from 'vue';
 import { useInsurerStore } from './stores/insurerStore';
+import { debounce } from 'lodash';
+import InsurerList from '@/components/InsurerList.vue';
 
 // --- Error Boundary State ---
 const hasError = ref(false);
@@ -69,6 +89,81 @@ const toggleDebug = () => {
   isOpen.value = !isOpen.value;
 };
 
+const loadMoreInsurers = async () => {
+  if (isLoading.value || !store.hasMore) return;
+  
+  try {
+    isLoading.value = true;
+    await store.loadMoreInsurers();
+  } catch (err) {
+    console.error('Error loading more insurers:', err);
+    error.value = err.message;
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+// Debounced scroll handler
+const handleScroll = debounce(() => {
+  if (isLoading.value || !store.hasMore) return;
+  
+  const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+  const windowHeight = window.innerHeight;
+  const documentHeight = document.documentElement.offsetHeight;
+  
+  // Load more when scrolled to 80% of the page
+  if (scrollTop + windowHeight >= documentHeight * 0.8) {
+    loadMoreInsurers();
+  }
+}, 150);
+
+// Intersection Observer for infinite scroll
+let observer;
+const loadMoreTrigger = ref(null);
+
+// Initialize Intersection Observer
+const initObserver = () => {
+  if (observer) observer.disconnect();
+  
+  observer = new IntersectionObserver((entries) => {
+    if (entries[0].isIntersecting && !isLoading.value && store.hasMore) {
+      loadMoreInsurers();
+    }
+  }, {
+    root: null,
+    rootMargin: '100px',
+    threshold: 0.1
+  });
+  
+  if (loadMoreTrigger.value) {
+    observer.observe(loadMoreTrigger.value);
+  }
+};
+
+// Watch for changes to the load more trigger ref
+watch(loadMoreTrigger, (newVal) => {
+  if (newVal) {
+    initObserver();
+  }
+});
+
+// Add scroll event listener with debounce
+onMounted(() => {
+  window.addEventListener('scroll', handleScroll);
+  initObserver();
+  
+  // Initial load
+  store.refreshInsurers();
+});
+
+// Clean up event listeners and observer
+onUnmounted(() => {
+  window.removeEventListener('scroll', handleScroll);
+  if (observer) {
+    observer.disconnect();
+  }
+});
+
 const testFirebase = async () => {
   try {
     isLoading.value = true;
@@ -89,12 +184,6 @@ const showStoreState = () => {
 const clearError = () => {
   error.value = null;
 };
-
-onMounted(() => {
-  if (isDevelopment) {
-    testFirebase();
-  }
-});
 </script>
 
 <style>

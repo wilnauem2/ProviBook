@@ -104,7 +104,7 @@
 </template>
 
 <script setup>
-import { defineProps, defineEmits, computed } from 'vue';
+import { defineProps, defineEmits, computed, onMounted, watch } from 'vue';
 import InsurerList from '@/components/InsurerList.vue';
 
 const props = defineProps({
@@ -115,10 +115,13 @@ const props = defineProps({
   statusFilter: String,
   searchFilter: String,
   simulatedDate: Date,
+  currentDate: {
+    type: Date,
+    required: true
+  },
   dataMode: String,
   sortOption: String,
   lastInvoices: Object,
-  currentDate: Date,
   selectedInsurer: Object,
 });
 
@@ -150,6 +153,17 @@ const statusFilterClass = computed(() => ({
   'bg-red-100 text-red-800': props.statusFilter === 'critical',
   'bg-green-100 text-green-800': props.statusFilter === 'on_time',
 }));
+
+// Debug currentDate prop
+onMounted(() => {
+  console.log('DashboardView mounted with currentDate:', props.currentDate);
+  console.log('currentDate type:', Object.prototype.toString.call(props.currentDate));
+});
+
+watch(() => props.currentDate, (newDate) => {
+  console.log('DashboardView currentDate changed to:', newDate);
+  console.log('New date type:', Object.prototype.toString.call(newDate));
+});
 </script>
 
 <style scoped>

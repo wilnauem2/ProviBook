@@ -57,7 +57,7 @@
 
 <script setup>
 import { ref, onMounted, onErrorCaptured, watch } from 'vue';
-import { useInsurerStore } from './stores/insurerStore';
+import { useInsurerStore } from './stores/insurerStore.js';
 import { debounce } from 'lodash';
 import InsurerList from '@/components/InsurerList.vue';
 

@@ -12,13 +12,7 @@
   NODE_OPTIONS = "--openssl-legacy-provider"
   CI = "false"
   VITE_NETLIFY_CONTEXT = "$CONTEXT"
-
-# Explicitly set the build command in the environment
-[context.production.environment]
-  COMMAND_OVERRIDE = "npm install -g npm@latest && npm install --legacy-peer-deps && npm install vite@7.0.6 --save-dev && npx vite build --config vite.config.prod.js --mode production"
-
-[context.deploy-preview.environment]
-  COMMAND_OVERRIDE = "npm install -g npm@latest && npm install --legacy-peer-deps && npm install vite@7.0.6 --save-dev && npx vite build --config vite.config.prod.js --mode production"
+  NODE_ENV = "production"
 
 # This is the only redirect rule needed for a Single-Page App.
 # It serves the index.html file for any request that doesn't match a file
@@ -68,22 +62,9 @@
   port = 3000
   publish = "publish"
 
-[context.production]
-  command = "npm install --legacy-peer-deps && npm run build"
-  environment = { NODE_ENV = "production" }
-
-[context.deploy-preview]
-  command = "npm install --legacy-peer-deps && npm run build"
-  environment = { NODE_ENV = "production" }
-
-[context.branch-deploy]
-  command = "npm install --legacy-peer-deps && npm run build"
-  environment = { NODE_ENV = "production" }
-
+# Environment-specific settings
 [context.staging]
-  command = "git clean -fdx && npm install --legacy-peer-deps && npm run build"
-  environment = { NODE_ENV = "production", VITE_GIT_BRANCH = "staging" }
+  environment = { VITE_GIT_BRANCH = "staging" }
 
 [context.testing]
-  command = "git clean -fdx && npm install --legacy-peer-deps && npm run build"
-  environment = { NODE_ENV = "development", VITE_GIT_BRANCH = "testing" }
+  environment = { VITE_GIT_BRANCH = "testing" }

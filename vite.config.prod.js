@@ -1,21 +1,20 @@
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
-import tailwindcss from 'tailwindcss';
-import autoprefixer from 'autoprefixer';
+import { fileURLToPath, URL } from 'url';
 
 export default defineConfig({
   plugins: [vue()],
   css: {
     postcss: {
       plugins: [
-        tailwindcss,
-        autoprefixer
+        require('tailwindcss'),
+        require('autoprefixer')
       ]
     }
   },
   base: '/',
   build: {
-    target: 'es2020',
+    target: 'esnext',
     minify: 'esbuild',
     sourcemap: false,
     outDir: 'dist',
@@ -24,7 +23,7 @@ export default defineConfig({
       output: {
         entryFileNames: 'assets/[name]-[hash].js',
         chunkFileNames: 'assets/[name]-[hash].js',
-        assetFileNames: 'assets/[name]-[hash].[ext]'
+        assetFileNames: 'assets/[name]-[hash][extname]'
       }
     },
     manifest: true,
@@ -32,12 +31,12 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': './src'
+      '@': fileURLToPath(new URL('./src', import.meta.url))
     }
   },
   define: {
-    'process.env.NODE_ENV': '"production"',
-    'import.meta.env.PROD': true,
-    'import.meta.env.DEV': false
+    'process.env.NODE_ENV': JSON.stringify('production'),
+    'import.meta.env.PROD': 'true',
+    'import.meta.env.DEV': 'false'
   }
 });

@@ -1,14 +1,21 @@
 [build]
-  command = "npm install --legacy-peer-deps && npm run build"
+  # This command will be used by Netlify
+  command = "npm install -g npm@latest && npm install --legacy-peer-deps && npm install vite@7.0.6 @vitejs/plugin-vue@5.0.0 --save-dev && npm rebuild && npm run build"
   publish = "dist"
 
-[build.environment]
-  VITE_NETLIFY_CONTEXT = "$CONTEXT"
-  NODE_VERSION = "18.17.1"
-  NPM_FLAGS = "--legacy-peer-deps"
+# Add a build script in package.json that uses the local Vite binary
+# "build": "vite build --config vite.config.prod.js --mode production"
 
+# Force Netlify to use our build command
+[build.environment]
+  NETLIFY_USE_YARN = "false"
+  NPM_FLAGS = "--legacy-peer-deps"
+  NODE_VERSION = "20.19.0"  # Required by Vite 7.0.6
+  NPM_VERSION = "10.5.0"    # Matches Node.js 20.19.0
   NODE_OPTIONS = "--openssl-legacy-provider"
   CI = "false"
+  VITE_NETLIFY_CONTEXT = "$CONTEXT"
+  NODE_ENV = "production"
 
 # This is the only redirect rule needed for a Single-Page App.
 # It serves the index.html file for any request that doesn't match a file
@@ -58,22 +65,9 @@
   port = 3000
   publish = "publish"
 
-[context.production]
-  command = "npm install --legacy-peer-deps && npm run build"
-  environment = { NODE_ENV = "production" }
-
-[context.deploy-preview]
-  command = "npm install --legacy-peer-deps && npm run build"
-  environment = { NODE_ENV = "production" }
-
-[context.branch-deploy]
-  command = "npm install --legacy-peer-deps && npm run build"
-  environment = { NODE_ENV = "production" }
-
+# Environment-specific settings
 [context.staging]
-  command = "git clean -fdx && npm install --legacy-peer-deps && npm run build"
-  environment = { NODE_ENV = "production", VITE_GIT_BRANCH = "staging" }
+  environment = { VITE_GIT_BRANCH = "staging" }
 
 [context.testing]
-  command = "git clean -fdx && npm install --legacy-peer-deps && npm run build"
-  environment = { NODE_ENV = "development", VITE_GIT_BRANCH = "testing" }
+  environment = { VITE_GIT_BRANCH = "testing" }

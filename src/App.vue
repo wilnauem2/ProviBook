@@ -43,8 +43,14 @@
 </template>
 
 <script setup>
+<<<<<<< HEAD
 import { ref, computed, onMounted, onErrorCaptured, watch } from 'vue';
 import { useInsurerStore } from './stores/insurerStore';
+=======
+import { ref, onMounted, onErrorCaptured, watch } from 'vue';
+import { useInsurerStore } from './stores/insurerStore.js';
+import { debounce } from 'lodash';
+>>>>>>> 27c5c6673e772743e170be034d5fd9aca38e3f00
 import InsurerList from '@/components/InsurerList.vue';
 
 // --- Error Boundary State ---

@@ -1,5 +1,5 @@
 [build]
-  command = "npm install && npm run build"
+  command = "npm install && npm install vite@^4.5.14 && npm run build"
   publish = "dist"
 
 [build.environment]

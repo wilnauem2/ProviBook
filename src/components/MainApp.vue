@@ -144,7 +144,10 @@ const isCreatingSampleData = ref(false);
 
 // --- Environment Info ---
 const gitBranch = ref(import.meta.env.VITE_GIT_BRANCH || 'unknown');
-const isProduction = computed(() => gitBranch.value === 'main' || gitBranch.value === 'master');
+const isProduction = computed(() => {
+  const prodBranches = ['main', 'master', 'staging'];
+  return prodBranches.includes(gitBranch.value);
+});
 
 // Initialize Pinia stores
 const insurerStore = useInsurerStore();

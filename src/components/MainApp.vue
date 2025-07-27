@@ -56,6 +56,13 @@
           :isLoading="abrechnungStore.isLoading"
           @create-sample-data="createSampleData"
         />
+        
+        <SettingsView
+          v-else-if="activeTab === 'settings'"
+          :isProduction="isProduction"
+          :gitBranch="gitBranch"
+          @switch-mode="toggleEnvironment"
+        />
       </main>
     </div>
 
@@ -127,6 +134,7 @@ import { useInsurerUtils } from '@/composables/useInsurerUtils';
 import AppHeader from './layout/AppHeader.vue';
 import DashboardView from '@/views/DashboardView.vue';
 import HistoryView from '@/views/HistoryView.vue';
+import SettingsView from '@/views/SettingsView.vue';
 
 // Other Components
 import InsurerList from '@/components/InsurerList.vue';
@@ -230,6 +238,17 @@ const currentDate = computed(() => {
   return new Date(date);
 });
 
+// Status counts for the status summary
+const statusCounts = computed(() => {
+  if (!insurerStore.insurers) return { critical: 0, warning: 0, on_time: 0 };
+  return insurerStore.insurers.reduce((acc, insurer) => {
+    const days = calculateDaysOverdue(insurer, currentDate.value);
+    if (days > 5) acc.critical++;
+    else if (days > 0) acc.warning++;
+    else acc.on_time++;
+    return acc;
+  }, { critical: 0, warning: 0, on_time: 0 });
+});
 
 // --- Lifecycle Hooks ---
 onMounted(async () => {
@@ -237,18 +256,6 @@ onMounted(async () => {
   const initialMode = 'production';
   await insurerStore.switchEnvironmentAndFetchData(initialMode);
   await abrechnungStore.fetchAbrechnungen(initialMode);
-});
-
-// --- Computed Properties ---
-const statusCounts = computed(() => {
-  if (!insurersData.value) return { critical: 0, warning: 0, on_time: 0 };
-  return insurersData.value.reduce((acc, insurer) => {
-    const days = calculateDaysOverdue(insurer, currentDate.value, lastInvoices.value);
-    if (days > 5) acc.critical++;
-    else if (days > 0) acc.warning++;
-    else acc.on_time++;
-    return acc;
-  }, { critical: 0, warning: 0, on_time: 0 });
 });
 
 const selectedInsurerLastInvoice = computed(() => {

@@ -1,5 +1,5 @@
 <template>
-  <header class="bg-white shadow-sm sticky top-0 z-10" :class="{ 'bg-yellow-100': !isProduction }">
+  <header class="bg-white shadow-sm sticky top-0 z-10">
     <div class="container mx-auto px-4">
       <div class="flex justify-between items-center py-4">
         <h1 class="text-xl font-semibold text-gray-900">

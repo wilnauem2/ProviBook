@@ -30,28 +30,31 @@
         </div>
       </div>
       
-            <!-- Inlined TestDateSimulator -->
-      <div v-if="!isProduction" class="bg-white rounded-lg shadow p-4">
-        <label for="simulated-date" class="block text-sm font-medium text-gray-700 mb-1">Test-Datum</label>
-        <div class="flex items-center space-x-2">
-          <button @click="$emit('change-date', -1)" class="px-2 py-1 border border-gray-300 rounded-md text-sm hover:bg-gray-100">&#x25C0;</button>
-          <input 
-            type="date" 
-            id="simulated-date"
-            :value="simulatedDate ? simulatedDate.toISOString().split('T')[0] : ''"
-            @input="$emit('update:simulatedDate', new Date($event.target.value))"
-            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-          />
-          <button @click="$emit('change-date', 1)" class="px-2 py-1 border border-gray-300 rounded-md text-sm hover:bg-gray-100">&#x25B6;</button>
+            <!-- Development Features (only shown in development) -->
+      <template v-if="!isProduction">
+        <!-- Date Simulator -->
+        <div class="bg-white rounded-lg shadow p-4">
+          <label for="simulated-date" class="block text-sm font-medium text-gray-700 mb-1">Test-Datum</label>
+          <div class="flex items-center space-x-2">
+            <button @click="$emit('change-date', -1)" class="px-2 py-1 border border-gray-300 rounded-md text-sm hover:bg-gray-100">&#x25C0;</button>
+            <input 
+              type="date" 
+              id="simulated-date"
+              :value="simulatedDate ? simulatedDate.toISOString().split('T')[0] : ''"
+              @input="$emit('update:simulatedDate', new Date($event.target.value))"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            />
+            <button @click="$emit('change-date', 1)" class="px-2 py-1 border border-gray-300 rounded-md text-sm hover:bg-gray-100">&#x25B6;</button>
+          </div>
+          <button @click="$emit('reset-date')" class="mt-2 w-full text-center text-sm text-blue-600 hover:underline">Heute</button>
         </div>
-        <button @click="$emit('reset-date')" class="mt-2 w-full text-center text-sm text-blue-600 hover:underline">Heute</button>
-      </div>
 
-      <!-- Inlined EnvironmentUserInfo -->
-      <div v-if="!isProduction" class="bg-white rounded-lg shadow p-4 text-center">
-        <p class="text-sm text-gray-600">Modus: <span class="font-semibold">{{ dataMode }}</span></p>
-        <button @click="$emit('switch-mode')" class="mt-2 text-sm text-blue-600 hover:underline">Wechseln</button>
-      </div>
+        <!-- Data Mode Toggle -->
+        <div class="bg-white rounded-lg shadow p-4 text-center">
+          <p class="text-sm text-gray-600">Modus: <span class="font-semibold">{{ dataMode }}</span></p>
+          <button @click="$emit('switch-mode')" class="mt-2 text-sm text-blue-600 hover:underline">Wechseln</button>
+        </div>
+      </template>
     </div>
     
     <!-- Main Content Area -->

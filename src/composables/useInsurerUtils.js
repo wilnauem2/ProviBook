@@ -62,47 +62,99 @@ export function useInsurerUtils() {
   };
 
             const parseTurnus = (turnus) => {
-    if (!turnus) return null;
+    if (!turnus) {
+      console.log('No turnus provided');
+      return null;
+    }
     
     // Convert to string if it's a number
     const turnusStr = String(turnus).trim().toLowerCase();
     console.log('Parsing turnus:', turnusStr);
     
-    // Extract number from turnus string (e.g., '14-tägig' -> 14)
-    const match = turnusStr.match(/(\d+)/);
-    if (!match) {
-      // Check for non-numeric turnus values like 'monatlich', 'jährlich', etc.
-      if (turnusStr.includes('monatlich')) return 30;  // Approximate month as 30 days
-      if (turnusStr.includes('quartal')) return 90;    // Approximate quarter as 90 days
-      if (turnusStr.includes('halbj') || turnusStr.includes('halbjähr')) return 180; // Half year as 180 days
-      if (turnusStr.includes('jährlich') || turnusStr.includes('jaehrlich')) return 365; // Year as 365 days
-      
-      console.log('No number found in turnus and no known period matched');
-      return null;
+    // Handle numeric turnus directly
+    if (!isNaN(Number(turnusStr))) {
+      const days = parseInt(turnusStr, 10);
+      console.log('Numeric turnus, using as days:', days);
+      return days;
     }
     
-    const days = parseInt(match[1], 10);
-    console.log('Extracted days from turnus:', days);
-    return days;
+    // Extract number from turnus string (e.g., '14-tägig' -> 14, '14 tägig' -> 14, '14' -> 14)
+    const match = turnusStr.match(/(\d+)/);
+    
+    if (match) {
+      const days = parseInt(match[1], 10);
+      console.log('Extracted days from turnus:', days);
+      
+      // Handle special cases like '14-tägig' (bi-weekly) vs '14 Tage' (every 14 days)
+      if (turnusStr.includes('tägig') || turnusStr.includes('taegig')) {
+        // '14-tägig' means every 14 days
+        return days;
+      } else if (turnusStr.includes('tag') || turnusStr.includes('tage')) {
+        // '14 Tage' means every 14 days
+        return days;
+      } else if (turnusStr.includes('wochen') || turnusStr.includes('week')) {
+        // '2 wochen' means every 14 days
+        return days * 7;
+      } else if (turnusStr.includes('monat') || turnusStr.includes('month')) {
+        // '1 monat' means ~30 days
+        return days * 30;
+      } else {
+        // Default to days if no specific unit is mentioned
+        return days;
+      }
+    }
+    
+    // Handle non-numeric turnus values
+    if (turnusStr.includes('täglich') || turnusStr.includes('taeglich') || turnusStr === '1') {
+      console.log('Daily turnus detected');
+      return 1;
+    } else if (turnusStr.includes('wöchentlich') || turnusStr.includes('woechentlich') || turnusStr.includes('woche') || turnusStr === '7') {
+      console.log('Weekly turnus detected');
+      return 7;
+    } else if (turnusStr.includes('14-tägig') || turnusStr === '14') {
+      console.log('Bi-weekly turnus detected');
+      return 14;
+    } else if (turnusStr.includes('monatlich') || turnusStr.includes('monthly')) {
+      console.log('Monthly turnus detected');
+      return 30;
+    } else if (turnusStr.includes('quartal') || turnusStr.includes('quarter')) {
+      console.log('Quarterly turnus detected');
+      return 90;
+    } else if (turnusStr.includes('halbj') || turnusStr.includes('halbjähr')) {
+      console.log('Half-yearly turnus detected');
+      return 180;
+    } else if (turnusStr.includes('jährlich') || turnusStr.includes('jaehrlich') || turnusStr.includes('yearly')) {
+      console.log('Yearly turnus detected');
+      return 365;
+    }
+    
+    console.log('Could not determine turnus from:', turnusStr);
+    return null;
   };
 
   // Cache for memoizing calculateDaysOverdue results
   const daysOverdueCache = new Map();
   
-  const calculateDaysOverdue = (insurer, currentDate) => {
+  const calculateDaysOverdue = (insurer, currentDate, lastInvoices = null) => {
     try {
+      console.group(`calculateDaysOverdue for ${insurer?.name || insurer?.id || 'unknown'}`);
+      
       // Create a cache key based on insurer ID and current date
       const cacheKey = `${insurer?.id}_${currentDate?.getTime()}`;
       
       // Return cached result if available
       if (daysOverdueCache.has(cacheKey)) {
-        return daysOverdueCache.get(cacheKey);
+        const cached = daysOverdueCache.get(cacheKey);
+        console.log('Using cached result:', cached);
+        console.groupEnd();
+        return cached;
       }
       
       // If no insurer or no current date, cache and return 0 (not overdue)
       if (!insurer || !currentDate) {
         console.log('No insurer or current date provided');
         daysOverdueCache.set(cacheKey, 0);
+        console.groupEnd();
         return 0;
       }
       
@@ -110,6 +162,7 @@ export function useInsurerUtils() {
       if (!insurer.turnus || (typeof insurer.turnus !== 'string') || !insurer.turnus.trim()) {
         console.log('No turnus set for insurer:', insurer.id);
         daysOverdueCache.set(cacheKey, 0);
+        console.groupEnd();
         return 0;
       }
       
@@ -119,35 +172,68 @@ export function useInsurerUtils() {
       
       if (isNaN(today.getTime())) {
         console.error('Invalid current date:', currentDate);
+        console.groupEnd();
         return 0;
       }
       
+      console.log('Current date (normalized):', today);
       const todayTime = today.getTime();
       let dueDate = null;
       const turnus = insurer.turnus.toLowerCase();
+      console.log('Turnus value:', turnus);
       
-      // 1. Try to calculate from last invoice
-      const invoice = insurer?.last_invoice;
-      console.log('Processing insurer:', insurer.id, 'with turnus:', turnus);
+      // 1. First try to get invoice from lastInvoices prop if available
+      let invoice = null;
+      if (lastInvoices && typeof lastInvoices === 'object' && lastInvoices[insurer.id]) {
+        console.log('Using lastInvoices prop for invoice data');
+        invoice = lastInvoices[insurer.id];
+      } 
+      // 2. Fall back to insurer.last_invoice if no lastInvoices data
+      if (!invoice && insurer.last_invoice) {
+        console.log('Using insurer.last_invoice for invoice data');
+        invoice = insurer.last_invoice;
+      }
       
+      console.log('Available invoice data:', invoice);
+      
+      // Process the invoice data if available
       if (invoice) {
         console.log('Found invoice:', invoice);
-        const lastInvoiceDate = parseInvoiceDate(invoice);
+        let lastInvoiceDate = null;
+        
+        // Handle different invoice data formats
+        if (invoice.date) {
+          lastInvoiceDate = invoice.date.seconds ? new Date(invoice.date.seconds * 1000) : new Date(invoice.date);
+        } else if (invoice.datum) {
+          lastInvoiceDate = new Date(invoice.datum);
+        } else if (typeof invoice === 'string') {
+          lastInvoiceDate = new Date(invoice);
+        } else if (invoice.seconds) {
+          lastInvoiceDate = new Date(invoice.seconds * 1000);
+        }
+        
+        // If we couldn't parse the date, try to get it from the formatted display string
+        if ((!lastInvoiceDate || isNaN(lastInvoiceDate.getTime())) && invoice.display) {
+          const dateMatch = invoice.display.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+          if (dateMatch) {
+            lastInvoiceDate = new Date(`${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`);
+          }
+        }
+        
         console.log('Parsed invoice date:', lastInvoiceDate);
         
-        if (lastInvoiceDate) {
-          const invoiceDate = new Date(lastInvoiceDate);
-          if (isNaN(invoiceDate.getTime())) {
-            console.error('Invalid invoice date:', lastInvoiceDate);
+        if (lastInvoiceDate && !isNaN(lastInvoiceDate.getTime())) {
+          const turnusDays = parseTurnus(turnus);
+          console.log('Parsed turnus days:', turnusDays);
+          
+          if (turnusDays !== null && !isNaN(turnusDays)) {
+            dueDate = addDays(new Date(lastInvoiceDate), turnusDays);
+            console.log('Calculated due date from invoice:', dueDate);
           } else {
-            const turnusDays = parseTurnus(turnus);
-            console.log('Parsed turnus days:', turnusDays);
-            
-            if (turnusDays !== null) {
-              dueDate = addDays(invoiceDate, turnusDays);
-              console.log('Calculated due date from invoice:', dueDate);
-            }
+            console.error('Invalid turnus days:', turnusDays);
           }
+        } else {
+          console.error('Could not parse invoice date from:', invoice);
         }
       }
       
@@ -164,29 +250,51 @@ export function useInsurerUtils() {
         console.log('Parsed due date from next_due:', dueDate);
       }
       
-      // Return 0 if no valid due date
-      if (!dueDate || isNaN(dueDate.getTime())) {
+      // If no due date could be determined
+      if (!dueDate) {
         console.log('No valid due date could be determined');
+        
+        // If we have no invoice data at all, consider it not overdue
+        if (!invoice && !insurer.last_invoice) {
+          console.log('No invoice data available, considering not overdue');
+          daysOverdueCache.set(cacheKey, 0);
+          console.groupEnd();
+          return 0;
+        }
+        
+        // In development, return a test value to verify status colors
+        if (process.env.NODE_ENV === 'development') {
+          console.log('DEV: Returning test overdue value of 10 days');
+          daysOverdueCache.set(cacheKey, 10);
+          console.groupEnd();
+          return 10;
+        }
+        
+        // Default to not overdue if we can't determine a due date
         daysOverdueCache.set(cacheKey, 0);
+        console.groupEnd();
         return 0;
       }
       
-      // Normalize due date and calculate difference
-      dueDate.setHours(0, 0, 0, 0);
-      const diffTime = todayTime - dueDate.getTime();
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-      const result = Math.max(0, diffDays);
-      
-      console.log(`Overdue calculation for ${insurer.id}:`, {
-        today: new Date(todayTime).toISOString().split('T')[0],
-        dueDate: dueDate.toISOString().split('T')[0],
-        diffDays,
-        result
-      });
-      
-      // Cache the result
-      daysOverdueCache.set(cacheKey, result);
-      return result;
+      // If we have a valid due date, calculate days overdue
+      if (dueDate && !isNaN(dueDate.getTime())) {
+        dueDate.setHours(0, 0, 0, 0);
+        const dueTime = dueDate.getTime();
+        const diffDays = Math.floor((todayTime - dueTime) / (1000 * 60 * 60 * 24));
+        
+        // Only return positive values (overdue) or 0 (not overdue)
+        const result = Math.max(0, diffDays);
+        
+        console.log('Due date:', dueDate);
+        console.log('Today:', today);
+        console.log('Difference in days:', diffDays);
+        console.log('Final result (days overdue):', result);
+        
+        // Cache the result
+        daysOverdueCache.set(cacheKey, result);
+        console.groupEnd();
+        return result;
+      }
     } catch (error) {
       console.error('Error in calculateDaysOverdue:', error);
       return 0; // Return 0 (not overdue) in case of any error
@@ -196,6 +304,10 @@ export function useInsurerUtils() {
         const getStatusCode = (insurer, date, lastInvoices) => {
     console.group(`getStatusCode for ${insurer?.name || 'unknown'}`);
     console.log('Input date:', date);
+    console.log('Insurer:', insurer);
+    console.log('Last invoice date:', insurer.last_invoice);
+    console.log('Turnus:', insurer.turnus);
+    
     const daysOverdue = calculateDaysOverdue(insurer, date, lastInvoices);
     console.log('Days overdue:', daysOverdue);
     
@@ -208,7 +320,7 @@ export function useInsurerUtils() {
       status = 'green'; // OK: On time or not yet due
     }
     
-    console.log('Status:', status);
+    console.log('Final status:', status);
     console.groupEnd();
     return status;
   };

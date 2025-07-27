@@ -101,16 +101,24 @@
               <ul v-if="sortedLocalSettlements.length > 0" class="space-y-3">
                 <li v-for="settlement in sortedLocalSettlements" :key="settlement.id" 
                     @click="showSettlementDetails(settlement)"
-                    class="flex items-center justify-between p-2 rounded-md hover:bg-gray-50 cursor-pointer group">
+                    class="flex items-center justify-between p-2 rounded-md hover:bg-gray-50 cursor-pointer group"
+                    :class="{ 'bg-blue-50': settlement.isLastInvoice }">
                   <div class="flex items-center gap-2">
-                    <span class="text-sm text-gray-700">{{ format(settlement.date.toDate ? settlement.date.toDate() : new Date(settlement.date), 'dd.MM.yyyy') }}</span>
-                    <svg v-if="settlement.note" class="w-4 h-4 text-gray-400 group-hover:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" title="Mit Kommentar">
+                    <span class="text-sm font-medium" :class="{ 'text-blue-700': settlement.isLastInvoice, 'text-gray-700': !settlement.isLastInvoice }">
+                      {{ format(settlement.date.toDate ? settlement.date.toDate() : new Date(settlement.date), 'dd.MM.yyyy') }}
+                      <span v-if="settlement.isLastInvoice" class="ml-1 text-xs font-normal text-blue-600">(Aktuell)</span>
+                    </span>
+                    <svg v-if="settlement.note && !settlement.isLastInvoice" class="w-4 h-4 text-gray-400 group-hover:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" title="Mit Kommentar">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
                     </svg>
+                    <svg v-else-if="settlement.isLastInvoice" class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" title="Aktuelle Abrechnung">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
                   </div>
-                  <button @click.stop="confirmSettlementDelete(settlement.id)" class="text-gray-400 hover:text-red-500 transition-colors duration-200" title="Diesen Eintrag löschen">
+                  <button v-if="!settlement.isLastInvoice" @click.stop="confirmSettlementDelete(settlement.id)" class="text-gray-400 hover:text-red-500 transition-colors duration-200" title="Diesen Eintrag löschen">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                   </button>
+                  <span v-else class="w-5"></span>
                 </li>
               </ul>
               <p v-else class="text-sm text-gray-400 italic">Noch keine Abrechnungen erfasst.</p>
@@ -326,10 +334,37 @@ const editField = ref(null);
 const localLastInvoice = computed(() => insurerStore.lastInvoices[props.insurer.id]);
 
 const sortedLocalSettlements = computed(() => {
-  return [...localSettlementHistory.value].sort((a, b) => {
+  // Start with a copy of the local settlement history
+  let settlements = [...localSettlementHistory.value];
+  
+  // If we have a last invoice that's not already in the history, include it
+  if (localLastInvoice.value && localLastInvoice.value.date) {
+    const lastInvoiceDate = localLastInvoice.value.date?.toDate ? 
+      localLastInvoice.value.date.toDate() : new Date(localLastInvoice.value.date);
+    
+    // Check if the last invoice is already in the history
+    const isInHistory = settlements.some(settlement => {
+      const settlementDate = settlement.date?.toDate ? 
+        settlement.date.toDate() : new Date(settlement.date);
+      return settlementDate.getTime() === lastInvoiceDate.getTime();
+    });
+    
+    // If not in history, add it
+    if (!isInHistory) {
+      settlements.push({
+        id: 'last_invoice',
+        date: localLastInvoice.value.date,
+        note: localLastInvoice.value.note || 'Letzte Abrechnung',
+        isLastInvoice: true
+      });
+    }
+  }
+  
+  // Sort by date (newest first)
+  return settlements.sort((a, b) => {
     const dateA = a.date?.toDate ? a.date.toDate() : new Date(a.date);
     const dateB = b.date?.toDate ? b.date.toDate() : new Date(b.date);
-    return dateB - dateA; // Newest first
+    return dateB - dateA;
   });
 });
 const localSettlementHistory = ref([]);

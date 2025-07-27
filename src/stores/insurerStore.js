@@ -27,51 +27,23 @@ export const useInsurerStore = defineStore('insurer', () => {
     invoices: dataMode.value === 'production' ? 'invoices' : 'invoices_test',
   }));
 
-  // Fetch insurers with pagination
-  const fetchInsurers = async (reset = false) => {
+  // Fetch all insurers at once
+  const fetchInsurers = async () => {
     try {
-      if (reset) {
-        insurers.value = [];
-        lastVisible.value = null;
-        hasMore.value = true;
-      }
-      
-      if (!hasMore.value && !reset) return;
-      
       isLoading.value = true;
       const insurersRef = collection(db, collections.value.insurers);
-      let queryRef = query(
-        insurersRef,
-        orderBy('name'),
-        limit(pageSize + 1)
-      );
-      
-      if (lastVisible.value && !reset) {
-        queryRef = query(
-          insurersRef,
-          orderBy('name'),
-          startAfter(lastVisible.value),
-          limit(pageSize + 1)
-        );
-      }
+      const queryRef = query(insurersRef, orderBy('name'));
       
       const snapshot = await getDocs(queryRef);
-      const docs = snapshot.docs;
-      hasMore.value = docs.length > pageSize;
-      const docsToAdd = hasMore.value ? docs.slice(0, -1) : docs;
-      
-      if (docsToAdd.length > 0) {
-        lastVisible.value = docsToAdd[docsToAdd.length - 1];
-      }
-      
-      const newInsurers = docsToAdd.map(doc => ({
+      const newInsurers = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
       
-      insurers.value = reset ? newInsurers : [...insurers.value, ...newInsurers];
+      insurers.value = newInsurers;
       
-      if (reset && newInsurers.length > 0) {
+      // Preload invoices for all insurers
+      if (newInsurers.length > 0) {
         await preloadLastInvoices(newInsurers);
       }
       
@@ -289,15 +261,15 @@ export const useInsurerStore = defineStore('insurer', () => {
     }
   };
 
-  // Load more insurers (pagination)
+  // Keep this for backward compatibility but make it a no-op
   const loadMoreInsurers = async () => {
-    if (isLoading.value || !hasMore.value) return;
-    await fetchInsurers(false);
+    // No-op since we're loading all insurers at once
+    return [];
   };
 
   // Refresh insurers
   const refreshInsurers = async () => {
-    await fetchInsurers(true);
+    await fetchInsurers();
   };
 
   // Set selected insurer

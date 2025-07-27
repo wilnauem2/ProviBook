@@ -35,6 +35,8 @@
           :lastInvoices="lastInvoices"
           :currentDate="currentDate"
           :selectedInsurer="selectedInsurer"
+          :hasMore="hasMoreInsurers"
+          :onLoadMore="loadMoreInsurers"
           @status-clicked="handleStatusClicked"
           @switch-mode="toggleEnvironment"
           @clear-status-filter="clearStatusFilter"
@@ -176,8 +178,20 @@ const {
   insurers: insurersData, 
   isLoading, 
   lastInvoices, 
-  dataMode 
+  dataMode,
+  hasMore: hasMoreInsurers
 } = storeToRefs(insurerStore);
+
+// Load more insurers
+const loadMoreInsurers = async () => {
+  if (!isLoading.value && hasMoreInsurers.value) {
+    try {
+      await insurerStore.loadMoreInsurers();
+    } catch (error) {
+      console.error('Error loading more insurers:', error);
+    }
+  }
+};
 
 const toggleEnvironment = async () => {
   const newMode = dataMode.value === 'production' ? 'test' : 'production';
@@ -252,7 +266,7 @@ const filteredInsurers = computed(() => {
 
   if (statusFilter.value !== 'all') {
     filtered = filtered.filter(insurer => {
-      const days = calculateDaysOverdue(insurer, currentDate.value, lastInvoices.value);
+      const days = calculateDaysOverdue(insurer, currentDate.value);
       if (statusFilter.value === 'critical') return days > 5;
       if (statusFilter.value === 'warning') return days > 0 && days <= 5;
       if (statusFilter.value === 'on_time') return days <= 0;

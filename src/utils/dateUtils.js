@@ -16,14 +16,3 @@ export const isOverdue = (insurer) => {
   // Consider an invoice overdue if it's been more than 30 days
   return daysDiff > 30;
 };
-
-export const calculateDaysOverdue = (dateString) => {
-  if (!dateString) return 0;
-  
-  const invoiceDate = new Date(dateString);
-  if (isNaN(invoiceDate.getTime())) return 0;
-  
-  const today = new Date();
-  const diffTime = Math.abs(today - invoiceDate);
-  return Math.floor(diffTime / (1000 * 60 * 60 * 24));
-};

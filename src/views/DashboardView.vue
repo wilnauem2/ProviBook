@@ -89,11 +89,12 @@
         </div>
         <div v-else>
           <InsurerList
-            :insurers="filteredInsurers" 
-            :sortBy="sortOption"
-            :lastInvoices="lastInvoices"
-            :currentDate="currentDate"
-            :selectedInsurer="selectedInsurer"
+            :insurers="filteredInsurers"
+            :sort-by="sortOption"
+            :last-invoices="lastInvoices"
+            :current-date="currentDate"
+            :selected-insurer="selectedInsurer"
+            :is-loading="isLoading"
             @select-insurer="$emit('select-insurer', $event)"
             @clear-selection="$emit('clear-selection')"
           />
@@ -122,7 +123,7 @@ const props = defineProps({
   dataMode: String,
   sortOption: String,
   lastInvoices: Object,
-  selectedInsurer: Object,
+  selectedInsurer: Object
 });
 
 defineEmits([

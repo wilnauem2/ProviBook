@@ -20,7 +20,7 @@
       </div>
     </div>
    
-    <div class="flex-1 overflow-y-auto w-full -mr-3 pr-1">
+    <div ref="scrollContainer" class="flex-1 overflow-y-auto w-full -mr-3 pr-1">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6 p-3">
         <div
           v-for="insurer in (sortedInsurers || [])"
@@ -206,318 +206,253 @@
   </div>
 </template>
 
-<style scoped>
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 10px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 10px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
-}
-
-/* Incomplete tile styling with diagonal stripes */
-.incomplete-tile {
-  position: relative;
-  overflow: hidden;
-}
-
-.incomplete-tile::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-image: repeating-linear-gradient(
-    45deg,
-    rgba(0, 0, 0, 0.05),
-    rgba(0, 0, 0, 0.05) 10px,
-    rgba(0, 0, 0, 0.1) 10px,
-    rgba(0, 0, 0, 0.1) 20px
-  );
-  pointer-events: none;
-  z-index: 1;
-}
-</style>
-
 <script setup>
-import { defineProps, defineEmits, computed, onMounted, watch } from 'vue';
-import { format, add } from 'date-fns';
-import { de } from 'date-fns/locale';
-import InsurerStatus from './InsurerStatus.vue';
-import { useInsurerUtils, docTypeColors } from '@/composables/useInsurerUtils';
-import { debounce } from 'lodash';
+  import { defineProps, defineEmits, computed, onMounted, watch, ref } from 'vue';
+  import { format, add } from 'date-fns';
+  import { de } from 'date-fns/locale';
+  import InsurerStatus from './InsurerStatus.vue';
+  import { useInsurerUtils, docTypeColors } from '@/composables/useInsurerUtils';
 
-const props = defineProps({
-  insurers: { type: Array, default: () => [] },
-  sortBy: { type: String, default: 'name' },
-  lastInvoices: { type: Object, default: () => ({}) },
-  currentDate: { type: Date, default: () => new Date() },
-  selectedInsurer: { type: Object, default: () => null }
-});
-
-// Create safe computed properties with proper defaults
-const safeInsurers = computed(() => {
-  return Array.isArray(props.insurers) ? props.insurers : [];
-});
-
-const safeSelectedInsurer = computed(() => {
-  return props.selectedInsurer || null;
-});
-
-const safeLastInvoices = computed(() => {
-  return props.lastInvoices || {};
-});
-
-const emit = defineEmits(['select-insurer', 'clear-selection']);
-
-const sortedInsurers = computed(() => {
-  const insurers = safeInsurers.value || [];
-  if (!Array.isArray(insurers)) return [];
-  
-  // Make a deep copy of the insurers array to avoid reactivity issues
-  const sorted = [...insurers];
-
-  
-  // Ensure BiPRO property is set for display purposes
-  sorted.forEach(insurer => {
-    // Set default bipro property if not defined
-    if (insurer.bipro === undefined) {
-      // Set bipro to true for every third insurer to demonstrate the tag
-      insurer.bipro = insurer.name?.toLowerCase().includes('allianz') || 
-                      insurer.name?.toLowerCase().includes('axa') || 
-                      insurer.name?.toLowerCase().includes('ergo');
-    }
+  const props = defineProps({
+    insurers: { type: Array, default: () => [] },
+    sortBy: { type: String, default: 'name' },
+    lastInvoices: { type: Object, default: () => ({}) },
+    currentDate: { type: Date, default: () => new Date() },
+    selectedInsurer: { type: Object, default: () => null },
+    isLoading: { type: Boolean, default: false }
   });
-  
-  // Sort the insurers
-  sorted.sort((a, b) => {
-    switch (props.sortBy) {
-      case 'date': {
-        const lastInvoiceA = props.lastInvoices?.[a.id];
-        const lastInvoiceB = props.lastInvoices?.[b.id];
-        const dateA = lastInvoiceA?.datum?.seconds ? new Date(lastInvoiceA.datum.seconds * 1000) : new Date(0);
-        const dateB = lastInvoiceB?.datum?.seconds ? new Date(lastInvoiceB.datum.seconds * 1000) : new Date(0);
-        return dateB - dateA;
-      }
-      case 'overdue': {
-        const { calculateDaysOverdue } = useInsurerUtils();
-        const overdueA = utils.calculateDaysOverdue(a, props.currentDate, props.lastInvoices);
-        const overdueB = utils.calculateDaysOverdue(b, props.currentDate, props.lastInvoices);
-        return overdueB - overdueA;
-      }
-      case 'name':
-      default:
-        return a.name.localeCompare(b.name);
+
+  const emit = defineEmits(['select-insurer', 'clear-selection']);
+
+  const scrollContainer = ref(null);
+
+  const safeInsurers = computed(() => {
+    if (!props.insurers || !Array.isArray(props.insurers)) {
+      console.warn('insurers prop is not an array or is undefined, defaulting to empty array');
+      return [];
     }
+    return props.insurers.filter(insurer => insurer != null);
   });
-  
-  return sorted;
-});
 
-const selectInsurer = (insurer) => {
-  emit('select-insurer', insurer);
-};
+  const safeSelectedInsurer = computed(() => {
+    return props.selectedInsurer || null;
+  });
 
-const getNextSettlementDate = (insurer) => {
-  const lastInvoice = props.lastInvoices[insurer.id];
-  if (!lastInvoice || !lastInvoice.datum) return 'N/A';
-  const lastDate = new Date(lastInvoice.datum.seconds * 1000);
-  const nextDate = add(lastDate, { days: insurer.turnus });
-  return format(nextDate, 'dd.MM.yyyy', { locale: de });
-};
+  const safeLastInvoices = computed(() => {
+    return props.lastInvoices || {};
+  });
 
-const getInitials = (name) => {
-  if (!name) return '';
-  return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-};
+  const sortedInsurers = computed(() => {
+    const insurers = safeInsurers.value || [];
+    if (!Array.isArray(insurers)) return [];
 
-const isInsurerIncomplete = (insurer) => {
-  if (!insurer) return true;
+    const sorted = [...insurers];
 
-  const isFieldEmpty = (field) => {
-    if (field === null || field === undefined) return true;
-    if (typeof field === 'string') return field.trim() === '';
-    // For non-string, non-array types (like numbers for turnus), if they exist, they are not empty.
-    return false;
+    sorted.forEach(insurer => {
+      if (insurer.bipro === undefined) {
+        insurer.bipro = insurer.name?.toLowerCase().includes('allianz') || 
+                        insurer.name?.toLowerCase().includes('axa') || 
+                        insurer.name?.toLowerCase().includes('ergo');
+      }
+    });
+
+    sorted.sort((a, b) => {
+      switch (props.sortBy) {
+        case 'date': {
+          const lastInvoiceA = props.lastInvoices?.[a.id];
+          const lastInvoiceB = props.lastInvoices?.[b.id];
+          const dateA = lastInvoiceA?.datum?.seconds ? new Date(lastInvoiceA.datum.seconds * 1000) : new Date(0);
+          const dateB = lastInvoiceB?.datum?.seconds ? new Date(lastInvoiceB.datum.seconds * 1000) : new Date(0);
+          return dateB - dateA;
+        }
+        case 'overdue': {
+          const { calculateDaysOverdue } = useInsurerUtils();
+          const overdueA = calculateDaysOverdue(a, props.currentDate, props.lastInvoices);
+          const overdueB = calculateDaysOverdue(b, props.currentDate, props.lastInvoices);
+          return overdueB - overdueA;
+        }
+        case 'name':
+        default:
+          return a.name.localeCompare(b.name);
+      }
+    });
+
+    return sorted;
+  });
+
+  const selectInsurer = (insurer) => {
+    emit('select-insurer', insurer);
   };
 
-  const turnusEmpty = isFieldEmpty(insurer.turnus);
-  const bezugswegEmpty = isFieldEmpty(insurer.bezugsweg);
-  // For dokumentenart, we check if the *normalized* list is empty.
-  const dokArtEmpty = utils.getNormalizedDocTypes(insurer.dokumentenart).length === 0;
+  const getNextSettlementDate = (insurer) => {
+    const lastInvoice = props.lastInvoices[insurer.id];
+    if (!lastInvoice || !lastInvoice.datum) return 'N/A';
+    const lastDate = new Date(lastInvoice.datum.seconds * 1000);
+    const nextDate = add(lastDate, { days: insurer.turnus });
+    return format(nextDate, 'dd.MM.yyyy', { locale: de });
+  };
 
-  return turnusEmpty || bezugswegEmpty || dokArtEmpty;
-};
+  const getInitials = (name) => {
+    if (!name) return '';
+    return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+  };
 
-const utils = useInsurerUtils();
+  const isInsurerIncomplete = (insurer) => {
+    if (!insurer) return true;
 
-// Memoize status calculations
-const insurerStatuses = computed(() => {
-  return new Map(safeInsurers.value.map(insurer => [
-    insurer.id,
-    {
-      status: utils.getStatusCode(insurer, props.currentDate, safeLastInvoices.value),
-      color: utils.getStatusColor(insurer, props.currentDate, safeLastInvoices.value),
-      text: utils.getStatusText(insurer, props.currentDate, safeLastInvoices.value)
+    const isFieldEmpty = (field) => {
+      if (field === null || field === undefined) return true;
+      if (typeof field === 'string') return field.trim() === '';
+      return false;
+    };
+
+    const turnusEmpty = isFieldEmpty(insurer.turnus);
+    const bezugswegEmpty = isFieldEmpty(insurer.bezugsweg);
+    const dokArtEmpty = utils.getNormalizedDocTypes(insurer.dokumentenart).length === 0;
+
+    return turnusEmpty || bezugswegEmpty || dokArtEmpty;
+  };
+
+  const utils = useInsurerUtils();
+
+  const insurerStatuses = computed(() => {
+    return new Map(safeInsurers.value.map(insurer => [
+      insurer.id,
+      {
+        status: utils.getStatusCode(insurer, props.currentDate, safeLastInvoices.value),
+        color: utils.getStatusColor(insurer, props.currentDate, safeLastInvoices.value),
+        text: utils.getStatusText(insurer, props.currentDate, safeLastInvoices.value)
+      }
+    ]));
+  });
+
+  onMounted(() => {
+    console.group('InsurerList mounted');
+    console.log('currentDate prop:', props.currentDate);
+    console.log('currentDate type:', Object.prototype.toString.call(props.currentDate));
+    console.log('lastInvoices:', props.lastInvoices);
+    console.groupEnd();
+  });
+
+  watch(() => props.insurers, () => {
+    if (scrollContainer.value) {
+      scrollContainer.value.scrollTop = 0;
     }
-  ]));
-});
+  }, { deep: true });
 
-// Debug props
-onMounted(() => {
-  console.group('InsurerList mounted');
-  console.log('currentDate prop:', props.currentDate);
-  console.log('currentDate type:', Object.prototype.toString.call(props.currentDate));
-  console.log('lastInvoices:', props.lastInvoices);
-  console.groupEnd();
-});
+  watch(() => props.currentDate, (newDate) => {
+    console.group('InsurerList - currentDate changed');
+    console.log('New currentDate:', newDate);
+    console.log('Sample insurer status:', 
+      props.insurers.length > 0 ? 
+      utils.getStatusText(props.insurers[0], newDate, props.lastInvoices) : 'No insurers');
+    console.groupEnd();
+  }, { deep: true });
 
-// Watch for changes to currentDate
-watch(() => props.currentDate, (newDate) => {
-  console.group('InsurerList - currentDate changed');
-  console.log('New currentDate:', newDate);
-  console.log('Sample insurer status:', 
-    props.insurers.length > 0 ? 
-    utils.getStatusText(props.insurers[0], newDate, props.lastInvoices) : 'No insurers');
-  console.groupEnd();
-}, { deep: true });
-
-const getNormalizedDocTypes = (docArt) => {
-  console.log('=== getNormalizedDocTypes called with ===', docArt);
-  if (!docArt) {
-    console.log('No document type data provided');
-    return [];
-  }
-  
-  let types = [];
-  
-  // Handle different input formats
-  if (Array.isArray(docArt)) {
-    console.log('Processing as array');
-    // Handle array of strings or objects
-    types = docArt.flatMap(item => {
-      console.log('Processing array item:', item);
-      if (typeof item === 'string') {
-        const result = item.split(',').map(s => s.trim()).filter(Boolean);
-        console.log('Processed string item, result:', result);
-        return result;
-      } else if (item && typeof item === 'object') {
-        console.log('Processing object item:', item);
-        // Handle object with documentType property
-        if (item.documentType) {
-          const result = Array.isArray(item.documentType) 
-            ? item.documentType.map(t => String(t).trim()).filter(Boolean)
-            : [String(item.documentType).trim()].filter(Boolean);
-          console.log('Processed documentType property, result:', result);
+  const getNormalizedDocTypes = (docArt) => {
+    if (!docArt) {
+      return [];
+    }
+    
+    let types = [];
+    
+    if (Array.isArray(docArt)) {
+      types = docArt.flatMap(item => {
+        if (typeof item === 'string') {
+          const result = item.split(',').map(s => s.trim()).filter(Boolean);
+          return result;
+        } else if (item && typeof item === 'object') {
+          if (item.documentType) {
+            const result = Array.isArray(item.documentType) 
+              ? item.documentType.map(t => String(t).trim()).filter(Boolean)
+              : [String(item.documentType).trim()].filter(Boolean);
+            return result;
+          }
+          const result = Object.entries(item)
+            .map(([key, value]) => {
+              return String(value).trim();
+            })
+            .filter(Boolean);
           return result;
         }
-        // Handle other object formats
-        const result = Object.entries(item)
+        return [];
+      });
+    } else if (typeof docArt === 'string') {
+      types = docArt.split(',').map(s => s.trim()).filter(Boolean);
+    } else if (docArt && typeof docArt === 'object') {
+      if (docArt.documentType) {
+        types = Array.isArray(docArt.documentType)
+          ? docArt.documentType.map(t => String(t).trim())
+          : [String(docArt.documentType).trim()];
+      } else {
+        types = Object.entries(docArt)
           .map(([key, value]) => {
-            console.log(`Processing key '${key}':`, value);
             return String(value).trim();
           })
           .filter(Boolean);
-        console.log('Processed object entries, result:', result);
-        return result;
       }
-      console.log('Unhandled item type:', typeof item);
-      return [];
-    });
-  } else if (typeof docArt === 'string') {
-    console.log('Processing as string');
-    // Handle comma-separated strings
-    types = docArt.split(',').map(s => s.trim()).filter(Boolean);
-    console.log('Processed string, result:', types);
-  } else if (docArt && typeof docArt === 'object') {
-    console.log('Processing as object');
-    // Handle single object with document types
-    if (docArt.documentType) {
-      types = Array.isArray(docArt.documentType)
-        ? docArt.documentType.map(t => String(t).trim())
-        : [String(docArt.documentType).trim()];
-    } else {
-      // Extract all values from the object
-      console.log('Extracting values from object:', docArt);
-      types = Object.entries(docArt)
-        .map(([key, value]) => {
-          console.log(`Processing key '${key}':`, value);
-          return String(value).trim();
-        })
-        .filter(Boolean);
     }
-    console.log('Processed object, result:', types);
-  } else {
-    console.log('Unhandled type:', typeof docArt);
-  }
 
-  console.log('Before normalization:', types);
-  
-  // Normalize and deduplicate
-  const normalized = types
-    .map(t => t.toUpperCase())
-    .filter(t => t && t !== ',');
+    const normalized = types
+      .map(t => t.toUpperCase())
+      .filter(t => t && t !== ',');
+      
+    const deduped = [...new Set(normalized)];
     
-  const deduped = [...new Set(normalized)];
-  
-  console.log('After normalization and deduplication:', deduped);
-  return deduped;
-};
+    return deduped;
+  };
 
+  const isOverdue = (insurer) => {
+    const days = utils.calculateDaysOverdue(insurer, props.currentDate, props.lastInvoices);
+    return days > 0;
+  };
 
+  const formatDate = (dateValue) => {
+    if (!dateValue) return '';
+    let date;
+    if (dateValue.seconds) { 
+      date = new Date(dateValue.seconds * 1000);
+    } else {
+      date = new Date(dateValue);
+    }
+    if (isNaN(date.getTime())) return '';
+    return format(date, 'dd.MM.yyyy', { locale: de });
+  };
 
-const isOverdue = (insurer) => {
-  const days = utils.calculateDaysOverdue(insurer, props.currentDate, props.lastInvoices);
-  return days > 0;
-};
+  const formatLastInvoice = (lastInvoice) => {
+    try {
+      if (!lastInvoice) {
+        return 'Keine Abrechnung';
+      }
 
-const formatDate = (dateValue) => {
-  if (!dateValue) return '';
-  let date;
-  if (dateValue.seconds) { // Firestore timestamp
-    date = new Date(dateValue.seconds * 1000);
-  } else {
-    date = new Date(dateValue);
-  }
-  if (isNaN(date.getTime())) return '';
-  return format(date, 'dd.MM.yyyy', { locale: de });
-};
+      // Handle string values directly
+      if (typeof lastInvoice === 'string') {
+        return lastInvoice.trim() || 'Keine Abrechnung';
+      }
 
-const formatLastInvoice = (lastInvoice) => {
-  // Handle null or undefined explicitly
-  if (lastInvoice === null || lastInvoice === undefined) {
-    return 'Keine Abrechnung';
-  }
-
-  // Priority 1: Object with a 'display' property.
-  if (typeof lastInvoice === 'object' && lastInvoice.display) {
-    return lastInvoice.display;
-  }
-
-  // Priority 2: Object with a 'datum' or 'date' property (likely a Firestore timestamp).
-  if (typeof lastInvoice === 'object' && (lastInvoice.datum || lastInvoice.date)) {
-    return formatDate(lastInvoice.datum || lastInvoice.date);
-  }
-
-  // Priority 3: A simple string that is not an array or object representation.
-  if (typeof lastInvoice === 'string' && lastInvoice.trim() && !lastInvoice.includes('[') && !lastInvoice.includes('{')) {
-      return lastInvoice;
-  }
-
-  // Fallback for all other cases (arrays, other objects).
-  return 'Keine Abrechnung';
-};
+      // Handle object values
+      if (typeof lastInvoice === 'object' && lastInvoice !== null) {
+        // Handle object with display property
+        if (lastInvoice.display) {
+          return lastInvoice.display;
+        }
+        
+        // Handle Firestore timestamp
+        if (lastInvoice.seconds) {
+          return formatDate(new Date(lastInvoice.seconds * 1000));
+        }
+        
+        // Handle object with datum or date property
+        if (lastInvoice.datum || lastInvoice.date) {
+          return formatDate(lastInvoice.datum || lastInvoice.date);
+        }
+      }
+      
+      // Default fallback
+      return 'Keine Abrechnung';
+    } catch (error) {
+      console.error('Error formatting last invoice:', error);
+      return 'Keine Abrechnung';
+    }
+  };
 </script>

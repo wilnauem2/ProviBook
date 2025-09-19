@@ -106,26 +106,30 @@
             </div>
             
             <!-- Main content -->
-            <div class="flex-1 grid grid-cols-2 gap-3 text-sm">
+            <div class="flex-1 grid grid-cols-2 gap-4 text-sm">
               <!-- Left column -->
               <div class="space-y-2">
                 <div v-if="insurer.turnus" class="flex items-start">
-                  <svg class="w-4 h-4 text-gray-400 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="w-4 h-4 text-slate-400 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
                   <div>
                     <div class="text-xs text-gray-500">Turnus</div>
-                    <div class="font-medium">{{ insurer.turnus && String(insurer.turnus).match(/\d+/)?.[0] ? `${String(insurer.turnus).match(/\d+/)[0]}-tägig` : insurer.turnus.includes('-tägig') ? insurer.turnus : '' }}</div>
+                    <div>
+                      <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                        {{ insurer.turnus && String(insurer.turnus).match(/\d+/)?.[0] ? `${String(insurer.turnus).match(/\d+/)[0]}-tägig` : insurer.turnus.includes('-tägig') ? insurer.turnus : '' }}
+                      </span>
+                    </div>
                   </div>
                 </div>
                 
                 <div v-if="insurer.contact_person" class="flex items-start">
-                  <svg class="w-4 h-4 text-gray-400 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="w-4 h-4 text-slate-400 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                   <div>
                     <div class="text-xs text-gray-500">Ansprechpartner</div>
-                    <div class="font-medium">{{ insurer.contact_person }}</div>
+                    <div class="font-medium text-slate-700 truncate max-w-[14rem]">{{ insurer.contact_person }}</div>
                   </div>
                 </div>
               </div>
@@ -133,19 +137,22 @@
               <!-- Right column -->
               <div class="space-y-2">
                 <div class="flex items-start">
-                  <svg class="w-4 h-4 text-gray-400 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="w-4 h-4 text-slate-400 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                   </svg>
                   <div>
-                    <div class="text-xs text-gray-500">Letzte Rechnung</div>
-                    <div class="font-medium" :class="isOverdue(insurer) ? 'text-red-600' : 'text-green-600'">
+                    <div class="text-xs text-gray-500">Letzte Abrechnung</div>
+                    <span
+                      class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border"
+                      :class="isOverdue(insurer) ? 'bg-red-50 text-red-700 border-red-200' : 'bg-green-50 text-green-700 border-green-200'"
+                    >
                       {{ insurer && formatLastInvoice ? formatLastInvoice(safeLastInvoices[insurer.id] || (insurer.last_invoice !== null ? insurer.last_invoice : null)) : '' }}
-                    </div>
+                    </span>
                   </div>
                 </div>
                 
                 <div v-if="insurer.next_due" class="flex items-start">
-                  <svg class="w-4 h-4 text-gray-400 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="w-4 h-4 text-slate-400 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <div>
@@ -191,10 +198,7 @@
             </div>
 
             <!-- Footer with actions -->
-            <div class="mt-3 pt-2 border-t border-gray-100 flex justify-between items-center">
-              <span class="text-xs text-gray-500">
-                Zuletzt aktualisiert: {{ formatDate(insurer.updated_at || new Date()) }}
-              </span>
+            <div class="mt-3 pt-2 border-t border-gray-100 flex justify-end items-center">
               <button class="text-blue-600 hover:text-blue-800 text-sm font-medium">
                 Details anzeigen
               </button>

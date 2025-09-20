@@ -426,7 +426,7 @@ const editedVemapool = ref(false);
 
 // Options
 const turnusOptions = ['7-tägig', '14-tägig', '31-tägig', 'Jährlich'];
-const bezugswegOptions = ['E-Mail', 'Post', 'BiPRO', 'Sonstiges'];
+const bezugswegOptions = ['E-Mail', 'Post', 'BiPRO', 'Maklerportal/GetMyInvoices', 'Sonstiges'];
 
 // Initialize form fields when insurer changes
 watch(() => props.insurer, (newInsurer) => {

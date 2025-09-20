@@ -440,11 +440,6 @@
     const days = String(turnus).replace(/[^0-9]/g, '');
     return days ? `${days}-tägig` : turnus;
   };
-  
-  // Make formatTurnus available in the template
-  return {
-    formatTurnus
-  };
 
   const formatLastInvoice = (lastInvoice) => {
     try {

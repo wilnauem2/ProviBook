@@ -157,6 +157,18 @@
                   </div>
                 </div>
 
+                <!-- Vemapool -->
+                <div class="pt-2">
+                  <div class="flex justify-between items-center">
+                    <dt class="text-sm font-medium text-gray-500">Vemapool</dt>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" v-model="editedVemapool" class="sr-only peer" @change="saveField('vemapool')">
+                      <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                  </div>
+                  <dd class="text-xs text-gray-500 mt-1">Aktivieren, falls Vemapool-Stempel angezeigt werden soll</dd>
+                </div>
+
                 <!-- Bezugsweg -->
                 <div>
                   <div class="flex justify-between items-center group">
@@ -184,7 +196,7 @@
                 </div>
 
                 <!-- Dokumentenart -->
-                <div>
+                <div class="pt-4">
                   <div class="flex justify-between items-center group">
                     <dt class="text-sm font-medium text-gray-500">Dokumentenart</dt>
                     <button v-if="insurer.dokumentenart" @click="deleteField('dokumentenart')" class="invisible group-hover:visible text-gray-400 hover:text-red-600 transition-opacity duration-200" title="Dokumentenart löschen">
@@ -326,6 +338,31 @@ const emit = defineEmits(['close', 'delete-insurer', 'settlement-completed', 'up
 const insurerStore = useInsurerStore();
 const { getStatusColor, getStatusText, calculateDaysOverdue, getNormalizedDocTypes, formatLastInvoice } = useInsurerUtils();
 
+// Compute status info for the current insurer
+const statusInfo = computed(() => {
+  const daysOverdue = calculateDaysOverdue(props.insurer);
+  
+  if (daysOverdue > 5) {
+    return {
+      text: 'Überfällig',
+      badgeClass: 'border-red-200 bg-red-50 text-red-800',
+      dotClass: 'text-red-500'
+    };
+  } else if (daysOverdue > 0) {
+    return {
+      text: 'Fällig',
+      badgeClass: 'border-yellow-200 bg-yellow-50 text-yellow-800',
+      dotClass: 'text-yellow-500'
+    };
+  } else {
+    return {
+      text: 'Aktuell',
+      badgeClass: 'border-green-200 bg-green-50 text-green-800',
+      dotClass: 'text-green-500'
+    };
+  }
+});
+
 // Editing state
 const isEditing = ref(false);
 const editField = ref(null);
@@ -371,95 +408,46 @@ const localSettlementHistory = ref([]);
 const showDatePicker = ref(false);
 const selectedDate = ref('');
 const settlementNote = ref('');
-const isCreatingSettlement = ref(false);
-const deletingSettlementId = ref(null);
-const selectedSettlement = ref(null);
+const showDeleteConfirmation = ref(false);
+const showSettlementDeleteConfirmation = ref(false);
+const settlementToDeleteId = ref(null);
 const showSettlementModal = ref(false);
+const selectedSettlement = ref(null);
+
+// Form fields
 const editedName = ref('');
 const editedComment = ref('');
 const editedTurnus = ref('');
 const editedBezugsweg = ref('');
 const editedDokumentenart = ref([]);
-const turnusOptions = ['7-tägig', '14-tägig', '31-tägig'];
-const bezugswegOptions = ['E-Mail', 'Maklerportal', 'Post', 'BiPRO'];
+const editedVemapool = ref(false);
 
-const showDeleteConfirmation = ref(false);
-const showSettlementDeleteConfirmation = ref(false);
-const settlementToDeleteId = ref(null);
+// Options
+const turnusOptions = ['monatlich', 'vierteljaehrlich', 'halbjaehrlich', 'jaehrlich'];
+const bezugswegOptions = ['E-Mail', 'Post', 'BiPRO', 'Sonstiges'];
 
-// Computed Properties
-const formattedLastInvoiceDate = computed(() => {
-  if (!localLastInvoice.value) return 'N/A';
-  const dateValue = localLastInvoice.value.date || localLastInvoice.value.datum;
-  if (!dateValue) return 'N/A';
-  
-  const dateToFormat = dateValue.toDate ? dateValue.toDate() : new Date(dateValue);
-  if (isNaN(dateToFormat.getTime())) return 'Ungültig';
-  return format(dateToFormat, 'dd.MM.yyyy');
-});
-
-const nextDueDate = computed(() => {
-  if (!props.insurer || !props.insurer.next_due) return 'N/A';
-  const date = props.insurer.next_due.toDate ? props.insurer.next_due.toDate() : new Date(props.insurer.next_due);
-  return format(date, 'dd.MM.yyyy');
-});
-
-const isInsurerIncomplete = computed(() => {
-  if (!props.insurer) return true;
-  
-  const isFieldEmpty = (field) => {
-    if (field === null || field === undefined) return true;
-    if (typeof field === 'string') return field.trim() === '';
-    return false;
-  };
-
-  const utils = useInsurerUtils();
-  const turnusEmpty = isFieldEmpty(props.insurer.turnus);
-  const bezugswegEmpty = isFieldEmpty(props.insurer.bezugsweg);
-  const dokArtEmpty = utils.getNormalizedDocTypes(props.insurer.dokumentenart).length === 0;
-
-  return turnusEmpty || bezugswegEmpty || dokArtEmpty;
-});
-
-const statusInfo = computed(() => {
-  if (!props.insurer) return { text: 'Unbekannt', badgeClass: 'bg-gray-100 text-gray-800', dotClass: 'text-gray-400' };
-  
-  if (isInsurerIncomplete.value) {
-    return { text: 'Unvollständig', badgeClass: 'bg-gray-100 text-gray-800 border-gray-200', dotClass: 'text-gray-500' };
+// Initialize form fields when insurer changes
+watch(() => props.insurer, (newInsurer) => {
+  if (newInsurer) {
+    editedName.value = newInsurer.name || '';
+    editedComment.value = newInsurer.comment || '';
+    editedTurnus.value = newInsurer.turnus || '';
+    editedBezugsweg.value = newInsurer.bezugsweg || '';
+    editedDokumentenart.value = getNormalizedDocTypes(newInsurer.dokumentenart);
+    editedVemapool.value = newInsurer.vemapool || false;
   }
-  
-  const daysOverdue = calculateDaysOverdue(props.insurer, props.currentDate, localLastInvoice.value);
+}, { immediate: true });
 
-  if (daysOverdue > 5) {
-    return { text: 'Kritisch', badgeClass: 'bg-red-100 text-red-800 border-red-200', dotClass: 'text-red-500' };
-  } else if (daysOverdue > 0) {
-    return { text: 'Überfällig', badgeClass: 'bg-yellow-100 text-yellow-800 border-yellow-200', dotClass: 'text-yellow-500' };
-  } else if (daysOverdue < 0) {
-    return { text: 'Bald fällig', badgeClass: 'bg-blue-100 text-blue-800 border-blue-200', dotClass: 'text-blue-500' };
-  }
-  return { text: 'Aktuell', badgeClass: 'bg-green-100 text-green-800 border-green-200', dotClass: 'text-green-500' };
-});
+// Helper function to check if a field is empty
+const isFieldEmpty = (field) => {
+  return field === undefined || field === null || field === '' || (Array.isArray(field) && field.length === 0);
+};
 
-const formattedTurnus = computed(() => {
-  if (!props.insurer || !props.insurer.turnus) return 'N/A';
-  // The turnus is now stored as 'XX-tägig', so just return it.
-  return props.insurer.turnus;
-});
-
-const sortedSettlements = computed(() => {
-  if (!settlementHistory.value) return [];
-  return [...settlementHistory.value].sort((a, b) => {
-    const dateA = a.date.toDate ? a.date.toDate() : new Date(a.date);
-    const dateB = b.date.toDate ? b.date.toDate() : new Date(b.date);
-    return dateB - dateA;
-  });
-});
-
-// Methods
-const handleClose = () => emit('close');
+const handleClose = () => {
+  emit('close');
+};
 
 const showSettlementDetails = (settlement) => {
-  console.log('Settlement data:', JSON.parse(JSON.stringify(settlement))); // Debug log
   selectedSettlement.value = settlement;
   showSettlementModal.value = true;
 };
@@ -467,34 +455,26 @@ const showSettlementDetails = (settlement) => {
 const startEditing = (field) => {
   isEditing.value = true;
   editField.value = field;
-  if (field === 'name') editedName.value = props.insurer.name;
-  else if (field === 'comment') editedComment.value = props.insurer.comment || '';
-  else if (field === 'turnus') editedTurnus.value = props.insurer.turnus;
-  else if (field === 'bezugsweg') editedBezugsweg.value = props.insurer.bezugsweg;
-  else if (field === 'dokumentenart') {
-    // Ensure we have an array and normalize the document types when starting to edit
-    const docTypes = Array.isArray(props.insurer.dokumentenart) 
-      ? props.insurer.dokumentenart 
-      : [props.insurer.dokumentenart].filter(Boolean);
-    
-    // Map single letters to full document types if needed
-    const docTypeMap = {
-      'P': 'PDF',
-      'C': 'CSV',
-      'X': 'XLS',
-      'M': 'XML',
-      'A': 'Papier'
-    };
-    
-    const normalizedTypes = docTypes.map(type => {
-      // If it's a single letter, try to map it to a full type
-      if (typeof type === 'string' && type.length === 1) {
-        return docTypeMap[type.toUpperCase()] || type;
-      }
-      return type;
-    }).filter(type => allDocTypes.includes(type)); // Only keep valid document types
-    
-    editedDokumentenart.value = [...new Set(normalizedTypes)]; // Remove duplicates
+  
+  switch(field) {
+    case 'name':
+      editedName.value = props.insurer.name || '';
+      break;
+    case 'comment':
+      editedComment.value = props.insurer.comment || '';
+      break;
+    case 'turnus':
+      editedTurnus.value = props.insurer.turnus || '';
+      break;
+    case 'bezugsweg':
+      editedBezugsweg.value = props.insurer.bezugsweg || '';
+      break;
+    case 'dokumentenart':
+      editedDokumentenart.value = getNormalizedDocTypes(props.insurer.dokumentenart);
+      break;
+    case 'vemapool':
+      editedVemapool.value = props.insurer.vemapool || false;
+      break;
   }
 };
 
@@ -504,69 +484,61 @@ const cancelEditing = () => {
 };
 
 const formatTurnus = () => {
-  const turnusValue = String(editedTurnus.value);
-  const numbers = turnusValue.match(/\d+/);
-  if (numbers) {
-    editedTurnus.value = `${numbers[0]}-tägig`;
-  }
+  if (!props.insurer.turnus) return 'Kein Turnus festgelegt';
+  const turnusMap = {
+    'monatlich': 'monatlich',
+    'vierteljaehrlich': 'vierteljährlich',
+    'halbjaehrlich': 'halbjährlich',
+    'jaehrlich': 'jährlich'
+  };
+  return turnusMap[props.insurer.turnus] || props.insurer.turnus;
 };
 
 const deleteField = async (field) => {
-  if (confirm(`Sind Sie sicher, dass Sie das Feld '${field}' löschen möchten?`)) {
-    const updatedData = { [field]: null };
-    const success = await insurerStore.updateInsurer(props.insurer.id, updatedData);
-    if (success) {
-      // Create a new object for the updated insurer to ensure reactivity.
-      const updatedInsurer = { ...props.insurer, ...updatedData };
-      emit('update:insurer', updatedInsurer);
+  try {
+    await insurerStore.updateInsurer(props.insurer.id, { [field]: null });
+    // Update local state
+    if (field === 'dokumentenart') {
+      editedDokumentenart.value = [];
     }
+  } catch (err) {
+    console.error('Error deleting field:', err);
   }
 };
 
 const saveField = async (field) => {
-  let updatedData = {};
-  if (field === 'name') {
-    updatedData = { name: editedName.value };
-  } else if (field === 'comment') {
-    updatedData = { comment: editedComment.value };
-  } else if (field === 'turnus') {
-    formatTurnus();
-    updatedData = { turnus: editedTurnus.value };
-  } else if (field === 'bezugsweg') {
-    if (editedBezugsweg.value && editedBezugsweg.value.toLowerCase().trim() === 'email') {
-      editedBezugsweg.value = 'E-Mail';
+  try {
+    let updateData = {};
+    
+    switch(field) {
+      case 'name':
+        updateData.name = editedName.value.trim();
+        break;
+      case 'comment':
+        updateData.comment = editedComment.value.trim();
+        break;
+      case 'turnus':
+        updateData.turnus = editedTurnus.value;
+        break;
+      case 'bezugsweg':
+        updateData.bezugsweg = editedBezugsweg.value;
+        break;
+      case 'dokumentenart':
+        updateData.dokumentenart = editedDokumentenart.value;
+        break;
+      case 'vemapool':
+        updateData.vemapool = editedVemapool.value;
+        break;
     }
-    updatedData = { bezugsweg: editedBezugsweg.value };
-  } else if (field === 'dokumentenart') {
-    // Ensure we have an array and normalize the document types
-    const docTypes = Array.isArray(editedDokumentenart.value) 
-      ? editedDokumentenart.value 
-      : [editedDokumentenart.value].filter(Boolean);
-      
-    // Map single letters to full document types if needed
-    const docTypeMap = {
-      'P': 'PDF',
-      'C': 'CSV',
-      'X': 'XLS',
-      'M': 'XML',
-      'A': 'Papier'
-    };
-    
-    const normalizedTypes = docTypes.map(type => {
-      // If it's a single letter, try to map it to a full type
-      if (typeof type === 'string' && type.length === 1) {
-        return docTypeMap[type.toUpperCase()] || type;
-      }
-      return type;
-    }).filter(type => allDocTypes.includes(type)); // Only keep valid document types
-    
-    updatedData = { dokumentenart: [...new Set(normalizedTypes)] }; // Remove duplicates
-  }
 
-  if (Object.keys(updatedData).length > 0) {
-    await insurerStore.updateInsurer(props.insurer.id, updatedData);
+    if (Object.keys(updateData).length > 0) {
+      await insurerStore.updateInsurer(props.insurer.id, updateData);
+    }
+    
+    cancelEditing();
+  } catch (err) {
+    console.error('Error saving field:', err);
   }
-  cancelEditing();
 };
 
 const confirmDelete = () => {

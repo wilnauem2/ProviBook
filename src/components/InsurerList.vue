@@ -106,7 +106,13 @@
             </div>
             
             <!-- Main content -->
-            <div class="flex-1 grid grid-cols-2 gap-4 text-sm">
+            <div class="flex-1 grid grid-cols-2 gap-4 text-sm relative">
+              <!-- Vemapool Stamp -->
+              <div v-if="insurer.vemapool" class="absolute inset-0 pointer-events-none z-10">
+                <div class="absolute right-24 top-4 w-72 h-20 bg-red-600 text-white font-bold text-xl flex items-center justify-center transform rotate-12 shadow-lg rounded-md">
+                  VEMAPOOL
+                </div>
+              </div>
               <!-- Left column -->
               <div class="space-y-2">
                 <div v-if="insurer.turnus" class="flex items-start">

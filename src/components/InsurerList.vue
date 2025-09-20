@@ -123,7 +123,7 @@
                     <div class="text-xs text-gray-500">Turnus</div>
                     <div>
                       <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                        {{ insurer.turnus && String(insurer.turnus).match(/\d+/)?.[0] ? `${String(insurer.turnus).match(/\d+/)[0]}-tägig` : insurer.turnus.includes('-tägig') ? insurer.turnus : '' }}
+                        {{ insurer.turnus || 'No turnus' }}
                       </span>
                     </div>
                   </div>
@@ -427,6 +427,23 @@
     }
     if (isNaN(date.getTime())) return '';
     return format(date, 'dd.MM.yyyy', { locale: de });
+  };
+
+  // Format turnus for display
+  const formatTurnus = (turnus) => {
+    if (!turnus) return '';
+    // If it's already in the format 'X-tägig' or 'Jährlich', return as is
+    if (String(turnus).includes('-tägig') || turnus === 'Jährlich') {
+      return turnus;
+    }
+    // Otherwise, try to extract number and add '-tägig'
+    const days = String(turnus).replace(/[^0-9]/g, '');
+    return days ? `${days}-tägig` : turnus;
+  };
+  
+  // Make formatTurnus available in the template
+  return {
+    formatTurnus
   };
 
   const formatLastInvoice = (lastInvoice) => {

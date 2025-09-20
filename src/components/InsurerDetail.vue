@@ -139,7 +139,7 @@
                     </button>
                     <button @click="startEditing('turnus')" class="text-gray-400 hover:text-blue-600 transition-colors duration-200 text-sm font-medium">Bearbeiten</button>
                   </div>
-                  <dd v-if="!isEditing || editField !== 'turnus'" class="text-sm text-gray-900 font-semibold">{{ formattedTurnus }}</dd>
+                  <dd v-if="!isEditing || editField !== 'turnus'" class="text-sm text-gray-900 font-semibold">{{ insurer.turnus ? formatTurnus(insurer.turnus) : 'Kein Turnus festgelegt' }}</dd>
                   <div v-else>
                     <select 
                       v-model="editedTurnus" 
@@ -155,18 +155,6 @@
                       <button @click="saveField('turnus')" class="px-3 py-1 text-sm font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700">Speichern</button>
                     </div>
                   </div>
-                </div>
-
-                <!-- Vemapool -->
-                <div class="pt-2">
-                  <div class="flex justify-between items-center">
-                    <dt class="text-sm font-medium text-gray-500">Vemapool</dt>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" v-model="editedVemapool" class="sr-only peer" @change="saveField('vemapool')">
-                      <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
-                  <dd class="text-xs text-gray-500 mt-1">Aktivieren, falls Vemapool-Stempel angezeigt werden soll</dd>
                 </div>
 
                 <!-- Bezugsweg -->
@@ -226,6 +214,20 @@
                       <button @click="cancelEditing()" class="px-3 py-1 text-sm font-medium bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Abbrechen</button>
                       <button @click="saveField('dokumentenart')" class="px-3 py-1 text-sm font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700">Speichern</button>
                     </div>
+                  </div>
+                </div>
+
+                <!-- Vemapool -->
+                <div class="pt-4 border-t border-gray-200 mt-4">
+                  <div class="flex justify-between items-center">
+                    <div>
+                      <dt class="text-sm font-medium text-gray-500">Vemapool</dt>
+                      <dd class="text-xs text-gray-500 mt-1">Aktivieren, falls Vemapool-Stempel angezeigt werden soll</dd>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" v-model="editedVemapool" class="sr-only peer" @change="saveField('vemapool')">
+                      <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
                   </div>
                 </div>
               </dl>
@@ -423,7 +425,7 @@ const editedDokumentenart = ref([]);
 const editedVemapool = ref(false);
 
 // Options
-const turnusOptions = ['monatlich', 'vierteljaehrlich', 'halbjaehrlich', 'jaehrlich'];
+const turnusOptions = ['7-tägig', '14-tägig', '31-tägig', 'Jährlich'];
 const bezugswegOptions = ['E-Mail', 'Post', 'BiPRO', 'Sonstiges'];
 
 // Initialize form fields when insurer changes
@@ -483,16 +485,22 @@ const cancelEditing = () => {
   editField.value = null;
 };
 
-const formatTurnus = () => {
-  if (!props.insurer.turnus) return 'Kein Turnus festgelegt';
-  const turnusMap = {
-    'monatlich': 'monatlich',
-    'vierteljaehrlich': 'vierteljährlich',
-    'halbjaehrlich': 'halbjährlich',
-    'jaehrlich': 'jährlich'
-  };
-  return turnusMap[props.insurer.turnus] || props.insurer.turnus;
+const formatTurnus = (turnus) => {
+  if (!turnus) return 'Kein Turnus festgelegt';
+  
+  // If it's already in the correct format, return as is
+  if (String(turnus).includes('-tägig') || turnus === 'Jährlich') {
+    return turnus;
+  }
+  
+  // Otherwise, try to extract the number and add '-tägig'
+  const days = String(turnus).replace(/[^0-9]/g, '');
+  return days ? `${days}-tägig` : turnus;
 };
+
+const formattedTurnus = computed(() => {
+  return formatTurnus(props.insurer.turnus);
+});
 
 const deleteField = async (field) => {
   try {
@@ -518,7 +526,12 @@ const saveField = async (field) => {
         updateData.comment = editedComment.value.trim();
         break;
       case 'turnus':
+        // Save the exact value from the dropdown
         updateData.turnus = editedTurnus.value;
+        // Update the local insurer object to trigger a re-render
+        props.insurer.turnus = editedTurnus.value;
+        // Force update the formattedTurnus computed property
+        formattedTurnus.value = formatTurnus(editedTurnus.value);
         break;
       case 'bezugsweg':
         updateData.bezugsweg = editedBezugsweg.value;

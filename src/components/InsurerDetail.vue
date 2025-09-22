@@ -535,8 +535,11 @@ const saveField = async (field) => {
         break;
       case 'bezugsweg':
         updateData.bezugsweg = editedBezugsweg.value;
-        // If bezugsweg is changed to something other than 'BiPRO', set bipro to false
-        if (props.insurer.bipro && editedBezugsweg.value !== 'BiPRO') {
+        // Update bipro flag based on the new bezugsweg value
+        if (editedBezugsweg.value === 'BiPRO') {
+          updateData.bipro = true;
+        } else if (props.insurer.bipro) {
+          // If bezugsweg is changed from BiPRO to something else, set bipro to false
           updateData.bipro = false;
         }
         break;

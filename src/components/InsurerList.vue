@@ -64,17 +64,50 @@
                 >
                   {{ getInitials(insurer.name) }}
                 </div>
-                <div class="flex items-center">
+                <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
                   <h3 class="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors break-words">
                     {{ insurer.name }}
                   </h3>
-                  <span v-if="insurer.bipro || insurer.bezugsweg === 'BiPRO'" class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
-                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                    </svg>
-                    BiPRO
-                    <span v-if="insurer.bipro_version" class="ml-1 opacity-90 text-xs">{{ insurer.bipro_version }}</span>
-                  </span>
+                  <!-- Access Method Badges -->
+                  <div class="flex flex-wrap gap-1.5 items-center">
+                    <!-- BiPRO Badge -->
+                    <span v-if="insurer.bipro || insurer.bezugsweg === 'BiPRO'" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
+                      <svg class="w-3 h-3 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                      </svg>
+                      BiPRO
+                      <span v-if="insurer.bipro_version" class="ml-1 opacity-90 text-[0.65rem]">{{ insurer.bipro_version }}</span>
+                    </span>
+                    
+                    <!-- per Port Badge -->
+                    <span v-if="insurer.bezugsweg === 'per Port'" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gradient-to-r from-blue-600 to-cyan-500 text-white">
+                      <svg class="w-3 h-3 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
+                      </svg>
+                      per Port
+                    </span>
+                    
+                    <!-- per Mail Badge -->
+                    <span v-else-if="insurer.bezugsweg === 'per Mail'" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gradient-to-r from-emerald-600 to-teal-500 text-white">
+                      <svg class="w-3 h-3 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                      </svg>
+                      per Mail
+                    </span>
+                    
+                    <!-- GetMyInvoices (GMI) Badge -->
+                    <span v-else-if="insurer.bezugsweg === 'Maklerportal/GetMyInvoices' || insurer.bezugsweg === 'Maklerportal / GetMyInvoices'" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gradient-to-r from-amber-600 to-orange-500 text-white">
+                      <svg class="w-3 h-3 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                      </svg>
+                      GMI
+                    </span>
+                    
+                    <!-- Generic Bezugsweg Badge (only show if not already handled by specific badges) -->
+                    <span v-else-if="insurer.bezugsweg && insurer.bezugsweg !== 'BiPRO' && insurer.bezugsweg !== 'per Port' && insurer.bezweg !== 'per Mail' && insurer.bezugsweg !== 'Maklerportal/GetMyInvoices' && insurer.bezugsweg !== 'Maklerportal / GetMyInvoices'" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-600 text-white">
+                      {{ insurer.bezugsweg }}
+                    </span>
+                  </div>
                 </div>
               </div>
               

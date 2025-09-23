@@ -21,221 +21,230 @@
     </div>
    
     <div ref="scrollContainer" class="flex-1 overflow-y-auto w-full -mr-3 pr-1">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 p-3">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
         <div
           v-for="insurer in (sortedInsurers || [])"
           :key="insurer.id"
           @click="emit('select-insurer', insurer)"
-          class="relative group cursor-pointer"
           :class="[
-            'group relative p-6 rounded-xl cursor-pointer',
-            'bg-white border border-gray-200',
-            'hover:shadow-lg hover:border-transparent',
+            'group relative overflow-hidden rounded-xl bg-white border border-gray-100',
+            'transition-all duration-200 ease-in-out transform',
+            'hover:shadow-lg hover:border-transparent hover:ring-2 hover:ring-blue-100',
             'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50',
-            safeSelectedInsurer?.name === insurer.name
-              ? 'ring-2 ring-blue-500 ring-opacity-50 border-transparent transform scale-[0.99] shadow-md'
-              : 'hover:scale-[1.01]',
-            'h-full min-h-[140px] flex flex-col',
-            'transition-all duration-200 hover:shadow-md',
-            isInsurerIncomplete(insurer) ? 'opacity-50 grayscale' : ''
+            safeSelectedInsurer?.id === insurer.id ? 'ring-2 ring-blue-500 ring-opacity-50 border-blue-200 bg-blue-50/30' : 'hover:border-gray-200 hover:shadow-sm',
+            isInsurerIncomplete(insurer) ? 'opacity-80 grayscale' : '',
+            'cursor-pointer'
           ]"
         >
           <!-- Status indicator bar -->
           <div 
-            class="absolute top-0 left-0 w-1.5 h-full rounded-l-lg"
+            class="absolute top-0 left-0 w-1.5 h-full"
             :class="{
               'bg-red-500': insurerStatuses.get(insurer.id)?.status === 'red',
               'bg-yellow-500': insurerStatuses.get(insurer.id)?.status === 'yellow',
-              'bg-green-500': insurerStatuses.get(insurer.id)?.status === 'green'
+              'bg-green-500': insurerStatuses.get(insurer.id)?.status === 'green',
+              'bg-gray-300': !insurerStatuses.get(insurer.id)?.status
             }"
           ></div>
           
-          <div class="flex flex-1 flex-col h-full">
+          <div class="p-5">
             <!-- Header with logo/initials and name -->
-            <div class="flex items-start justify-between mb-3 min-w-0">
-              <div class="flex items-center min-w-0">
+            <div class="flex items-start justify-between mb-4">
+              <div class="flex items-start space-x-3 min-w-0">
+                <!-- Initials Avatar -->
                 <div 
-                  class="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-lg mr-3"
+                  class="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-sm"
                   :class="{
                     'bg-red-500': insurerStatuses.get(insurer.id)?.status === 'red',
                     'bg-yellow-500': insurerStatuses.get(insurer.id)?.status === 'yellow',
-                    'bg-green-500': insurerStatuses.get(insurer.id)?.status === 'green'
+                    'bg-green-500': insurerStatuses.get(insurer.id)?.status === 'green',
+                    'bg-blue-500': !insurerStatuses.get(insurer.id)?.status
                   }"
                 >
                   {{ getInitials(insurer.name) }}
                 </div>
-                <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                  <h3 class="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors break-words">
+                
+                <!-- Name and Access Methods -->
+                <div class="min-w-0">
+                  <h3 class="text-base font-semibold text-gray-900 truncate group-hover:text-blue-600 transition-colors">
                     {{ insurer.name }}
                   </h3>
                   <!-- Access Method Badges -->
-                  <div class="flex flex-wrap gap-1.5 items-center">
+                  <div class="flex flex-wrap gap-1.5 mt-1">
                     <!-- BiPRO Badge -->
-                    <span v-if="insurer.bipro || insurer.bezugsweg === 'BiPRO'" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
-                      <svg class="w-3 h-3 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <span v-if="insurer.bipro || insurer.bezugsweg === 'BiPRO'" class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-gradient-to-r from-purple-50 to-purple-50 text-purple-700 border border-purple-100">
+                      <svg class="w-3 h-3 mr-1.5 flex-shrink-0 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
                       </svg>
                       BiPRO
-                      <span v-if="insurer.bipro_version" class="ml-1 opacity-90 text-[0.65rem]">{{ insurer.bipro_version }}</span>
+                      <span v-if="insurer.bipro_version" class="ml-1 font-normal text-purple-600">{{ insurer.bipro_version }}</span>
                     </span>
                     
                     <!-- per Port Badge -->
-                    <span v-if="insurer.bezugsweg === 'per Port'" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gradient-to-r from-blue-600 to-cyan-500 text-white">
-                      <svg class="w-3 h-3 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <span v-if="insurer.bezugsweg === 'per Port'" class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                      <svg class="w-3 h-3 mr-1.5 flex-shrink-0 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
                       </svg>
                       per Port
                     </span>
                     
                     <!-- per Mail Badge -->
-                    <span v-else-if="insurer.bezugsweg === 'per Mail'" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gradient-to-r from-emerald-600 to-teal-500 text-white">
-                      <svg class="w-3 h-3 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <span v-else-if="insurer.bezugsweg === 'per Mail'" class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-100">
+                      <svg class="w-3 h-3 mr-1.5 flex-shrink-0 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
                       </svg>
                       per Mail
                     </span>
                     
                     <!-- GetMyInvoices (GMI) Badge -->
-                    <span v-else-if="insurer.bezugsweg === 'Maklerportal/GetMyInvoices' || insurer.bezugsweg === 'Maklerportal / GetMyInvoices'" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gradient-to-r from-amber-600 to-orange-500 text-white">
-                      <svg class="w-3 h-3 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <span v-else-if="insurer.bezugsweg === 'Maklerportal/GetMyInvoices' || insurer.bezugsweg === 'Maklerportal / GetMyInvoices'" class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-amber-50 text-amber-700 border border-amber-100">
+                      <svg class="w-3 h-3 mr-1.5 flex-shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
                       </svg>
-                      GMI
-                    </span>
-                    
-                    <!-- Generic Bezugsweg Badge (only show if not already handled by specific badges) -->
-                    <span v-else-if="insurer.bezugsweg && insurer.bezugsweg !== 'BiPRO' && insurer.bezugsweg !== 'per Port' && insurer.bezweg !== 'per Mail' && insurer.bezugsweg !== 'Maklerportal/GetMyInvoices' && insurer.bezugsweg !== 'Maklerportal / GetMyInvoices'" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-600 text-white">
-                      {{ insurer.bezugsweg }}
+                      GetMyInvoices
                     </span>
                   </div>
                 </div>
               </div>
-              
-              <!-- Status badge -->
-              <span 
-                v-if="isInsurerIncomplete(insurer)"
-                class="flex-shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-2 bg-gray-100 text-gray-800"
-              >
-                Unvollständig
-              </span>
-              <span 
-                v-else-if="insurerStatuses.get(insurer.id)?.status === 'red'"
-                class="flex-shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-2 bg-red-100 text-red-800"
-              >
-                {{ insurerStatuses.get(insurer.id)?.text || 'Überfällig' }}
-              </span>
-              <span 
-                v-else-if="insurerStatuses.get(insurer.id)?.status === 'yellow'"
-                class="flex-shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-2 bg-yellow-100 text-yellow-800"
-              >
-                {{ insurerStatuses.get(insurer.id)?.text || 'Fällig' }}
-              </span>
-              <span 
-                v-else
-                class="flex-shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ml-2 bg-green-100 text-green-800"
-              >
-                {{ insurerStatuses.get(insurer.id)?.text || 'Aktuell' }}
-              </span>
+
+              <!-- Status Badge -->
+              <div class="flex-shrink-0 ml-2">
+                <span 
+                  v-if="insurerStatuses.get(insurer.id)?.status === 'red'"
+                  class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-100"
+                >
+                  <span class="w-2 h-2 rounded-full bg-red-500 mr-1.5"></span>
+                  {{ insurerStatuses.get(insurer.id)?.text || 'Überfällig' }}
+                </span>
+                <span 
+                  v-else-if="insurerStatuses.get(insurer.id)?.status === 'yellow'"
+                  class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-50 text-yellow-700 border border-yellow-100"
+                >
+                  <span class="w-2 h-2 rounded-full bg-yellow-500 mr-1.5"></span>
+                  {{ insurerStatuses.get(insurer.id)?.text || 'Fällig' }}
+                </span>
+                <span 
+                  v-else
+                  class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-100"
+                >
+                  <span class="w-2 h-2 rounded-full bg-green-500 mr-1.5"></span>
+                  {{ insurerStatuses.get(insurer.id)?.text || 'Aktuell' }}
+                </span>
+              </div>
             </div>
             
             <!-- Main content -->
-            <div class="flex-1 grid grid-cols-2 gap-4 text-sm relative">
+            <div class="grid grid-cols-2 gap-4 text-sm mt-4 relative">
               <!-- Vemapool Stamp -->
-              <div v-if="insurer.vemapool" class="absolute inset-0 pointer-events-none z-10">
-                <div class="absolute right-24 top-4 w-72 h-20 bg-red-600 text-white font-bold text-xl flex items-center justify-center transform rotate-12 shadow-lg rounded-md">
+              <div v-if="insurer.vemapool" class="absolute right-0 top-0 pointer-events-none z-10">
+                <div class="bg-gradient-to-r from-red-600 to-red-700 text-white font-bold text-sm px-4 py-2 transform -rotate-12 shadow-lg rounded">
                   VEMAPOOL
                 </div>
               </div>
+              
               <!-- Left column -->
-              <div class="space-y-2">
+              <div class="space-y-3">
                 <div v-if="insurer.turnus" class="flex items-start">
-                  <svg class="w-4 h-4 text-slate-400 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
+                  <div class="bg-blue-50 p-1.5 rounded-lg mr-3">
+                    <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
                   <div>
-                    <div class="text-xs text-gray-500">Turnus</div>
-                    <div>
-                      <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                        {{ insurer.turnus || 'No turnus' }}
-                      </span>
+                    <div class="text-xs font-medium text-gray-500 mb-0.5">Turnus</div>
+                    <div class="font-medium text-gray-900">
+                      {{ formatTurnus(insurer.turnus) || 'Nicht angegeben' }}
                     </div>
                   </div>
                 </div>
                 
                 <div v-if="insurer.contact_person" class="flex items-start">
-                  <svg class="w-4 h-4 text-slate-400 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
+                  <div class="bg-blue-50 p-1.5 rounded-lg mr-3">
+                    <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
                   <div>
-                    <div class="text-xs text-gray-500">Ansprechpartner</div>
-                    <div class="font-medium text-slate-700 truncate max-w-[14rem]">{{ insurer.contact_person }}</div>
+                    <div class="text-xs font-medium text-gray-500 mb-0.5">Ansprechpartner</div>
+                    <div class="font-medium text-gray-900">{{ insurer.contact_person }}</div>
                   </div>
                 </div>
               </div>
-              
+
               <!-- Right column -->
-              <div class="space-y-2">
-                <div class="flex items-start">
-                  <svg class="w-4 h-4 text-slate-400 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                  </svg>
+              <div class="space-y-3">
+                <div v-if="insurer.last_invoice" class="flex items-start">
+                  <div class="bg-blue-50 p-1.5 rounded-lg mr-3">
+                    <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                  </div>
                   <div>
-                    <div class="text-xs text-gray-500">Letzte Abrechnung</div>
-                    <span
-                      class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium border"
-                      :class="isOverdue(insurer) ? 'bg-red-50 text-red-700 border-red-200' : 'bg-green-50 text-green-700 border-green-200'"
-                    >
-                      {{ insurer && formatLastInvoice ? formatLastInvoice(safeLastInvoices[insurer.id] || (insurer.last_invoice !== null ? insurer.last_invoice : null)) : '' }}
-                    </span>
+                    <div class="text-xs font-medium text-gray-500 mb-0.5">Letzte Rechnung</div>
+                    <div class="font-medium text-gray-900">
+                      {{ formatLastInvoice(insurer.last_invoice) }}
+                    </div>
                   </div>
                 </div>
                 
-                <div v-if="insurer.next_due" class="flex items-start">
-                  <svg class="w-4 h-4 text-slate-400 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+                <div v-if="getNextSettlementDate(insurer)" class="flex items-start">
+                  <div class="bg-blue-50 p-1.5 rounded-lg mr-3">
+                    <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
                   <div>
-                    <div class="text-xs text-gray-500">Fällig am</div>
-                    <div class="font-medium">{{ formatDate(insurer.next_due) }}</div>
+                    <div class="text-xs font-medium text-gray-500 mb-0.5">Nächste Fälligkeit</div>
+                    <div class="font-medium text-gray-900">
+                      {{ formatDate(getNextSettlementDate(insurer)) }}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
             
-            <!-- File format tags -->
-            <div class="mt-3 flex flex-wrap gap-2">
-              <!-- BiPRO -->
-              <span v-if="insurer.bipro_support" class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-purple-100 text-purple-800">
-                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                </svg>
-                <span class="font-semibold">BiPRO</span>
-                <span v-if="insurer.bipro_version" class="ml-1 opacity-75">{{ insurer.bipro_version }}</span>
-              </span>
-
-              <!-- Document Types -->
-              <template v-if="insurer.name === 'Test-Versicherer 9' || insurer.name === 'Drupal A'">
-                <!-- Debug info for specific insurers -->
-                <div class="w-full text-xs text-red-600 bg-yellow-50 p-1 mb-1 rounded">
-                  <div>Debug for {{ insurer.name }}:</div>
-                  <div>Raw dokumentenart: {{ JSON.stringify(insurer.dokumentenart) }}</div>
-                  <div>Processed types: {{ JSON.stringify(getNormalizedDocTypes(insurer.dokumentenart)) }}</div>
-                </div>
-              </template>
-              
-              <span v-for="docType in getNormalizedDocTypes(insurer.dokumentenart)" :key="docType" 
-                    class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium"
-                    :class="docTypeColors[docType]?.classes || 'bg-gray-100 text-gray-800'">
-                <svg v-if="docTypeColors[docType]?.icon" class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" v-html="docTypeColors[docType]?.icon"></svg>
-                {{ docType }}
-              </span>
-              
-              <!-- Fallback if no formats are specified -->
-              <span v-if="getNormalizedDocTypes(insurer.dokumentenart).length === 0" class="text-xs text-gray-500">
-                Keine Formate angegeben
-              </span>
+            <div class="mt-4 pt-4 border-t border-gray-100">
+              <div class="flex flex-wrap items-center gap-3">
+                <!-- BiPRO Support -->
+                <span v-if="insurer.bipro_support" class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium bg-purple-50 text-purple-700 border border-purple-100">
+                  <svg class="w-3.5 h-3.5 mr-1.5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                  </svg>
+                  BiPRO Support
+                </span>
+                
+                <!-- Document Type Badges -->
+                <template v-if="insurer.dokumentenart && insurer.dokumentenart.length > 0">
+                  <span 
+                    v-for="(doc, index) in getNormalizedDocTypes(insurer.dokumentenart)" 
+                    :key="'doc-'+index"
+                    class="inline-flex items-center px-3 py-1 text-xs font-medium rounded-full"
+                    :class="{
+                      'bg-red-100 text-red-800 border border-red-200': doc.includes('PDF'),
+                      'bg-green-100 text-green-800 border border-green-200': doc.includes('CSV'),
+                      'bg-blue-100 text-blue-800 border border-blue-200': !doc.includes('PDF') && !doc.includes('CSV')
+                    }"
+                  >
+                    <template v-if="doc.includes('PDF')">
+                      <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z"/>
+                        <path d="M14 2v6h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M8 12h8v1H8zM8 15h8v1H8zM8 18h5v1H8z" fill="currentColor"/>
+                      </svg>
+                    </template>
+                    <template v-else-if="doc.includes('CSV')">
+                      <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z"/>
+                        <path d="M14 2v6h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M8 12h8v1H8zM8 15h8v1H8zM8 18h5v1H8z" fill="currentColor"/>
+                      </svg>
+                    </template>
+                    {{ doc }}
+                  </span>
+                </template>
+              </div>
             </div>
-
+            
             <!-- Footer with actions -->
             <div class="mt-3 pt-2 border-t border-gray-100 flex justify-end items-center">
               <button class="text-blue-600 hover:text-blue-800 text-sm font-medium">
@@ -377,11 +386,22 @@
     console.groupEnd();
   });
 
-  watch(() => props.insurers, () => {
-    if (scrollContainer.value) {
-      scrollContainer.value.scrollTop = 0;
+  watch(() => props.insurers, (newValue) => {
+    console.log('Insurers updated:', newValue);
+    // Log the first insurer's doc_art if it exists
+    if (newValue && newValue.length > 0) {
+      console.log('First insurer doc_art:', newValue[0].doc_art);
+      console.log('First insurer keys:', Object.keys(newValue[0]));
+      
+      // Log all insurers and their doc_art
+      console.log('All insurers doc_art:');
+      newValue.forEach((insurer, index) => {
+        console.log(`Insurer ${index} (${insurer.name || 'unnamed'}):`, insurer.doc_art);
+      });
+    } else {
+      console.log('No insurers data available');
     }
-  }, { deep: true });
+  }, { immediate: true, deep: true });
 
   watch(() => props.currentDate, (newDate) => {
     console.group('InsurerList - currentDate changed');
@@ -393,56 +413,40 @@
   }, { deep: true });
 
   const getNormalizedDocTypes = (docArt) => {
-    if (!docArt) {
-      return [];
-    }
+    console.log('getNormalizedDocTypes input:', docArt);
     
-    let types = [];
+    if (!docArt) return [];
     
-    if (Array.isArray(docArt)) {
-      types = docArt.flatMap(item => {
-        if (typeof item === 'string') {
-          const result = item.split(',').map(s => s.trim()).filter(Boolean);
-          return result;
-        } else if (item && typeof item === 'object') {
-          if (item.documentType) {
-            const result = Array.isArray(item.documentType) 
-              ? item.documentType.map(t => String(t).trim()).filter(Boolean)
-              : [String(item.documentType).trim()].filter(Boolean);
-            return result;
-          }
-          const result = Object.entries(item)
-            .map(([key, value]) => {
-              return String(value).trim();
-            })
-            .filter(Boolean);
-          return result;
-        }
-        return [];
-      });
-    } else if (typeof docArt === 'string') {
-      types = docArt.split(',').map(s => s.trim()).filter(Boolean);
-    } else if (docArt && typeof docArt === 'object') {
-      if (docArt.documentType) {
-        types = Array.isArray(docArt.documentType)
-          ? docArt.documentType.map(t => String(t).trim())
-          : [String(docArt.documentType).trim()];
-      } else {
-        types = Object.entries(docArt)
-          .map(([key, value]) => {
-            return String(value).trim();
+    try {
+      // If it's an array, process each item
+      if (Array.isArray(docArt)) {
+        return docArt
+          .map(item => {
+            if (typeof item === 'string') return item.trim().toUpperCase();
+            if (item && typeof item === 'object') {
+              // Try to find a string value in the object
+              const strValue = Object.values(item).find(v => typeof v === 'string');
+              return strValue ? strValue.trim().toUpperCase() : null;
+            }
+            return String(item).trim().toUpperCase();
           })
           .filter(Boolean);
       }
-    }
-
-    const normalized = types
-      .map(t => t.toUpperCase())
-      .filter(t => t && t !== ',');
       
-    const deduped = [...new Set(normalized)];
-    
-    return deduped;
+      // If it's a string, split by comma
+      if (typeof docArt === 'string') {
+        return docArt.split(',')
+          .map(t => t.trim().toUpperCase())
+          .filter(Boolean);
+      }
+      
+      // For any other type, convert to string
+      return [String(docArt).trim().toUpperCase()].filter(Boolean);
+      
+    } catch (error) {
+      console.error('Error processing document types:', error);
+      return [];
+    }
   };
 
   const isOverdue = (insurer) => {

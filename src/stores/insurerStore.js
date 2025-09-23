@@ -57,6 +57,8 @@ export const useInsurerStore = defineStore('insurer', () => {
     }
   };
 
+  // Switch between production and test environments function is defined later in the file
+
   // Preload last invoices for better performance
   const preloadLastInvoices = async (insurersToLoad) => {
     try {
@@ -282,6 +284,47 @@ export const useInsurerStore = defineStore('insurer', () => {
     selectedInsurer.value = null;
   };
 
+  // Fetch settlement history for an insurer
+  const fetchSettlementHistory = async (insurerId) => {
+    try {
+      if (!insurerId) return [];
+      
+      const settlementsRef = collection(
+        db, 
+        collections.value.insurers, 
+        insurerId, 
+        dataMode.value === 'production' ? 'settlements' : 'settlements_test'
+      );
+      
+      const q = query(settlementsRef, orderBy('createdAt', 'desc'));
+      const querySnapshot = await getDocs(q);
+      
+      const settlements = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        settlements.push({
+          id: doc.id,
+          ...data,
+          // Convert Firestore timestamps to Date objects
+          createdAt: data.createdAt?.toDate?.() || data.createdAt,
+          updatedAt: data.updatedAt?.toDate?.() || data.updatedAt,
+        });
+      });
+      
+      // Update the settlement histories
+      settlementHistories.value = {
+        ...settlementHistories.value,
+        [insurerId]: settlements
+      };
+      
+      return settlements;
+    } catch (err) {
+      console.error('Error fetching settlement history:', err);
+      error.value = err.message;
+      return [];
+    }
+  };
+
   // Add a new insurer
   const addInsurer = async (insurerData) => {
     try {
@@ -374,6 +417,7 @@ export const useInsurerStore = defineStore('insurer', () => {
     updateLastInvoice,
     testFirestoreConnection,
     deleteSettlement,
-    switchEnvironmentAndFetchData
+    switchEnvironmentAndFetchData,
+    fetchSettlementHistory
   };
 });

@@ -196,8 +196,8 @@
                     <div v-if="insurer.dokumentenart && getNormalizedDocTypes(insurer.dokumentenart).length" class="flex flex-wrap gap-2 mt-2">
                       <span v-for="docType in getNormalizedDocTypes(insurer.dokumentenart)" :key="docType" 
                             class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
-                            :class="docTypeColors[docType]?.classes || 'bg-gray-100 text-gray-800'">
-                        <svg v-if="docTypeColors[docType]?.icon" class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" v-html="docTypeColors[docType]?.icon"></svg>
+                            :class="utils.docTypeColors[docType]?.classes || 'bg-gray-100 text-gray-800'">
+                        <svg v-if="utils.docTypeColors[docType]?.icon" class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" v-html="utils.docTypeColors[docType]?.icon"></svg>
                         {{ docType }}
                       </span>
                     </div>
@@ -317,7 +317,9 @@
 <script setup>
 import { ref, computed, watch, onMounted, inject } from 'vue';
 import { useInsurerStore } from '@/stores/insurerStore.js';
-import { useInsurerUtils, allDocTypes, docTypeColors } from '@/composables/useInsurerUtils.js';
+import { useInsurerUtils, allDocTypes } from '@/composables/useInsurerUtils.js';
+
+const utils = useInsurerUtils();
 import { format, differenceInDays, addDays } from 'date-fns';
 
 const props = defineProps({

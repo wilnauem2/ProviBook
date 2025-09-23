@@ -11,7 +11,7 @@
 import { computed, onMounted, watch } from 'vue';
 import { useInsurerUtils } from '@/composables/useInsurerUtils.js';
 
-const { calculateDaysOverdue } = useInsurerUtils();
+const { getStatusCode, getStatusColor, getStatusText } = useInsurerUtils();
 
 const props = defineProps({
   insurer: {
@@ -65,25 +65,34 @@ const status = computed(() => {
   console.log('Insurer turnus:', props.insurer?.turnus);
   
   try {
+    // Use the centralized status calculation
+    const statusInfo = getStatusCode(props.insurer, props.currentDate, props.lastInvoices);
+    const statusCode = statusInfo?.status;
     const days = calculateDaysOverdue(props.insurer, props.currentDate, props.lastInvoices);
-    console.log('Calculated days overdue:', days);
+    
+    console.log('Status code:', statusCode);
+    console.log('Days overdue:', days);
     
     let result;
-    if (days > 5) {
-      result = {
-        text: `Überfällig (${days} Tage)`,
-        colorClass: 'bg-red-100 text-red-800'
-      };
-    } else if (days > 0) {
-      result = {
-        text: `Mahnung (${days} Tage)`,
-        colorClass: 'bg-yellow-100 text-yellow-800'
-      };
-    } else {
-      result = {
-        text: 'Im Zeitplan',
-        colorClass: 'bg-green-100 text-green-800'
-      };
+    switch (statusCode) {
+      case 'red':
+        result = {
+          text: `Überfällig (${days} Tage)`,
+          colorClass: 'bg-red-100 text-red-800'
+        };
+        break;
+      case 'yellow':
+        result = {
+          text: `Mahnung (${days} Tag${days > 1 ? 'e' : ''})`,
+          colorClass: 'bg-yellow-100 text-yellow-800'
+        };
+        break;
+      case 'green':
+      default:
+        result = {
+          text: 'Im Zeitplan',
+          colorClass: 'bg-green-100 text-green-800'
+        };
     }
     
     console.log('Status result:', result);

@@ -119,7 +119,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import { storeToRefs } from 'pinia';
 
 // Store Imports
@@ -218,13 +218,25 @@ const toggleEnvironment = async () => {
 // --- Date Management ---
 const simulatedDate = ref(null);
 
+// Debug log when simulatedDate changes
+watch(simulatedDate, (newDate) => {
+  console.log('simulatedDate changed to:', newDate ? newDate.toISOString() : 'null');
+}, { immediate: true });
+
 const changeDate = (days) => {
   console.log('Change date called with days:', days);
   const date = simulatedDate.value ? new Date(simulatedDate.value) : new Date();
   date.setDate(date.getDate() + days);
-  date.setHours(0, 0, 0, 0); // Normalize time
-  simulatedDate.value = date;
-  console.log('New simulated date set to:', date);
+  date.setHours(12, 0, 0, 0); // Set to noon to avoid timezone issues
+  
+  // Create a new Date object to ensure reactivity
+  simulatedDate.value = new Date(date);
+  console.log('New simulated date set to:', simulatedDate.value.toISOString());
+  
+  // Force update of computed properties that depend on currentDate
+  nextTick(() => {
+    console.log('Forcing update of components that depend on currentDate');
+  });
 };
 
 const resetDate = () => {
@@ -235,7 +247,9 @@ const resetDate = () => {
 const currentDate = computed(() => {
   const date = simulatedDate.value || new Date();
   // Always return a new Date object to ensure reactivity
-  return new Date(date);
+  const result = new Date(date);
+  console.log('currentDate computed:', result.toISOString());
+  return result;
 });
 
 // Status counts for the status summary

@@ -38,7 +38,7 @@
             insurerStatuses.get(insurer.id)?.status === 'red' ? 'bg-red-50 border-red-100 focus:ring-red-500' :
             insurerStatuses.get(insurer.id)?.status === 'yellow' ? 'bg-amber-50 border-amber-100 focus:ring-amber-500' :
             insurerStatuses.get(insurer.id)?.status === 'green' ? 'bg-green-50 border-green-100 focus:ring-green-500' :
-            'bg-gray-50 border-gray-100 focus:ring-gray-500',
+            'bg-white border-gray-200 focus:ring-gray-500',
             safeSelectedInsurer?.id === insurer.id ? 'ring-blue-500' : ''
           ]"
         >
@@ -149,36 +149,8 @@
                 </div>
               </div>
 
-              <!-- Right column -->
-              <div class="space-y-3">
-                <div v-if="insurer.last_invoice" class="flex items-start">
-                  <div class="bg-blue-50 p-1.5 rounded-lg mr-3">
-                    <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                    </svg>
-                  </div>
-                  <div>
-                    <div class="text-xs font-medium text-gray-500 mb-0.5">Letzte Rechnung</div>
-                    <div class="font-medium text-gray-900">
-                      {{ formatLastInvoice(insurer.last_invoice) }}
-                    </div>
-                  </div>
-                </div>
-                
-                <div v-if="getNextSettlementDate(insurer)" class="flex items-start">
-                  <div class="bg-blue-50 p-1.5 rounded-lg mr-3">
-                    <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <div class="text-xs font-medium text-gray-500 mb-0.5">Nächste Fälligkeit</div>
-                    <div class="font-medium text-gray-900">
-                      {{ formatDate(getNextSettlementDate(insurer)) }}
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <!-- Right column (empty to maintain grid layout) -->
+              <div></div>
             </div>
             
             <!-- Document Type Badges with Fade-in Animation -->
@@ -232,15 +204,50 @@
                   </div>
                 </div>
                 
-                <div class="bg-blue-50/50 rounded-lg p-3 group-hover:bg-blue-100/30 transition-colors duration-300">
-                  <div class="text-xs font-medium text-blue-600 mb-1 flex items-center">
-                    <svg class="w-3.5 h-3.5 mr-1.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                <div 
+                  class="rounded-lg p-3 transition-colors duration-300"
+                  :class="{
+                    'bg-red-50/80 group-hover:bg-red-100/50': insurerStatuses.get(insurer.id)?.status === 'red',
+                    'bg-amber-50/80 group-hover:bg-amber-100/50': insurerStatuses.get(insurer.id)?.status === 'yellow',
+                    'bg-green-50/80 group-hover:bg-green-100/50': insurerStatuses.get(insurer.id)?.status === 'green',
+                    'bg-blue-50/80 group-hover:bg-blue-100/30': !insurerStatuses.get(insurer.id)?.status
+                  }"
+                >
+                  <div class="text-xs font-medium flex items-center"
+                    :class="{
+                      'text-red-600': insurerStatuses.get(insurer.id)?.status === 'red',
+                      'text-amber-600': insurerStatuses.get(insurer.id)?.status === 'yellow',
+                      'text-green-600': insurerStatuses.get(insurer.id)?.status === 'green',
+                      'text-blue-600': !insurerStatuses.get(insurer.id)?.status
+                    }"
+                  >
+                    <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    Bezugsweg
+                    Nächste Fälligkeit
                   </div>
-                  <div class="font-semibold text-blue-800 text-sm">
-                    {{ insurer.bezugsweg || 'Nicht angegeben' }}
+                  <div v-if="!insurer.turnus" class="text-sm text-gray-500">
+                    Kein Turnus angegeben
+                  </div>
+                  <div v-else>
+                    <div class="font-semibold text-sm"
+                      :class="{
+                        'text-red-800': insurerStatuses.get(insurer.id)?.status === 'red',
+                        'text-amber-800': insurerStatuses.get(insurer.id)?.status === 'yellow',
+                        'text-green-800': insurerStatuses.get(insurer.id)?.status === 'green',
+                        'text-blue-800': !insurerStatuses.get(insurer.id)?.status
+                      }"
+                    >
+                      <template v-if="insurerStatuses.get(insurer.id)?.nextSettlementDate">
+                        {{ formatNextSettlementDate(insurerStatuses.get(insurer.id).nextSettlementDate) }}
+                      </template>
+                      <template v-else-if="insurer.next_due">
+                        {{ formatNextSettlementDate(insurer.next_due) }}
+                      </template>
+                      <template v-else>
+                        Kein Fälligkeitsdatum
+                      </template>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -264,11 +271,14 @@
 
 <script setup>
   import { defineProps, defineEmits, computed, onMounted, watch, ref } from 'vue';
-  import { format, add } from 'date-fns';
+  import { format, add, isAfter, isToday } from 'date-fns';
   import { de } from 'date-fns/locale';
+  import { useInsurerUtils } from '@/composables/useInsurerUtils';
   import InsurerStatus from './InsurerStatus.vue';
-  import { useInsurerUtils, docTypeColors } from '@/composables/useInsurerUtils';
-
+  
+  // Initialize utils once at the top
+  const utils = useInsurerUtils();
+  
   const props = defineProps({
     insurers: { type: Array, default: () => [] },
     sortBy: { type: String, default: 'name' },
@@ -322,9 +332,8 @@
           return dateB - dateA;
         }
         case 'overdue': {
-          const { calculateDaysOverdue } = useInsurerUtils();
-          const overdueA = calculateDaysOverdue(a, props.currentDate, props.lastInvoices);
-          const overdueB = calculateDaysOverdue(b, props.currentDate, props.lastInvoices);
+          const overdueA = utils.calculateDaysOverdue(a, props.currentDate, props.lastInvoices);
+          const overdueB = utils.calculateDaysOverdue(b, props.currentDate, props.lastInvoices);
           return overdueB - overdueA;
         }
         case 'name':
@@ -338,14 +347,6 @@
 
   const selectInsurer = (insurer) => {
     emit('select-insurer', insurer);
-  };
-
-  const getNextSettlementDate = (insurer) => {
-    const lastInvoice = props.lastInvoices[insurer.id];
-    if (!lastInvoice || !lastInvoice.datum) return 'N/A';
-    const lastDate = new Date(lastInvoice.datum.seconds * 1000);
-    const nextDate = add(lastDate, { days: insurer.turnus });
-    return format(nextDate, 'dd.MM.yyyy', { locale: de });
   };
 
   const getInitials = (name) => {
@@ -369,17 +370,169 @@
     return turnusEmpty || bezugswegEmpty || dokArtEmpty;
   };
 
-  const utils = useInsurerUtils();
+  // Use the calculateNextSettlementDate from useInsurerUtils instead of the local function
+
+  // Format the next settlement date for display
+  const formatNextSettlementDate = (date) => {
+    console.group('formatNextSettlementDate');
+    console.log('Input date:', date);
+    
+    try {
+      if (!date) {
+        console.log('No date provided');
+        return 'Kein Datum verfügbar';
+      }
+
+      // Get the current date from props or use current date
+      const currentDate = props.currentDate ? new Date(props.currentDate) : new Date();
+      currentDate.setHours(12, 0, 0, 0);
+      
+      // Parse the input date
+      let dateObj;
+      
+      if (date instanceof Date) {
+        dateObj = new Date(date);
+      } else if (date && typeof date === 'object') {
+        // Handle Firestore timestamps
+        if (date.toDate && typeof date.toDate === 'function') {
+          dateObj = date.toDate();
+        } else if (date.seconds) {
+          dateObj = new Date(date.seconds * 1000);
+        } else if (date.date?.seconds) {
+          dateObj = new Date(date.date.seconds * 1000);
+        } else if (date._seconds) {
+          dateObj = new Date(date._seconds * 1000);
+        } else if (date instanceof Object) {
+          // Try to parse as a date string if it's an object with date properties
+          dateObj = new Date(date);
+        } else {
+          dateObj = new Date(date);
+        }
+      } else {
+        // Try to parse as a date string
+        dateObj = new Date(date);
+      }
+      
+      // If we still don't have a valid date, return an error message
+      if (isNaN(dateObj.getTime())) {
+        console.log('Invalid date object:', date);
+        return 'Ungültiges Datum';
+      }
+      
+      // Set time to noon to avoid timezone issues
+      dateObj.setHours(12, 0, 0, 0);
+      
+      console.log('Current date:', currentDate.toISOString());
+      console.log('Due date:', dateObj.toISOString());
+      
+      // Calculate difference in days
+      const timeDiff = dateObj.getTime() - currentDate.getTime();
+      const diffDays = Math.round(timeDiff / (1000 * 60 * 60 * 24));
+      
+      console.log('Difference in days:', diffDays);
+      
+      // Format the date for display
+      const formattedDate = format(dateObj, 'dd.MM.yyyy');
+      
+      // Return appropriate message based on the difference
+      if (diffDays < 0) {
+        const daysOverdue = Math.abs(diffDays);
+        return `Überfällig seit ${formattedDate} (${daysOverdue} Tag${daysOverdue !== 1 ? 'e' : ''})`;
+      } else if (diffDays === 0) {
+        return `Heute, ${formattedDate}`;
+      } else {
+        return `${formattedDate} (in ${diffDays} Tag${diffDays !== 1 ? 'en' : ''})`;
+      }
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        dateValue: date
+      });
+      return 'Fehler beim Formatieren des Datums';
+    } finally {
+      console.groupEnd();
+    }
+  };
 
   const insurerStatuses = computed(() => {
-    return new Map(safeInsurers.value.map(insurer => [
-      insurer.id,
-      {
-        status: utils.getStatusCode(insurer, props.currentDate, safeLastInvoices.value),
-        color: utils.getStatusColor(insurer, props.currentDate, safeLastInvoices.value),
-        text: utils.getStatusText(insurer, props.currentDate, safeLastInvoices.value)
+    console.log('--- Calculating insurer statuses ---');
+    
+    // Get a stable reference to the current date
+    const currentDate = props.currentDate ? new Date(props.currentDate) : new Date();
+    currentDate.setHours(12, 0, 0, 0);
+    console.log('Current base date for calculations:', currentDate.toISOString());
+    
+    const statusMap = new Map();
+    
+    safeInsurers.value.forEach(insurer => {
+      try {
+        console.group(`--- Processing insurer: ${insurer.name || 'Unnamed'} (${insurer.id}) ---`);
+        console.log('Insurer data:', {
+          last_invoice: insurer.last_invoice,
+          turnus: insurer.turnus,
+          next_due: insurer.next_due
+        });
+        
+        // Get the next settlement date
+        const nextSettlementDate = utils.calculateNextSettlementDate(insurer, currentDate);
+        console.log('Calculated next settlement date:', nextSettlementDate?.toISOString?.() || 'null');
+        
+        // Calculate days until next settlement
+        let daysUntilNext = null;
+        if (nextSettlementDate) {
+          const nextDate = new Date(nextSettlementDate);
+          nextDate.setHours(12, 0, 0, 0);
+          
+          const timeDiff = nextDate.getTime() - currentDate.getTime();
+          daysUntilNext = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+          console.log('Days until next settlement:', daysUntilNext);
+        }
+        
+        // Get status information
+        const statusInfo = utils.getStatusCode(insurer, currentDate);
+        console.log('Status info:', statusInfo);
+        
+        // Create the status object with all necessary information
+        const statusObj = {
+          status: statusInfo || 'unknown',
+          color: utils.getStatusColor(insurer, currentDate),
+          text: utils.getStatusText(insurer, currentDate),
+          nextSettlementDate: nextSettlementDate ? new Date(nextSettlementDate) : null,
+          daysUntilNext: daysUntilNext
+        };
+        
+        console.log('Status object:', JSON.parse(JSON.stringify({
+          ...statusObj,
+          nextSettlementDate: statusObj.nextSettlementDate?.toISOString()
+        })));
+        
+        statusMap.set(insurer.id, statusObj);
+        
+        console.groupEnd();
+      } catch (error) {
+        console.error(`Error processing insurer ${insurer.id}:`, error);
+        statusMap.set(insurer.id, {
+          status: 'error',
+          color: 'gray',
+          text: 'Fehler bei der Berechnung',
+          nextSettlementDate: null,
+          daysUntilNext: null
+        });
       }
-    ]));
+    });
+    
+    // Log the final status map for debugging
+    console.log('Final status map:', Array.from(statusMap.entries()).map(([id, status]) => ({
+      id,
+      status: status.status,
+      color: status.color,
+      nextSettlementDate: status.nextSettlementDate?.toISOString(),
+      daysUntilNext: status.daysUntilNext
+    })));
+    
+    return statusMap;
   });
 
   onMounted(() => {
@@ -387,8 +540,35 @@
     console.log('currentDate prop:', props.currentDate);
     console.log('currentDate type:', Object.prototype.toString.call(props.currentDate));
     console.log('lastInvoices:', props.lastInvoices);
+    
+    // Log the first insurer's data if available
+    if (props.insurers && props.insurers.length > 0) {
+      console.log('First insurer data:', JSON.parse(JSON.stringify(props.insurers[0])));
+    }
+    
     console.groupEnd();
   });
+  
+  // Watch for changes to the insurers prop
+  watch(() => props.insurers, (newInsurers) => {
+    if (newInsurers && newInsurers.length > 0) {
+      console.log('Insurers data updated. First insurer:', JSON.parse(JSON.stringify(newInsurers[0])));
+      
+      // Log the status for each insurer
+      newInsurers.forEach((insurer, index) => {
+        const status = insurerStatuses.value.get(insurer.id);
+        console.log(`Insurer ${index + 1} (${insurer.name || 'Unnamed'}):`, {
+          id: insurer.id,
+          name: insurer.name,
+          turnus: insurer.turnus,
+          last_invoice: insurer.last_invoice,
+          next_due: insurer.next_due,
+          status: status?.status,
+          nextSettlementDate: status?.nextSettlementDate
+        });
+      });
+    }
+  }, { immediate: true, deep: true });
 
   watch(() => props.insurers, (newValue) => {
     console.log('Insurers updated:', newValue);
@@ -454,7 +634,7 @@
   };
 
   const isOverdue = (insurer) => {
-    const days = utils.calculateDaysOverdue(insurer, props.currentDate, props.lastInvoices);
+    const days = utils.calculateDaysOverdue(insurer, props.currentDate);
     return days > 0;
   };
 

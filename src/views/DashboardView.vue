@@ -40,8 +40,8 @@
             <input 
               type="date" 
               id="simulated-date"
-              :value="simulatedDate ? simulatedDate.toISOString().split('T')[0] : ''"
-              @input="$emit('update:simulatedDate', new Date($event.target.value))"
+              :value="formattedDate"
+              @input="handleDateInput($event.target.value)"
               class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
             />
             <button @click="$emit('change-date', 1)" class="px-2 py-1 border border-gray-300 rounded-md text-sm hover:bg-gray-100">&#x25B6;</button>
@@ -108,7 +108,7 @@
 </template>
 
 <script setup>
-import { defineProps, defineEmits, computed, onMounted, watch } from 'vue';
+import { defineProps, defineEmits, computed, onMounted, watch, ref } from 'vue';
 import InsurerList from '@/components/InsurerList.vue';
 
 const props = defineProps({
@@ -129,7 +129,7 @@ const props = defineProps({
   selectedInsurer: Object
 });
 
-defineEmits([
+const emit = defineEmits([
   'status-clicked',
   'update:searchFilter',
   'update:simulatedDate',
@@ -142,6 +142,26 @@ defineEmits([
   'change-date',
   'reset-date',
 ]);
+
+// Format date for the input field
+const formattedDate = computed(() => {
+  return props.simulatedDate ? props.simulatedDate.toISOString().split('T')[0] : '';
+});
+
+// Handle date input changes
+const handleDateInput = (dateString) => {
+  if (!dateString) {
+    emit('update:simulatedDate', null);
+    return;
+  }
+  
+  const newDate = new Date(dateString);
+  if (!isNaN(newDate.getTime())) {
+    // Set time to noon to avoid timezone issues
+    newDate.setHours(12, 0, 0, 0);
+    emit('update:simulatedDate', newDate);
+  }
+};
 
 const statusFilterLabel = computed(() => {
   const labels = {

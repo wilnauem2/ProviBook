@@ -34,10 +34,16 @@
               <input type="text" id="insurer-turnus" v-model="insurerData.turnus" @blur="formatTurnus" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" placeholder="z.B. 30-tägig" required>
             </div>
 
-            <!-- Bezugsweg -->
+            <!-- Zustellungsweg -->
             <div>
-              <label for="insurer-bezugsweg" class="block mb-2 text-sm font-medium text-gray-900">Standard-Dokumentenweg</label>
-              <input type="text" id="insurer-bezugsweg" v-model="insurerData.bezugsweg" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" placeholder="z.B. E-Mail">
+              <label for="insurer-zustellungsweg" class="block mb-2 text-sm font-medium text-gray-900">Zustellungsweg</label>
+              <select id="insurer-zustellungsweg" v-model="insurerData.zustellungsweg" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                <option value="">Bitte auswählen...</option>
+                <option value="BiPRO">BiPRO</option>
+                <option value="Mail">E-Mail</option>
+                <option value="Post">Per Post</option>
+                <option value="Maklerportal">Maklerportal/GetMyInvoices</option>
+              </select>
             </div>
           </div>
 
@@ -74,7 +80,7 @@ const insurerData = ref({
   name: '',
   comment: '', // New comment field
   turnus: 30, // Default to 30 days
-  bezugsweg: 'E-Mail',
+  zustellungsweg: '',
   dokumentenart: ['PDF']
 });
 
@@ -93,10 +99,12 @@ const handleSubmit = () => {
     alert('Name und Turnus des Versicherers sind erforderlich.');
   } else {
     formatTurnus(); // Ensure formatting before save
-    if (insurerData.value.bezugsweg && insurerData.value.bezugsweg.toLowerCase().trim() === 'email') {
-      insurerData.value.bezugsweg = 'E-Mail';
-    }
-    emit('save', { ...insurerData.value });
+    const saveData = {
+      ...insurerData.value,
+      // Set bipro to true if zustellungsweg is BiPRO
+      bipro: insurerData.value.zustellungsweg === 'BiPRO'
+    };
+    emit('save', saveData);
   }
 };
 </script>

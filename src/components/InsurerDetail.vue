@@ -157,28 +157,68 @@
                   </div>
                 </div>
 
-                <!-- Bezugsweg -->
+                <!-- Zustellungsweg -->
                 <div>
                   <div class="flex justify-between items-center group">
-                    <dt class="text-sm font-medium text-gray-500">Bezugsweg</dt>
-                    <button v-if="insurer.bezugsweg" @click="deleteField('bezugsweg')" class="invisible group-hover:visible text-gray-400 hover:text-red-600 transition-opacity duration-200" title="Bezugsweg löschen">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                    </button>
-                    <button @click="startEditing('bezugsweg')" class="text-gray-400 hover:text-blue-600 transition-colors duration-200 text-sm font-medium">Bearbeiten</button>
+                    <dt class="text-sm font-medium text-gray-500">Zustellungsweg</dt>
+                    <div class="flex items-center">
+                      <button v-if="getSafeZustellungsweg()" @click.stop="deleteField('zustellungsweg')" class="invisible group-hover:visible text-gray-400 hover:text-red-600 transition-opacity duration-200 mr-2" title="Zustellungsweg löschen">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                      </button>
+                      <button @click.stop="startEditing('zustellungsweg')" class="text-gray-400 hover:text-blue-600 transition-colors duration-200 text-sm font-medium">Bearbeiten</button>
+                    </div>
                   </div>
-                  <dd v-if="!isEditing || editField !== 'bezugsweg'" class="text-sm text-gray-900 font-semibold">{{ insurer.bezugsweg || 'Keine Angabe' }}</dd>
-                  <div v-else>
+                  
+                  <dd v-if="!isEditing || editField !== 'zustellungsweg'" class="text-sm text-gray-900 font-semibold mt-1">
+                    <span v-if="getSafeZustellungsweg()" class="inline-flex items-center">
+                      <template v-if="getSafeZustellungsweg() === 'BiPRO'">
+                        <svg class="w-4 h-4 mr-1 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        BiPRO
+                      </template>
+                      <template v-else-if="getSafeZustellungsweg() === 'E-Mail'">
+                        <svg class="w-4 h-4 mr-1 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        E-Mail
+                      </template>
+                      <template v-else-if="getSafeZustellungsweg() === 'Per Post'">
+                        <svg class="w-4 h-4 mr-1 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                        Per Post
+                      </template>
+                      <template v-else-if="getSafeZustellungsweg() === 'Maklerportal/GetMyInvoices' || getSafeZustellungsweg() === 'Maklerportal'">
+                        <svg class="w-4 h-4 mr-1 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        Maklerportal/GetMyInvoices
+                      </template>
+                      <template v-else>
+                        <span class="text-gray-900">{{ getSafeZustellungsweg() }}</span>
+                      </template>
+                    </span>
+                    <span v-else class="text-gray-400">Keine Angabe</span>
+                  </dd>
+                  
+                  <div v-else class="mt-1">
                     <select 
-                      v-model="editedBezugsweg" 
+                      v-model="editedZustellungsweg" 
                       class="w-full text-sm border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                      @click.stop
                     >
-                      <option v-for="option in bezugswegOptions" :key="option" :value="option">
-                        {{ option }}
+                      <option value="">Bitte auswählen...</option>
+                      <option v-for="option in zustellungswegOptions" :key="option.value" :value="option.value">
+                        {{ option.label }}
                       </option>
                     </select>
                     <div class="mt-2 flex justify-end gap-2">
-                      <button @click="cancelEditing()" class="px-3 py-1 text-sm font-medium bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Abbrechen</button>
-                      <button @click="saveField('bezugsweg')" class="px-3 py-1 text-sm font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700">Speichern</button>
+                      <button @click.stop="cancelEditing()" class="px-3 py-1 text-sm font-medium bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Abbrechen</button>
+                      <button @click.stop="saveField('zustellungsweg')" class="px-3 py-1 text-sm font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700" :disabled="!editedZustellungsweg">
+                        Speichern
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -318,9 +358,51 @@
 import { ref, computed, watch, onMounted, inject } from 'vue';
 import { useInsurerStore } from '@/stores/insurerStore.js';
 import { useInsurerUtils, allDocTypes } from '@/composables/useInsurerUtils.js';
-
-const utils = useInsurerUtils();
 import { format, differenceInDays, addDays } from 'date-fns';
+
+// Toast notification functions
+const showToast = (message, type = 'success') => {
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+  
+  // Add to body and trigger animation
+  document.body.appendChild(toast);
+  
+  // Remove after delay
+  setTimeout(() => {
+    toast.remove();
+  }, 3000);
+};
+
+const showSuccessToast = (message) => showToast(message, 'success');
+const showErrorToast = (message) => showToast(message, 'error');
+
+// Initialize the utils object with docTypeColors
+const utils = {
+  docTypeColors: {
+    'PDF': {
+      classes: 'bg-red-100 text-red-800',
+      icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>'
+    },
+    'CSV': {
+      classes: 'bg-blue-100 text-blue-800',
+      icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>'
+    },
+    'XLS': {
+      classes: 'bg-green-100 text-green-800',
+      icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>'
+    },
+    'XML': {
+      classes: 'bg-yellow-100 text-yellow-800',
+      icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>'
+    },
+    'Papier': {
+      classes: 'bg-gray-100 text-gray-800',
+      icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>'
+    }
+  }
+};
 
 const props = defineProps({
   insurer: {
@@ -341,6 +423,16 @@ const emit = defineEmits(['close', 'delete-insurer', 'settlement-completed', 'up
 
 const insurerStore = useInsurerStore();
 const { getStatusColor, getStatusText, calculateDaysOverdue, getNormalizedDocTypes, formatLastInvoice } = useInsurerUtils();
+
+// Compute status info for the current insurer
+// Format the last invoice date
+const formattedLastInvoiceDate = computed(() => {
+  if (!props.insurer?.last_invoice) return 'Keine Abrechnung';
+  const date = props.insurer.last_invoice.date?.toDate 
+    ? props.insurer.last_invoice.date.toDate() 
+    : new Date(props.insurer.last_invoice.date);
+  return format(date, 'dd.MM.yyyy');
+});
 
 // Compute status info for the current insurer
 const statusInfo = computed(() => {
@@ -413,6 +505,7 @@ const showDatePicker = ref(false);
 const selectedDate = ref('');
 const settlementNote = ref('');
 const showDeleteConfirmation = ref(false);
+// Settlement related state
 const showSettlementDeleteConfirmation = ref(false);
 const settlementToDeleteId = ref(null);
 const showSettlementModal = ref(false);
@@ -422,25 +515,93 @@ const selectedSettlement = ref(null);
 const editedName = ref('');
 const editedComment = ref('');
 const editedTurnus = ref('');
-const editedBezugsweg = ref('');
+const editedZustellungsweg = ref('');
 const editedDokumentenart = ref([]);
 const editedVemapool = ref(false);
 
 // Options
 const turnusOptions = ['7-tägig', '14-tägig', '31-tägig', 'Jährlich'];
-const bezugswegOptions = ['E-Mail', 'Post', 'BiPRO', 'Maklerportal/GetMyInvoices', 'Sonstiges'];
+const zustellungswegOptions = [
+  { value: 'E-Mail', label: 'E-Mail' },
+  { value: 'Per Post', label: 'Per Post' },
+  { value: 'BiPRO', label: 'BiPRO' },
+  { value: 'Maklerportal/GetMyInvoices', label: 'Maklerportal/GetMyInvoices' }
+];
+
+// Field names for display
+const fieldNames = {
+  name: 'Name',
+  comment: 'Kommentar',
+  turnus: 'Turnus',
+  zustellungsweg: 'Zustellungsweg',
+  dokumentenart: 'Dokumentenart',
+  vemapool: 'Vemapool'
+};
+
+// Helper method to safely get zustellungsweg value
+const getSafeZustellungsweg = (insurer = props.insurer) => {
+  if (!insurer) return '';
+  
+  // Try different possible property names
+  const zustellungsweg = insurer.zustellungsweg || insurer.zustellweg || insurer.bezugsweg;
+  console.log('getSafeZustellungsweg - raw value:', zustellungsweg);
+  
+  if (!zustellungsweg) {
+    console.log('No zustellungsweg found in insurer:', insurer);
+    return '';
+  }
+  
+  // Handle different possible formats
+  let result = '';
+  
+  if (typeof zustellungsweg === 'string') {
+    result = zustellungsweg;
+  } else if (Array.isArray(zustellungsweg)) {
+    // If it's an array, take the first item
+    const firstItem = zustellungsweg[0];
+    if (typeof firstItem === 'object' && firstItem !== null) {
+      result = firstItem.value || firstItem.label || firstItem.name || '';
+    } else {
+      result = firstItem || '';
+    }
+  } else if (typeof zustellungsweg === 'object' && zustellungsweg !== null) {
+    result = zustellungsweg.value || zustellungsweg.label || zustellungsweg.name || '';
+  }
+  
+  console.log('getSafeZustellungsweg - resolved value:', result);
+  return result;
+};
 
 // Initialize form fields when insurer changes
 watch(() => props.insurer, (newInsurer) => {
   if (newInsurer) {
+    console.log('Initializing form with insurer data:', newInsurer);
     editedName.value = newInsurer.name || '';
     editedComment.value = newInsurer.comment || '';
     editedTurnus.value = newInsurer.turnus || '';
-    editedBezugsweg.value = newInsurer.bezugsweg || '';
+    
+    // Log all properties of the insurer for debugging
+    console.log('All insurer properties:', Object.keys(newInsurer));
+    
+    // Try different possible property names for zustellungsweg
+    const possibleKeys = ['zustellungsweg', 'zustellweg', 'bezugsweg'];
+    const foundKey = possibleKeys.find(key => key in newInsurer);
+    
+    if (foundKey) {
+      console.log(`Found zustellungsweg in property '${foundKey}':`, newInsurer[foundKey]);
+    } else {
+      console.log('No zustellungsweg found in any expected property');
+    }
+    
+    // Use the safe getter for initialization
+    const zustellungsweg = getSafeZustellungsweg(newInsurer);
+    console.log('Initializing zustellungsweg with:', zustellungsweg);
+    editedZustellungsweg.value = zustellungsweg;
+    
     editedDokumentenart.value = getNormalizedDocTypes(newInsurer.dokumentenart);
     editedVemapool.value = newInsurer.vemapool || false;
   }
-}, { immediate: true });
+}, { immediate: true, deep: true });
 
 // Helper function to check if a field is empty
 const isFieldEmpty = (field) => {
@@ -457,8 +618,12 @@ const showSettlementDetails = (settlement) => {
 };
 
 const startEditing = (field) => {
+  console.log('Starting to edit field:', field);
   isEditing.value = true;
   editField.value = field;
+  
+  // Log all properties of the insurer for debugging
+  console.log('All insurer properties in startEditing:', Object.keys(props.insurer));
   
   switch(field) {
     case 'name':
@@ -470,8 +635,15 @@ const startEditing = (field) => {
     case 'turnus':
       editedTurnus.value = props.insurer.turnus || '';
       break;
-    case 'bezugsweg':
-      editedBezugsweg.value = props.insurer.bezugsweg || '';
+    case 'zustellungsweg':
+      console.log('Raw zustellungsweg value before edit:', {
+        zustellungsweg: props.insurer.zustellungsweg,
+        zustellweg: props.insurer.zustellweg,
+        bezugsweg: props.insurer.bezugsweg
+      });
+      const currentZustellungsweg = getSafeZustellungsweg(props.insurer);
+      console.log('Setting editedZustellungsweg to:', currentZustellungsweg);
+      editedZustellungsweg.value = currentZustellungsweg;
       break;
     case 'dokumentenart':
       editedDokumentenart.value = getNormalizedDocTypes(props.insurer.dokumentenart);
@@ -504,140 +676,74 @@ const formattedTurnus = computed(() => {
   return formatTurnus(props.insurer.turnus);
 });
 
-const deleteField = async (field) => {
-  try {
-    await insurerStore.updateInsurer(props.insurer.id, { [field]: null });
-    // Update local state
-    if (field === 'dokumentenart') {
-      editedDokumentenart.value = [];
-    }
-  } catch (err) {
-    console.error('Error deleting field:', err);
-  }
-};
-
 const saveField = async (field) => {
+  let valueToSave;
+  
+  // Get the value based on the field being edited
+  switch(field) {
+    case 'name':
+      valueToSave = editedName.value;
+      break;
+    case 'comment':
+      valueToSave = editedComment.value;
+      break;
+    case 'turnus':
+      valueToSave = editedTurnus.value;
+      break;
+    case 'zustellungsweg': {
+      // Save the selected value
+      valueToSave = editedZustellungsweg.value;
+      
+      // Log the value being saved
+      console.log('Saving zustellungsweg:', valueToSave);
+      
+      // If the value is empty, we'll set it to null to clear the field
+      if (!valueToSave) {
+        valueToSave = null;
+      }
+      
+      // Also update the local state to ensure consistency
+      if (props.insurer) {
+        // Update all possible property names to ensure consistency
+        props.insurer.zustellungsweg = valueToSave;
+        props.insurer.zustellweg = valueToSave;
+        props.insurer.bezugsweg = valueToSave;
+      }
+      break;
+    }
+    case 'dokumentenart':
+      valueToSave = editedDokumentenart.value;
+      break;
+    case 'vemapool':
+      valueToSave = editedVemapool.value;
+      break;
+    default:
+      valueToSave = '';
+  }
+
+  if ((!valueToSave || (Array.isArray(valueToSave) && valueToSave.length === 0)) && field !== 'vemapool') {
+    showErrorToast('Bitte geben Sie einen Wert ein');
+    return;
+  }
+
   try {
-    let updateData = {};
-    
-    switch(field) {
-      case 'name':
-        updateData.name = editedName.value.trim();
-        break;
-      case 'comment':
-        updateData.comment = editedComment.value.trim();
-        break;
-      case 'turnus':
-        // Save the exact value from the dropdown
-        updateData.turnus = editedTurnus.value;
-        // Update the local insurer object to trigger a re-render
-        props.insurer.turnus = editedTurnus.value;
-        // Force update the formattedTurnus computed property
-        formattedTurnus.value = formatTurnus(editedTurnus.value);
-        break;
-      case 'bezugsweg':
-        updateData.bezugsweg = editedBezugsweg.value;
-        // Update bipro flag based on the new bezugsweg value
-        if (editedBezugsweg.value === 'BiPRO') {
-          updateData.bipro = true;
-        } else if (props.insurer.bipro) {
-          // If bezugsweg is changed from BiPRO to something else, set bipro to false
-          updateData.bipro = false;
-        }
-        break;
-      case 'dokumentenart':
-        updateData.dokumentenart = editedDokumentenart.value;
-        break;
-      case 'vemapool':
-        updateData.vemapool = editedVemapool.value;
-        break;
-    }
-
-    if (Object.keys(updateData).length > 0) {
-      await insurerStore.updateInsurer(props.insurer.id, updateData);
-    }
-    
-    cancelEditing();
-  } catch (err) {
-    console.error('Error saving field:', err);
+    await insurerStore.updateInsurer(props.insurer.id, { [field]: valueToSave });
+    isEditing.value = false;
+    editField.value = null;
+    showSuccessToast(`${fieldNames[field] || field} erfolgreich aktualisiert`);
+  } catch (error) {
+    console.error(`Error updating ${field}:`, error);
+    showErrorToast(`Fehler beim Aktualisieren des ${fieldNames[field] || field}`);
   }
 };
-
-const confirmDelete = () => {
-  showDeleteConfirmation.value = true;
-};
-
-const deleteInsurer = async () => {
-  const success = await insurerStore.deleteInsurer(props.insurer.id);
-  if (success) {
-    showDeleteConfirmation.value = false;
-    emit('delete-insurer', props.insurer.id);
-    handleClose();
-  }
-};
-
-const confirmSettlementDelete = (settlementId) => {
-  settlementToDeleteId.value = settlementId;
-  showSettlementDeleteConfirmation.value = true;
-};
-
-const cancelSettlementDelete = () => {
-  settlementToDeleteId.value = null;
-  showSettlementDeleteConfirmation.value = false;
-};
-
-const executeDeleteSettlement = async () => {
-  if (settlementToDeleteId.value) {
-    await insurerStore.deleteSettlement(props.insurer.id, settlementToDeleteId.value);
-    
-    // Manually update local state for immediate UI feedback
-    localSettlementHistory.value = localSettlementHistory.value.filter(s => s.id !== settlementToDeleteId.value);
-    
-    // Check if this was the last settlement and update UI accordingly
-    if (localSettlementHistory.value.length === 0) {
-      // If we just deleted the last settlement, ensure the localLastInvoice is updated
-      // This is redundant with the store update but ensures UI consistency
-      emit('settlement-completed', { insurer: props.insurer, last_invoice: null });
-    }
-    
-    cancelSettlementDelete();
-  }
-};
-
-const handleCancel = () => {
-  showDatePicker.value = false;
-  settlementNote.value = '';
-};
-
-const handleDateSubmit = async () => {
-  if (!selectedDate.value) return;
-
-  const newInvoiceData = {
-    date: new Date(selectedDate.value),
-    note: settlementNote.value,
-  };
-
-  // This function returns the newly created settlement with its ID
-  const newSettlement = await insurerStore.addInvoiceToHistory(props.insurer.id, newInvoiceData);
-
-  if (newSettlement) {
-    // Emit event for parent component
-    emit('settlement-completed', { insurer: props.insurer, last_invoice: newSettlement });
-
-    // Manually and directly update the local state to guarantee reactivity.
-    // The localLastInvoice is now a computed property and updates automatically.
-    localSettlementHistory.value.unshift(newSettlement);
-  }
-
-  handleCancel(); // Close picker after submission
-};
-
 
 // Fetch settlement history when component mounts or dataMode changes
 const fetchSettlements = async () => {
-  if (props.insurer?.id) {
-    await insurerStore.fetchSettlementHistory(props.insurer.id);
-    localSettlementHistory.value = [...(insurerStore.settlementHistories[props.insurer.id] || [])];
+  try {
+    await insurerStore.fetchSettlements(props.insurer.id, props.dataMode);
+  } catch (error) {
+    console.error('Error fetching settlements:', error);
+    showErrorToast('Fehler beim Laden der Abrechnungen');
   }
 };
 

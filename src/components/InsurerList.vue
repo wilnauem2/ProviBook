@@ -149,8 +149,57 @@
                 </div>
               </div>
 
-              <!-- Right column (empty to maintain grid layout) -->
-              <div></div>
+              <!-- Right column -->
+              <div class="space-y-3">
+                <div class="flex items-start">
+                  <div class="bg-blue-50 p-1.5 rounded-lg mr-3">
+                    <template v-if="!insurer.zustellungsweg && !insurer.zustellweg && !insurer.bezugsweg">
+                      <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                    </template>
+                    <template v-else>
+                      <template v-if="getZustellungswegType(insurer) === 'bipro'">
+                        <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                      </template>
+                      <template v-else-if="getZustellungswegType(insurer) === 'mail'">
+                        <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                      </template>
+                      <template v-else-if="getZustellungswegType(insurer) === 'post'">
+                        <svg class="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                      </template>
+                      <template v-else-if="getZustellungswegType(insurer) === 'maklerportal'">
+                        <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                      </template>
+                    </template>
+                    <template v-else>
+                      <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                    </template>
+                  </div>
+                  <div>
+                    <div class="text-xs font-medium text-gray-500 mb-0.5">Zustellungsweg</div>
+                    <div class="font-medium text-gray-900 flex items-center">
+                      <span>{{ formatZustellungsweg(insurer.zustellungsweg || insurer.zustellweg || insurer.bezugsweg || '') }}</span>
+                      <template v-if="getZustellungswegType(insurer) === 'bipro' && (insurer.zustellungsweg || insurer.zustellweg || insurer.bezugsweg) && !(insurer.zustellungsweg || insurer.zustellweg || insurer.bezugsweg || '').toString().toLowerCase().includes('bipro')">
+                        <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          BiPRO
+                        </span>
+                      </template>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
             
             <!-- Document Type Badges with Fade-in Animation -->
@@ -370,13 +419,12 @@
     return turnusEmpty || bezugswegEmpty || dokArtEmpty;
   };
 
+  // Removed debug code
+
   // Use the calculateNextSettlementDate from useInsurerUtils instead of the local function
 
   // Format the next settlement date for display
   const formatNextSettlementDate = (date) => {
-    console.group('formatNextSettlementDate');
-    console.log('Input date:', date);
-    
     try {
       if (!date) {
         console.log('No date provided');
@@ -444,40 +492,20 @@
         return `${formattedDate} (in ${diffDays} Tag${diffDays !== 1 ? 'en' : ''})`;
       }
     } catch (error) {
-      console.error('Error formatting date:', error);
-      console.error('Error details:', {
-        message: error.message,
-        stack: error.stack,
-        dateValue: date
-      });
       return 'Fehler beim Formatieren des Datums';
-    } finally {
-      console.groupEnd();
     }
   };
 
   const insurerStatuses = computed(() => {
-    console.log('--- Calculating insurer statuses ---');
-    
     // Get a stable reference to the current date
     const currentDate = props.currentDate ? new Date(props.currentDate) : new Date();
     currentDate.setHours(12, 0, 0, 0);
-    console.log('Current base date for calculations:', currentDate.toISOString());
     
     const statusMap = new Map();
-    
     safeInsurers.value.forEach(insurer => {
       try {
-        console.group(`--- Processing insurer: ${insurer.name || 'Unnamed'} (${insurer.id}) ---`);
-        console.log('Insurer data:', {
-          last_invoice: insurer.last_invoice,
-          turnus: insurer.turnus,
-          next_due: insurer.next_due
-        });
-        
         // Get the next settlement date
         const nextSettlementDate = utils.calculateNextSettlementDate(insurer, currentDate);
-        console.log('Calculated next settlement date:', nextSettlementDate?.toISOString?.() || 'null');
         
         // Calculate days until next settlement
         let daysUntilNext = null;
@@ -487,12 +515,10 @@
           
           const timeDiff = nextDate.getTime() - currentDate.getTime();
           daysUntilNext = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-          console.log('Days until next settlement:', daysUntilNext);
         }
         
         // Get status information
         const statusInfo = utils.getStatusCode(insurer, currentDate);
-        console.log('Status info:', statusInfo);
         
         // Create the status object with all necessary information
         const statusObj = {
@@ -503,16 +529,8 @@
           daysUntilNext: daysUntilNext
         };
         
-        console.log('Status object:', JSON.parse(JSON.stringify({
-          ...statusObj,
-          nextSettlementDate: statusObj.nextSettlementDate?.toISOString()
-        })));
-        
         statusMap.set(insurer.id, statusObj);
-        
-        console.groupEnd();
       } catch (error) {
-        console.error(`Error processing insurer ${insurer.id}:`, error);
         statusMap.set(insurer.id, {
           status: 'error',
           color: 'gray',
@@ -523,82 +541,23 @@
       }
     });
     
-    // Log the final status map for debugging
-    console.log('Final status map:', Array.from(statusMap.entries()).map(([id, status]) => ({
-      id,
-      status: status.status,
-      color: status.color,
-      nextSettlementDate: status.nextSettlementDate?.toISOString(),
-      daysUntilNext: status.daysUntilNext
-    })));
-    
     return statusMap;
   });
 
   onMounted(() => {
-    console.group('InsurerList mounted');
-    console.log('currentDate prop:', props.currentDate);
-    console.log('currentDate type:', Object.prototype.toString.call(props.currentDate));
-    console.log('lastInvoices:', props.lastInvoices);
-    
-    // Log the first insurer's data if available
-    if (props.insurers && props.insurers.length > 0) {
-      console.log('First insurer data:', JSON.parse(JSON.stringify(props.insurers[0])));
-    }
-    
-    console.groupEnd();
+    // Component mounted
   });
   
   // Watch for changes to the insurers prop
-  watch(() => props.insurers, (newInsurers) => {
-    if (newInsurers && newInsurers.length > 0) {
-      console.log('Insurers data updated. First insurer:', JSON.parse(JSON.stringify(newInsurers[0])));
-      
-      // Log the status for each insurer
-      newInsurers.forEach((insurer, index) => {
-        const status = insurerStatuses.value.get(insurer.id);
-        console.log(`Insurer ${index + 1} (${insurer.name || 'Unnamed'}):`, {
-          id: insurer.id,
-          name: insurer.name,
-          turnus: insurer.turnus,
-          last_invoice: insurer.last_invoice,
-          next_due: insurer.next_due,
-          status: status?.status,
-          nextSettlementDate: status?.nextSettlementDate
-        });
-      });
-    }
+  watch(() => props.insurers, () => {
+    // Handle insurers data changes if needed
   }, { immediate: true, deep: true });
 
-  watch(() => props.insurers, (newValue) => {
-    console.log('Insurers updated:', newValue);
-    // Log the first insurer's doc_art if it exists
-    if (newValue && newValue.length > 0) {
-      console.log('First insurer doc_art:', newValue[0].doc_art);
-      console.log('First insurer keys:', Object.keys(newValue[0]));
-      
-      // Log all insurers and their doc_art
-      console.log('All insurers doc_art:');
-      newValue.forEach((insurer, index) => {
-        console.log(`Insurer ${index} (${insurer.name || 'unnamed'}):`, insurer.doc_art);
-      });
-    } else {
-      console.log('No insurers data available');
-    }
-  }, { immediate: true, deep: true });
-
-  watch(() => props.currentDate, (newDate) => {
-    console.group('InsurerList - currentDate changed');
-    console.log('New currentDate:', newDate);
-    console.log('Sample insurer status:', 
-      props.insurers.length > 0 ? 
-      utils.getStatusText(props.insurers[0], newDate, props.lastInvoices) : 'No insurers');
-    console.groupEnd();
+  watch(() => props.currentDate, () => {
+    // Handle currentDate changes if needed
   }, { deep: true });
 
   const getNormalizedDocTypes = (docArt) => {
-    console.log('getNormalizedDocTypes input:', docArt);
-    
     if (!docArt) return [];
     
     try {
@@ -652,14 +611,83 @@
 
   // Format turnus for display
   const formatTurnus = (turnus) => {
-    if (!turnus) return '';
-    // If it's already in the format 'X-tägig' or 'Jährlich', return as is
-    if (String(turnus).includes('-tägig') || turnus === 'Jährlich') {
-      return turnus;
+    if (!turnus) return 'Nicht angegeben';
+    
+    // If it's a number, assume it's days
+    if (!isNaN(turnus)) {
+      return `${turnus} Tage`;
     }
-    // Otherwise, try to extract number and add '-tägig'
-    const days = String(turnus).replace(/[^0-9]/g, '');
-    return days ? `${days}-tägig` : turnus;
+    
+    // If it's a string, try to parse it
+    const turnusStr = String(turnus).toLowerCase();
+    
+    if (turnusStr.includes('tag') || turnusStr.includes('day')) {
+      const days = turnusStr.match(/\d+/);
+      return days ? `${days[0]} Tage` : turnus;
+    }
+    
+    return turnus;
+  };
+
+  // Get the type of zustellungsweg for icon display
+  const getZustellungswegType = (insurer) => {
+    const zustellungsweg = (insurer.zustellungsweg || insurer.zustellweg || insurer.bezugsweg || '').toString().toLowerCase().trim();
+    
+    if (!zustellungsweg) return '';
+    
+    if (zustellungsweg.includes('bipro') || insurer.bipro) {
+      return 'bipro';
+    } else if (zustellungsweg.includes('mail') || zustellungsweg.includes('e-mail') || zustellungsweg === 'email') {
+      return 'mail';
+    } else if (zustellungsweg.includes('post') || zustellungsweg.includes('brief')) {
+      return 'post';
+    } else if (zustellungsweg.includes('makler') || zustellungsweg.includes('gmi') || zustellungsweg.includes('getmyinvoices')) {
+      return 'maklerportal';
+    }
+    
+    return '';
+  };
+
+  // Format Zustellungsweg for display
+  const formatZustellungsweg = (zustellungsweg) => {
+    // Handle null, undefined, or empty string
+    if (!zustellungsweg && zustellungsweg !== '') return 'Nicht angegeben';
+    
+    // Convert to string, handle case where zustellungsweg is 0 or false
+    const zustellungswegStr = zustellungsweg !== null && zustellungsweg !== undefined ? zustellungsweg.toString() : '';
+    const zustellungswegLower = zustellungswegStr.toLowerCase().trim();
+    
+    // If the string is empty after trimming, return 'Nicht angegeben'
+    if (zustellungswegLower === '') return 'Nicht angegeben';
+    
+    // Map common variations to display values
+    const displayMap = {
+      'bipro': 'BiPRO',
+      'mail': 'E-Mail',
+      'email': 'E-Mail',
+      'e-mail': 'E-Mail',
+      'post': 'Per Post',
+      'brief': 'Per Post',
+      'maklerportal': 'Maklerportal/GetMyInvoices',
+      'getmyinvoices': 'Maklerportal/GetMyInvoices',
+      'gmi': 'Maklerportal/GetMyInvoices',
+      'per post': 'Per Post'
+    };
+    
+    // Check for exact matches first
+    if (displayMap[zustellungswegLower]) {
+      return displayMap[zustellungswegLower];
+    }
+    
+    // Check for partial matches
+    for (const [key, value] of Object.entries(displayMap)) {
+      if (zustellungswegLower.includes(key)) {
+        return value;
+      }
+    }
+    
+    // If no match found, return original value or 'Nicht angegeben' if empty
+    return zustellungswegStr || 'Nicht angegeben';
   };
 
   const formatLastInvoice = (lastInvoice) => {

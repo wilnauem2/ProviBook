@@ -316,20 +316,29 @@ export function useInsurerUtils() {
   };
 
   const getNormalizedDocTypes = (docTypes) => {
-    if (!docTypes || !Array.isArray(docTypes)) return [];
+    // Handle null/undefined
+    if (!docTypes) return [];
     
-    return docTypes
-      .map(type => {
-        // Convert to string and trim
-        const strType = String(type || '').trim().toUpperCase();
-        // Find a matching type from the allowed types
-        return allDocTypes.find(allowedType => 
-          allowedType === strType || 
-          allowedType.replace(/\s+/g, '') === strType.replace(/\s+/g, '')
-        );
-      })
-      .filter(Boolean) // Remove any undefined values
-      .filter((value, index, self) => self.indexOf(value) === index); // Remove duplicates
+    // Handle string input (comma-separated values)
+    if (typeof docTypes === 'string') {
+      return docTypes.split(',')
+        .map(type => type.trim().toUpperCase())
+        .filter(type => allDocTypes.includes(type));
+    }
+    
+    // Handle array input
+    if (Array.isArray(docTypes)) {
+      return docTypes
+        .map(type => {
+          if (typeof type === 'string') {
+            return type.trim().toUpperCase();
+          }
+          return null;
+        })
+        .filter(type => type && allDocTypes.includes(type));
+    }
+    
+    return [];
   };
 
   // Cache to store calculated next due dates by insurer ID

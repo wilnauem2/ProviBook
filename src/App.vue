@@ -29,11 +29,17 @@
           <div class="flex-1 overflow-y-auto">
             <InsurerList 
               :insurers="filteredInsurers" 
-              :last-invoices="insurerStore.lastInvoices" 
-              :current-date="currentDate"
               @select-insurer="selectInsurer"
-              @update:sort-by="sortBy = $event"
-              :sort-by="sortBy"
+            />
+            <InsurerDetail
+              v-if="selectedInsurer"
+              :insurer="selectedInsurer"
+              :current-date="currentDate"
+              :data-mode="dataMode"
+              @close="clearSelectedInsurer"
+              @update:insurer="handleInsurerUpdate"
+              @settlement-completed="handleSettlementCompleted"
+              @deleted="handleInsurerDeleted"
             />
           </div>
         </div>
@@ -43,56 +49,25 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onErrorCaptured, watch } from 'vue';
+import { ref, computed } from 'vue';
 import { useInsurerStore } from './stores/insurerStore';
-import { debounce } from 'lodash';
-import InsurerList from '@/components/InsurerList.vue';
+import InsurerList from './components/InsurerList.vue';
+import InsurerDetail from './components/InsurerDetail.vue';
 
-// --- Error Boundary State ---
+const insurerStore = useInsurerStore();
 const hasError = ref(false);
 const errorMessage = ref('');
-
-onErrorCaptured((err) => {
-  console.error('Root error captured in App.vue:', err);
-  hasError.value = true;
-  errorMessage.value = err.message || 'An unknown error occurred.';
-  return false; // Prevent the error from propagating further
-});
-
-const reloadApp = () => {
-  window.location.reload();
-};
-
-// --- Debug Panel State & Logic ---
-const store = useInsurerStore();
-const isDevelopment = import.meta.env.DEV;
-const isOpen = ref(isDevelopment);
-const isFirebaseConnected = ref(false);
-const error = ref(null); // Local error for debug panel
+const isDevelopment = import.meta.env.MODE === 'development';
+const isOpen = ref(false);
 const isLoading = ref(false);
-const environment = import.meta.env.MODE;
+const isFirebaseConnected = ref(false);
+const error = ref(null);
+const selectedInsurer = ref(null);
+const dataMode = ref('view');
 
-const toggleDebug = () => {
-  isOpen.value = !isOpen.value;
-};
-
-// Initialize the insurer store
-const insurerStore = useInsurerStore();
-
-// Ensure we have insurers loaded
-onMounted(async () => {
-  try {
-    await insurerStore.refreshInsurers();
-  } catch (err) {
-    console.error('Error loading insurers:', err);
-    error.value = 'Failed to load insurers';
-  }
-});
-
-// Compute filtered insurers
-const filteredInsurers = computed(() => {
-  return insurerStore.insurers || [];
-});
+// Computed properties
+const environment = computed(() => import.meta.env.MODE);
+const filteredInsurers = computed(() => insurerStore.insurers || []);
 
 // Current date for status calculations
 const currentDate = ref(new Date());
@@ -100,17 +75,25 @@ const currentDate = ref(new Date());
 // Sort by state
 const sortBy = ref('name');
 
+// Methods
+const toggleDebug = () => {
+  isOpen.value = !isOpen.value;
+};
+
+const reloadApp = () => {
+  window.location.reload();
+};
+
 // Handle insurer selection
 const selectInsurer = (insurer) => {
-  console.log('Selected insurer:', insurer);
-  // Add any additional selection logic here if needed
+  selectedInsurer.value = insurer;
 };
 
 const testFirebase = async () => {
   try {
     isLoading.value = true;
     error.value = null;
-    isFirebaseConnected.value = await store.testFirestoreConnection();
+    isFirebaseConnected.value = await insurerStore.testFirestoreConnection();
   } catch (err) {
     console.error('Firebase test failed:', err);
     error.value = err.message;
@@ -120,11 +103,29 @@ const testFirebase = async () => {
 };
 
 const showStoreState = () => {
-  store.debugStoreState();
+  console.log('Store state:', JSON.parse(JSON.stringify(insurerStore.$state)));
 };
 
 const clearError = () => {
   error.value = null;
+};
+
+const clearSelectedInsurer = () => {
+  selectedInsurer.value = null;
+};
+
+const handleInsurerUpdate = (updatedInsurer) => {
+  // Handle insurer update logic here
+  insurerStore.updateInsurer(updatedInsurer);
+};
+
+const handleSettlementCompleted = () => {
+  // Handle settlement completed logic here
+  selectedInsurer.value = null;
+};
+
+const handleInsurerDeleted = () => {
+  selectedInsurer.value = null;
 };
 </script>
 

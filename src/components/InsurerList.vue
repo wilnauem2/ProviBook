@@ -1,22 +1,48 @@
 <template>
   <div class="h-full flex flex-col">
-    <div class="flex items-center justify-between mb-4">
-      <div class="text-gray-800">
-        <span class="ml-2 px-2 py-0.5 bg-gray-100 text-gray-600 text-xs font-medium rounded-full">
-          {{ safeInsurers.length }} Einträge
-        </span>
+    <div class="flex flex-col space-y-2 mb-4">
+      <div class="flex items-center justify-between">
+        <div class="text-gray-800">
+          <span class="ml-2 px-2 py-0.5 bg-gray-100 text-gray-600 text-xs font-medium rounded-full">
+            {{ safeInsurers.length }} Einträge
+          </span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button 
+            v-if="safeSelectedInsurer"
+            @click="$emit('clear-selection')"
+            class="text-xs text-gray-500 hover:text-gray-700 flex items-center transition-colors"
+          >
+            <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            Auswahl aufheben
+          </button>
+        </div>
+      
       </div>
-      <div class="flex items-center space-x-2">
-        <button 
-          v-if="safeSelectedInsurer"
-          @click="$emit('clear-selection')"
-          class="text-xs text-gray-500 hover:text-gray-700 flex items-center transition-colors"
-        >
-          <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-          Auswahl aufheben
-        </button>
+      
+      <!-- Delivery Method Statistics -->
+      <div v-if="safeInsurers.length > 0" class="flex flex-wrap items-center gap-3 text-xs text-gray-600">
+        <div class="flex items-center">
+          <span class="font-medium">Zustellwege:</span>
+        </div>
+        <div v-if="deliveryStats.bipro > 0" class="flex items-center bg-blue-50 px-2 py-0.5 rounded-full">
+          <span class="w-2 h-2 bg-blue-500 rounded-full mr-1.5"></span>
+          <span>{{ deliveryStats.bipro }} BIPRO</span>
+        </div>
+        <div v-if="deliveryStats.email > 0" class="flex items-center bg-green-50 px-2 py-0.5 rounded-full">
+          <span class="w-2 h-2 bg-green-500 rounded-full mr-1.5"></span>
+          <span>{{ deliveryStats.email }} E-Mail</span>
+        </div>
+        <div v-if="deliveryStats.post > 0" class="flex items-center bg-yellow-50 px-2 py-0.5 rounded-full">
+          <span class="w-2 h-2 bg-yellow-500 rounded-full mr-1.5"></span>
+          <span>{{ deliveryStats.post }} Post</span>
+        </div>
+        <div v-if="deliveryStats.portal > 0" class="flex items-center bg-purple-50 px-2 py-0.5 rounded-full">
+          <span class="w-2 h-2 bg-purple-500 rounded-full mr-1.5"></span>
+          <span>{{ deliveryStats.portal }} Portal/GMI</span>
+        </div>
       </div>
     </div>
    
@@ -360,6 +386,39 @@
   };
 
   const scrollContainer = ref(null);
+
+  // Initialize deliveryStats with default values
+  const defaultDeliveryStats = {
+    bipro: 0,
+    email: 0,
+    post: 0,
+    portal: 0
+  };
+
+  // Calculate delivery method statistics
+  const deliveryStats = computed(() => {
+    if (!safeInsurers.value || !Array.isArray(safeInsurers.value)) {
+      return { ...defaultDeliveryStats };
+    }
+
+    const stats = { ...defaultDeliveryStats };
+
+    safeInsurers.value.forEach(insurer => {
+      const zustellungsweg = (insurer.zustellungsweg || '').toLowerCase();
+      
+      if (zustellungsweg.includes('bipro')) {
+        stats.bipro++;
+      } else if (zustellungsweg.includes('mail') || zustellungsweg.includes('e-mail')) {
+        stats.email++;
+      } else if (zustellungsweg.includes('post') || zustellungsweg.includes('brief')) {
+        stats.post++;
+      } else if (zustellungsweg.includes('portal') || zustellungsweg.includes('gmi') || zustellungsweg.includes('get my invoices')) {
+        stats.portal++;
+      }
+    });
+
+    return stats;
+  });
 
   const safeInsurers = computed(() => {
     if (!props.insurers || !Array.isArray(props.insurers)) {

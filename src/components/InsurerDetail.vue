@@ -419,7 +419,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['close', 'delete-insurer', 'settlement-completed', 'update:insurer']);
+const emit = defineEmits(['close', 'delete-insurer', 'settlement-completed', 'update:insurer', 'insurer-deleted']);
 
 const insurerStore = useInsurerStore();
 const { getStatusColor, getStatusText, calculateDaysOverdue, getNormalizedDocTypes, formatLastInvoice } = useInsurerUtils();
@@ -627,6 +627,20 @@ watch(() => props.insurer, (newInsurer) => {
 // Helper function to check if a field is empty
 const isFieldEmpty = (field) => {
   return field === undefined || field === null || field === '' || (Array.isArray(field) && field.length === 0);
+};
+
+const confirmDelete = async () => {
+  if (confirm('Möchten Sie diesen Versicherer wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.')) {
+    try {
+      await insurerStore.deleteInsurer(props.insurer.id);
+      showSuccessToast('Versicherer erfolgreich gelöscht');
+      emit('insurer-deleted', props.insurer.id);
+      handleClose();
+    } catch (error) {
+      console.error('Error deleting insurer:', error);
+      showErrorToast('Fehler beim Löschen des Versicherers');
+    }
+  }
 };
 
 const handleClose = () => {

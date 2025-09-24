@@ -1,8 +1,5 @@
 <template>
-  <div 
-    class="grid grid-cols-1 lg:grid-cols-4 gap-6"
-    :class="{ 'filter blur-sm': selectedInsurer }"
-  >
+  <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
     <!-- Left Sidebar -->
     <div class="lg:col-span-1 space-y-4">
       <!-- Inlined StatusSummary -->
@@ -11,8 +8,18 @@
           <h3 class="text-lg font-medium text-gray-900">Statusübersicht</h3>
           <div class="mt-2 space-y-2">
             <button @click="$emit('status-clicked', 'all')" :class="['w-full text-left p-2 rounded-md text-sm', statusFilter === 'all' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100']">Alle</button>
-            <button @click="$emit('status-clicked', 'warning')" :class="['w-full text-left p-2 rounded-md text-sm flex justify-between items-center', statusFilter === 'warning' ? 'bg-yellow-100 text-yellow-800' : 'hover:bg-gray-100']"><span>Mahnung</span> <span class="font-bold">{{ statusCounts.warning }}</span></button>
-            <button @click="$emit('status-clicked', 'critical')" :class="['w-full text-left p-2 rounded-md text-sm flex justify-between items-center', statusFilter === 'critical' ? 'bg-red-100 text-red-800' : 'hover:bg-gray-100']"><span>Kritisch</span> <span class="font-bold">{{ statusCounts.critical }}</span></button>
+            <button @click="$emit('status-clicked', 'warning')" :class="['w-full text-left p-2 rounded-md text-sm flex justify-between items-center', statusFilter === 'warning' ? 'bg-yellow-100 text-yellow-800' : 'hover:bg-gray-100']">
+              <span>Mahnung</span> 
+              <span class="font-bold">{{ statusCounts.warning || 0 }}</span>
+            </button>
+            <button @click="$emit('status-clicked', 'critical')" :class="['w-full text-left p-2 rounded-md text-sm flex justify-between items-center', statusFilter === 'critical' ? 'bg-red-100 text-red-800' : 'hover:bg-gray-100']">
+              <span>Kritisch</span> 
+              <span class="font-bold">{{ statusCounts.critical || 0 }}</span>
+            </button>
+            <button @click="$emit('status-clicked', 'on_time')" :class="['w-full text-left p-2 rounded-md text-sm flex justify-between items-center', statusFilter === 'on_time' ? 'bg-green-100 text-green-800' : 'hover:bg-gray-100']">
+              <span>Fällig</span> 
+              <span class="font-bold">{{ statusCounts.on_time || 0 }}</span>
+            </button>
           </div>
         </div>
       </div>
@@ -30,7 +37,7 @@
         </div>
       </div>
       
-            <!-- Development Features (only shown in development) -->
+      <!-- Development Features (only shown in development) -->
       <template v-if="!isProduction">
         <!-- Date Simulator -->
         <div class="bg-white rounded-lg shadow p-4">
@@ -87,14 +94,11 @@
             <div class="h-3 w-3 bg-blue-400 rounded-full"></div>
             <div class="h-3 w-3 bg-blue-400 rounded-full"></div>
             <div class="h-3 w-3 bg-blue-400 rounded-full"></div>
-            <div class="text-sm text-gray-500">Laden...</div>
           </div>
         </div>
         <div v-else>
-          <InsurerList
+          <InsurerList 
             :insurers="filteredInsurers"
-            :sort-by="sortOption"
-            :last-invoices="lastInvoices"
             :current-date="currentDate"
             :selected-insurer="selectedInsurer"
             :is-loading="isLoading"
@@ -108,25 +112,72 @@
 </template>
 
 <script setup>
-import { defineProps, defineEmits, computed, onMounted, watch, ref } from 'vue';
+import { defineProps, defineEmits, computed, onBeforeMount, onMounted, watch } from 'vue';
 import InsurerList from '@/components/InsurerList.vue';
+
+// Debug logging (only in development)
+if (import.meta.env.DEV) {
+  onBeforeMount(() => {
+    console.log('DashboardView wird geladen');
+    console.log('Props:', {
+      isLoading: props.isLoading,
+      statusCounts: props.statusCounts,
+      statusFilter: props.statusFilter,
+      hasStatusCounts: !!props.statusCounts
+    });
+  });
+}
 
 const props = defineProps({
   isLoading: Boolean,
-  isProduction: Boolean,
-  filteredInsurers: Array,
-  statusCounts: Object,
-  statusFilter: String,
-  searchFilter: String,
-  simulatedDate: Date,
+  isProduction: {
+    type: Boolean,
+    default: false
+  },
+  filteredInsurers: {
+    type: Array,
+    default: () => []
+  },
+  statusCounts: {
+    type: Object,
+    default: () => ({
+      critical: 0,
+      warning: 0,
+      on_time: 0
+    })
+  },
+  statusFilter: {
+    type: String,
+    default: 'all'
+  },
+  searchFilter: {
+    type: String,
+    default: ''
+  },
+  simulatedDate: {
+    type: Date,
+    default: null
+  },
   currentDate: {
     type: Date,
     required: true
   },
-  dataMode: String,
-  sortOption: String,
-  lastInvoices: Object,
-  selectedInsurer: Object
+  dataMode: {
+    type: String,
+    default: 'production'
+  },
+  sortOption: {
+    type: String,
+    default: 'name'
+  },
+  lastInvoices: {
+    type: Object,
+    default: () => ({})
+  },
+  selectedInsurer: {
+    type: Object,
+    default: null
+  }
 });
 
 const emit = defineEmits([
@@ -178,16 +229,18 @@ const statusFilterClass = computed(() => ({
   'bg-green-100 text-green-800': props.statusFilter === 'on_time',
 }));
 
-// Debug currentDate prop
-onMounted(() => {
-  console.log('DashboardView mounted with currentDate:', props.currentDate);
-  console.log('currentDate type:', Object.prototype.toString.call(props.currentDate));
-});
+// Debug currentDate prop (only in development)
+if (import.meta.env.DEV) {
+  onMounted(() => {
+    console.log('DashboardView mounted with currentDate:', props.currentDate);
+    console.log('currentDate type:', Object.prototype.toString.call(props.currentDate));
+  });
 
-watch(() => props.currentDate, (newDate) => {
-  console.log('DashboardView currentDate changed to:', newDate);
-  console.log('New date type:', Object.prototype.toString.call(newDate));
-});
+  watch(() => props.currentDate, (newDate) => {
+    console.log('DashboardView currentDate changed to:', newDate);
+    console.log('New date type:', Object.prototype.toString.call(newDate));
+  });
+}
 </script>
 
 <style scoped>

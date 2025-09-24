@@ -254,14 +254,21 @@ const currentDate = computed(() => {
 
 // Status counts for the status summary
 const statusCounts = computed(() => {
-  if (!insurerStore.insurers) return { critical: 0, warning: 0, on_time: 0 };
-  return insurerStore.insurers.reduce((acc, insurer) => {
+  if (!insurerStore.insurers) {
+    console.log('No insurers available for status counts');
+    return { critical: 0, warning: 0, on_time: 0 };
+  }
+  
+  const counts = insurerStore.insurers.reduce((acc, insurer) => {
     const days = calculateDaysOverdue(insurer, currentDate.value);
     if (days > 5) acc.critical++;
     else if (days > 0) acc.warning++;
     else acc.on_time++;
     return acc;
   }, { critical: 0, warning: 0, on_time: 0 });
+  
+  console.log('Status counts calculated:', counts);
+  return counts;
 });
 
 // --- Lifecycle Hooks ---

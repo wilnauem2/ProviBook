@@ -24,9 +24,6 @@
       
       <!-- Delivery Method Statistics -->
       <div v-if="safeInsurers.length > 0" class="flex flex-wrap items-center gap-3 text-xs text-gray-600">
-        <div class="flex items-center">
-          <span class="font-medium">Zustellwege:</span>
-        </div>
         <div v-if="deliveryStats.bipro > 0" class="flex items-center bg-blue-50 px-2 py-0.5 rounded-full">
           <span class="w-2 h-2 bg-blue-500 rounded-full mr-1.5"></span>
           <span>{{ deliveryStats.bipro }} BIPRO</span>
@@ -132,7 +129,7 @@
                     }"></span>
                   </span>
                   {{ insurerStatuses.get(insurer.id)?.status === 'red' ? 'Überfällig' : 
-                     insurerStatuses.get(insurer.id)?.status === 'yellow' ? 'Fällig' : 
+                     insurerStatuses.get(insurer.id)?.status === 'yellow' ? 'OK' : 
                      insurerStatuses.get(insurer.id)?.status === 'green' ? 'Aktuell' : 'Unbekannt' }}
                 </span>
               </div>

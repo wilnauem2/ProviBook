@@ -467,7 +467,7 @@ const statusInfo = computed(() => {
     };
   } else if (daysOverdue > 0) {
     return {
-      text: 'Fällig',
+      text: 'OK',
       badgeClass: 'border-yellow-200 bg-yellow-50 text-yellow-800',
       dotClass: 'text-yellow-500'
     };

@@ -6,19 +6,65 @@
       <div class="bg-white rounded-lg shadow">
         <div class="p-4">
           <h3 class="text-lg font-medium text-gray-900">Statusübersicht</h3>
-          <div class="mt-2 space-y-2">
-            <button @click="$emit('status-clicked', 'all')" :class="['w-full text-left p-2 rounded-md text-sm', statusFilter === 'all' ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100']">Alle</button>
-            <button @click="$emit('status-clicked', 'warning')" :class="['w-full text-left p-2 rounded-md text-sm flex justify-between items-center', statusFilter === 'warning' ? 'bg-yellow-100 text-yellow-800' : 'hover:bg-gray-100']">
-              <span>Mahnung</span> 
-              <span class="font-bold">{{ statusCounts.warning || 0 }}</span>
+          <div class="mt-3 space-y-3">
+            <button @click="$emit('status-clicked', 'all')" :class="[
+              'w-full text-left p-3 rounded-lg text-sm font-medium transition-all duration-200',
+              'backdrop-blur-sm bg-white/80 border border-gray-200 shadow-sm',
+              'hover:bg-white/90 hover:shadow-md hover:border-gray-300',
+              'active:scale-[0.99] active:shadow-sm',
+              statusFilter === 'all' 
+                ? 'bg-blue-50/90 border-blue-200 text-blue-700 shadow-blue-100' 
+                : 'text-gray-700 hover:bg-gray-50'
+            ]">
+              <div class="flex justify-between items-center">
+                <span>Alle</span>
+                <span class="font-medium bg-white px-2 py-0.5 rounded-full text-xs border border-gray-200">{{ Object.values(statusCounts).reduce((a, b) => a + (b || 0), 0) }}</span>
+              </div>
             </button>
-            <button @click="$emit('status-clicked', 'critical')" :class="['w-full text-left p-2 rounded-md text-sm flex justify-between items-center', statusFilter === 'critical' ? 'bg-red-100 text-red-800' : 'hover:bg-gray-100']">
-              <span>Kritisch</span> 
-              <span class="font-bold">{{ statusCounts.critical || 0 }}</span>
+
+            <button @click="$emit('status-clicked', 'on_time')" :class="[
+              'w-full text-left p-3 rounded-lg text-sm font-medium transition-all duration-200',
+              'backdrop-blur-sm bg-white/80 border border-gray-200 shadow-sm',
+              'hover:bg-white/90 hover:shadow-md hover:border-gray-300',
+              'active:scale-[0.99] active:shadow-sm',
+              statusFilter === 'on_time' 
+                ? 'bg-green-50/90 border-green-200 text-green-700 shadow-green-100' 
+                : 'text-gray-700 hover:bg-gray-50'
+            ]">
+              <div class="flex justify-between items-center">
+                <span>OK</span>
+                <span class="font-medium bg-white px-2 py-0.5 rounded-full text-xs border border-gray-200">{{ statusCounts.on_time || 0 }}</span>
+              </div>
             </button>
-            <button @click="$emit('status-clicked', 'on_time')" :class="['w-full text-left p-2 rounded-md text-sm flex justify-between items-center', statusFilter === 'on_time' ? 'bg-green-100 text-green-800' : 'hover:bg-gray-100']">
-              <span>Fällig</span> 
-              <span class="font-bold">{{ statusCounts.on_time || 0 }}</span>
+
+            <button @click="$emit('status-clicked', 'warning')" :class="[
+              'w-full text-left p-3 rounded-lg text-sm font-medium transition-all duration-200',
+              'backdrop-blur-sm bg-white/80 border border-gray-200 shadow-sm',
+              'hover:bg-white/90 hover:shadow-md hover:border-gray-300',
+              'active:scale-[0.99] active:shadow-sm',
+              statusFilter === 'warning' 
+                ? 'bg-amber-50/90 border-amber-200 text-amber-700 shadow-amber-100' 
+                : 'text-gray-700 hover:bg-gray-50'
+            ]">
+              <div class="flex justify-between items-center">
+                <span>Mahnung</span>
+                <span class="font-medium bg-white px-2 py-0.5 rounded-full text-xs border border-gray-200">{{ statusCounts.warning || 0 }}</span>
+              </div>
+            </button>
+
+            <button @click="$emit('status-clicked', 'critical')" :class="[
+              'w-full text-left p-3 rounded-lg text-sm font-medium transition-all duration-200',
+              'backdrop-blur-sm bg-white/80 border border-gray-200 shadow-sm',
+              'hover:bg-white/90 hover:shadow-md hover:border-gray-300',
+              'active:scale-[0.99] active:shadow-sm',
+              statusFilter === 'critical' 
+                ? 'bg-red-50/90 border-red-200 text-red-700 shadow-red-100' 
+                : 'text-gray-700 hover:bg-gray-50'
+            ]">
+              <div class="flex justify-between items-center">
+                <span>Kritisch</span>
+                <span class="font-medium bg-white px-2 py-0.5 rounded-full text-xs border border-gray-200">{{ statusCounts.critical || 0 }}</span>
+              </div>
             </button>
           </div>
         </div>

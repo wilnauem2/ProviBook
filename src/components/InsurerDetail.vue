@@ -427,11 +427,32 @@ const { getStatusColor, getStatusText, calculateDaysOverdue, getNormalizedDocTyp
 // Compute status info for the current insurer
 // Format the last invoice date
 const formattedLastInvoiceDate = computed(() => {
-  if (!props.insurer?.last_invoice) return 'Keine Abrechnung';
-  const date = props.insurer.last_invoice.date?.toDate 
-    ? props.insurer.last_invoice.date.toDate() 
-    : new Date(props.insurer.last_invoice.date);
-  return format(date, 'dd.MM.yyyy');
+  try {
+    if (!props.insurer?.last_invoice) return 'Keine Abrechnung';
+    
+    let date;
+    if (props.insurer.last_invoice.date?.toDate) {
+      date = props.insurer.last_invoice.date.toDate();
+    } else if (props.insurer.last_invoice.date) {
+      date = new Date(props.insurer.last_invoice.date);
+    } else if (props.insurer.last_invoice.seconds) {
+      // Handle Firestore timestamp in seconds
+      date = new Date(props.insurer.last_invoice.seconds * 1000);
+    } else {
+      return 'Ungültiges Datum';
+    }
+    
+    // Check if the date is valid
+    if (isNaN(date.getTime())) {
+      console.error('Invalid date in last_invoice:', props.insurer.last_invoice);
+      return 'Ungültiges Datum';
+    }
+    
+    return format(date, 'dd.MM.yyyy');
+  } catch (error) {
+    console.error('Error formatting last invoice date:', error, 'Value:', props.insurer?.last_invoice);
+    return 'Fehler beim Formatieren';
+  }
 });
 
 // Compute status info for the current insurer

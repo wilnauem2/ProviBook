@@ -25,6 +25,7 @@
         <div
           v-for="insurer in (sortedInsurers || [])"
           :key="insurer.id"
+          v-safe-card="{ insurer }"
           @click="emit('select-insurer', insurer)"
           :class="[
             'group relative overflow-hidden rounded-2xl border',
@@ -319,7 +320,7 @@
 </template>
 
 <script setup>
-  import { defineProps, defineEmits, computed, onMounted, watch, ref } from 'vue';
+  import { defineProps, defineEmits, computed, onMounted, watch, ref, onErrorCaptured } from 'vue';
   import { format, add, isAfter, isToday } from 'date-fns';
   import { de } from 'date-fns/locale';
   import { useInsurerUtils } from '@/composables/useInsurerUtils';
@@ -338,6 +339,25 @@
   });
 
   const emit = defineEmits(['select-insurer', 'clear-selection']);
+
+  // Global error handler for the component
+  onErrorCaptured((err, instance, info) => {
+    console.error('Error in component:', err);
+    console.error('Error info:', info);
+    return false; // Prevent the error from propagating further
+  });
+
+  // Directive to catch errors in individual cards
+  const vSafeCard = {
+    mounted(el, binding) {
+      try {
+        // This will help identify which card is causing the error
+        console.log('Rendering card for insurer:', binding.value.insurer?.id, binding.value.insurer?.name);
+      } catch (error) {
+        console.error('Error in card renderer:', error, 'Insurer:', binding.value.insurer);
+      }
+    }
+  };
 
   const scrollContainer = ref(null);
 
@@ -598,15 +618,38 @@
   };
 
   const formatDate = (dateValue) => {
-    if (!dateValue) return '';
-    let date;
-    if (dateValue.seconds) { 
-      date = new Date(dateValue.seconds * 1000);
-    } else {
-      date = new Date(dateValue);
+    try {
+      if (!dateValue) {
+        console.log('formatDate: No date value provided');
+        return '';
+      }
+      
+      let date;
+      
+      // Handle Firestore Timestamp
+      if (dateValue && typeof dateValue === 'object' && 'toDate' in dateValue) {
+        date = dateValue.toDate();
+      } 
+      // Handle Firestore timestamp object
+      else if (dateValue && typeof dateValue === 'object' && 'seconds' in dateValue) {
+        date = new Date(dateValue.seconds * 1000);
+      } 
+      // Handle string or number
+      else {
+        date = new Date(dateValue);
+      }
+      
+      // Check if the date is valid
+      if (isNaN(date.getTime())) {
+        console.error('formatDate: Invalid date value:', dateValue);
+        return 'Ungültiges Datum';
+      }
+      
+      return format(date, 'dd.MM.yyyy', { locale: de });
+    } catch (error) {
+      console.error('Error in formatDate:', error, 'Value:', dateValue);
+      return 'Fehler beim Formatieren';
     }
-    if (isNaN(date.getTime())) return '';
-    return format(date, 'dd.MM.yyyy', { locale: de });
   };
 
   // Format turnus for display

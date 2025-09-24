@@ -201,7 +201,7 @@ export function useInsurerUtils() {
       
       // Fallback calculation if we can't get the next due date
       console.log('No next due date, falling back to last invoice date + turnus');
-      const lastInvoiceDate = parseDateFromObject(insurer.last_invoice);
+      const lastInvoiceDate = parseDateString(insurer.last_invoice);
       if (!lastInvoiceDate) {
         console.log('No last invoice date found');
         return 0;

@@ -285,6 +285,25 @@ export const useInsurerStore = defineStore('insurer', () => {
   };
 
   // Fetch settlement history for an insurer
+  // Alias for fetchSettlementHistory to maintain backward compatibility
+  const fetchSettlements = async (insurerId, mode) => {
+    console.log('fetchSettlements called for insurer:', insurerId, 'with mode:', mode);
+    // If mode is provided, temporarily set dataMode
+    const originalMode = mode ? dataMode.value : null;
+    if (mode) {
+      dataMode.value = mode;
+    }
+    
+    try {
+      return await fetchSettlementHistory(insurerId);
+    } finally {
+      // Restore original mode if it was changed
+      if (mode) {
+        dataMode.value = originalMode;
+      }
+    }
+  };
+
   const fetchSettlementHistory = async (insurerId) => {
     try {
       if (!insurerId) return [];
@@ -418,6 +437,7 @@ export const useInsurerStore = defineStore('insurer', () => {
     testFirestoreConnection,
     deleteSettlement,
     switchEnvironmentAndFetchData,
-    fetchSettlementHistory
+    fetchSettlementHistory,
+    fetchSettlements
   };
 });

@@ -1,5 +1,5 @@
 import { useInsurerStore } from '@/stores/insurerStore.js';
-import { addMonths, addYears, addDays, format } from 'date-fns';
+import { addMonths, addYears, addDays, format, differenceInCalendarDays } from 'date-fns';
 
 export const allDocTypes = ['PDF', 'CSV', 'XLS', 'XML', 'Papier'];
 
@@ -17,7 +17,7 @@ const parseTurnus = (turnus) => {
   if (!isNaN(Number(turnusStr))) {
     const days = parseInt(turnusStr, 10);
     console.log('Numeric turnus, using as days:', days);
-    return days;
+    return days; // CRITICAL FIX: Return immediately to prevent fall-through
   }
   
   // Extract number from turnus string (e.g., '14-tägig' -> 14, '14 tägig' -> 14, '14' -> 14)
@@ -44,7 +44,7 @@ const parseTurnus = (turnus) => {
   }
   
   // Handle non-numeric turnus values
-  if (turnusStr.includes('täglich') || turnusStr.includes('taeglich') || turnusStr === '1') {
+  else if (turnusStr.includes('täglich') || turnusStr.includes('taeglich') || turnusStr === '1') {
     console.log('Daily turnus detected');
     return 1;
   } else if (turnusStr.includes('wöchentlich') || turnusStr.includes('woechentlich') || turnusStr.includes('woche') || turnusStr === '7') {
@@ -72,6 +72,8 @@ const parseTurnus = (turnus) => {
 };
 
 export function useInsurerUtils() {
+  const insurerStore = useInsurerStore();
+
   const parseDateString = (dateInput) => {
     console.log('parseDateString input:', dateInput);
     
@@ -103,10 +105,21 @@ export function useInsurerUtils() {
         const trimmedInput = dateInput.trim();
         console.log('Processing string date:', trimmedInput);
         
-        // Try parsing ISO format (e.g., '2023-12-31' or '2023-12-31T12:00:00Z')
+        // Handle ISO-like dates (YYYY-MM-DD) to avoid timezone issues.
+        // new Date('2023-10-11') can be interpreted as UTC, causing off-by-one day errors.
+        const isoMatch = trimmedInput.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (isoMatch) {
+          const [_, year, month, day] = isoMatch.map(Number);
+          // Construct as local date at midnight
+          const localDate = new Date(year, month - 1, day, 0, 0, 0);
+          console.log('Parsed as local ISO date:', localDate);
+          return localDate;
+        }
+
+        // Try parsing other string formats, but be aware they might have timezone issues.
         let parsed = new Date(trimmedInput);
         if (!isNaN(parsed.getTime())) {
-          console.log('Parsed as ISO format:', parsed);
+          console.log('Parsed as generic string:', parsed);
           return parsed;
         }
         
@@ -172,118 +185,68 @@ export function useInsurerUtils() {
   };
 
   const calculateDaysOverdue = (insurer, currentDate = new Date()) => {
-    console.group('calculateDaysOverdue');
     try {
-      // First, try to get the next due date from the insurer
-      const nextDueDate = calculateNextSettlementDate(insurer, currentDate);
-      
-      // If we have a next due date, calculate days overdue based on that
-      if (nextDueDate) {
-        const today = new Date(currentDate);
-        today.setHours(12, 0, 0, 0);
-        
-        console.log('Next due date:', nextDueDate.toISOString());
-        console.log('Current date:', today.toISOString());
-        
-        // If the next due date is in the future, we're not overdue yet
-        if (today < nextDueDate) {
-          console.log('Not overdue yet');
-          return 0;
-        }
-        
-        // Calculate days overdue
-        const diffTime = today - nextDueDate;
-        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-        
-        console.log('Days overdue:', diffDays);
-        return diffDays;
+      // --- Step 1: Reliably extract the invoice date from multiple possible sources ---
+      let rawDate = null;
+      const insurerInvoice = insurer.last_invoice;
+      const storeInvoice = insurerStore.lastInvoices[insurer.id];
+
+      // Prioritize the date from the main insurer object if it's valid
+      if (insurerInvoice) {
+        // It could be a string, a Firestore timestamp, or an object with a .date/.datum/.display property
+        if (typeof insurerInvoice === 'string') rawDate = insurerInvoice;
+        else if (insurerInvoice.seconds) rawDate = insurerInvoice;
+        else if (insurerInvoice.date) rawDate = insurerInvoice.date;
+        else if (insurerInvoice.datum) rawDate = insurerInvoice.datum;
+        else if (insurerInvoice.display) rawDate = insurerInvoice.display;
       }
-      
-      // Fallback calculation if we can't get the next due date
-      console.log('No next due date, falling back to last invoice date + turnus');
-      const lastInvoiceDate = parseDateString(insurer.last_invoice);
+
+      // Fallback to the store if no valid date was found on the insurer object
+      if (!rawDate && storeInvoice) {
+        if (typeof storeInvoice === 'string') rawDate = storeInvoice;
+        else if (storeInvoice.seconds) rawDate = storeInvoice;
+        else if (storeInvoice.date) rawDate = storeInvoice.date;
+        else if (storeInvoice.datum) rawDate = storeInvoice.datum;
+        else if (storeInvoice.display) rawDate = storeInvoice.display;
+      }
+
+      if (!rawDate) {
+        return null; // No valid date source found
+      }
+
+      // --- Step 2: Parse the extracted date string robustly ---
+      const lastInvoiceDate = parseDateString(rawDate);
       if (!lastInvoiceDate) {
-        console.log('No last invoice date found');
-        return 0;
+        return null; // Date parsing failed
       }
-      
-      const dueDate = new Date(lastInvoiceDate);
-      const turnusDays = parseTurnus(insurer.turnus) || 30; // Default to 30 days if turnus is not set
-      
-      // Set the due date to noon to avoid timezone issues
-      dueDate.setDate(dueDate.getDate() + turnusDays);
-      dueDate.setHours(12, 0, 0, 0);
-      
-      // Set current date to noon for accurate day comparison
+
+      // --- Step 3: Parse the turnus period ---
+      const turnusDays = parseTurnus(insurer.turnus);
+      if (turnusDays === null || isNaN(turnusDays)) {
+        return null; // Turnus is invalid
+      }
+
+      // --- Step 4: Calculate the due date at local midnight ---
+      const base = new Date(lastInvoiceDate);
+      base.setHours(0, 0, 0, 0);
+      const dueDate = addDays(base, turnusDays);
+      const cleanDueDate = new Date(dueDate);
+      cleanDueDate.setHours(0, 0, 0, 0);
+
+      // --- Step 5: Use calendar-day difference to avoid timezone drift ---
       const today = new Date(currentDate);
-      today.setHours(12, 0, 0, 0);
-      
-      console.log('Last invoice date:', lastInvoiceDate.toISOString());
-      console.log('Turnus days:', turnusDays);
-      console.log('Calculated due date:', dueDate.toISOString());
-      console.log('Current date:', today.toISOString());
-      
-      // If the due date is in the future, we're not overdue yet
-      if (today < dueDate) {
-        console.log('Not overdue yet (fallback)');
-        return 0;
-      }
-      
-      // Calculate days overdue
-      const diffTime = today - dueDate;
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-      
-      console.log('Days overdue (fallback):', diffDays);
+      today.setHours(0, 0, 0, 0);
+      const diffDays = differenceInCalendarDays(today, cleanDueDate);
+
+      // Negative => future, 0 => due today, positive => overdue days
       return diffDays;
-      
+
     } catch (error) {
-      console.error('Error calculating days overdue:', error);
-      return 0;
-    } finally {
-      console.groupEnd();
+      console.error('Error in calculateDaysOverdue:', error, 'Insurer:', insurer);
+      return null; // Unknown/invalid -> let callers handle as not overdue
     }
   };
 
-  const getStatusCode = (insurer, currentDate = new Date()) => {
-    const daysOverdue = calculateDaysOverdue(insurer, currentDate);
-    console.log(`Days overdue for ${insurer.name}:`, daysOverdue);
-    
-    if (daysOverdue > 5) {
-      console.log('Status: red (more than 5 days overdue)');
-      return 'red';
-    }
-    if (daysOverdue > 0) {
-      console.log('Status: yellow (1-5 days overdue)');
-      return 'yellow';
-    }
-    console.log('Status: green (not overdue)');
-    return 'green';
-  };
-
-  const getStatusColor = (insurer, currentDate = new Date()) => {
-    const status = getStatusCode(insurer, currentDate);
-    switch (status) {
-      case 'red': return 'bg-red-500';
-      case 'yellow': return 'bg-yellow-500';
-      default: return 'bg-green-500';
-    }
-  };
-
-  const getStatusText = (insurer, currentDate = new Date()) => {
-    const daysOverdue = calculateDaysOverdue(insurer, currentDate);
-    
-    if (daysOverdue > 0) {
-      return `Überfällig seit ${daysOverdue} Tag${daysOverdue !== 1 ? 'en' : ''}`;
-    }
-    
-    const nextDueDate = calculateNextSettlementDate(insurer, currentDate);
-    if (nextDueDate) {
-      const daysUntilDue = Math.ceil((nextDueDate - currentDate) / (1000 * 60 * 60 * 24));
-      return `Nächste Fälligkeit in ${daysUntilDue} Tag${daysUntilDue !== 1 ? 'en' : ''}`;
-    }
-    
-    return 'Kein Fälligkeitsdatum verfügbar';
-  };
 
   const formatLastInvoice = (lastInvoice) => {
     if (!lastInvoice) return '–';
@@ -520,18 +483,38 @@ export function useInsurerUtils() {
     }
   };
 
+  // Helper function to safely parse date values
+  const safeParseDate = (dateValue) => {
+    if (!dateValue) return new Date();
+    if (dateValue instanceof Date) return new Date(dateValue);
+    if (typeof dateValue === 'string' || typeof dateValue === 'number') {
+      const parsed = new Date(dateValue);
+      return isNaN(parsed.getTime()) ? new Date() : parsed;
+    }
+    return new Date();
+  };
+
+
+  const getStatusCode = (insurer, currentDate) => {
+    const daysOverdue = calculateDaysOverdue(insurer, currentDate);
+    // Status is 'red' on the due day (daysOverdue >= 0) or later.
+    if (daysOverdue >= 0) {
+      return { status: 'red', days: daysOverdue };
+    }
+    // Otherwise, the status is 'green'.
+    return { status: 'green', days: daysOverdue };
+  };
+
   // Export all utility functions
   return {
-    getStatusCode,
-    getStatusColor,
-    getStatusText,
     formatLastInvoice,
     formatSettlementDate,
     calculateDaysOverdue,
     getNormalizedDocTypes,
     calculateNextSettlementDate,
     parseDateString,
-    parseTurnus
+    parseTurnus,
+    getStatusCode // Export the new function
   };
 }
 

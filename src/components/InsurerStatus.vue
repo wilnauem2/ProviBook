@@ -11,7 +11,7 @@
 import { computed, onMounted, watch } from 'vue';
 import { useInsurerUtils } from '@/composables/useInsurerUtils.js';
 
-const { getStatusCode, getStatusColor, getStatusText } = useInsurerUtils();
+const { getStatusCode, calculateDaysOverdue } = useInsurerUtils();
 
 const props = defineProps({
   insurer: {
@@ -66,9 +66,9 @@ const status = computed(() => {
   
   try {
     // Use the centralized status calculation
-    const statusInfo = getStatusCode(props.insurer, props.currentDate, props.lastInvoices);
+    const statusInfo = getStatusCode(props.insurer, props.currentDate);
     const statusCode = statusInfo?.status;
-    const days = calculateDaysOverdue(props.insurer, props.currentDate, props.lastInvoices);
+    const days = calculateDaysOverdue(props.insurer, props.currentDate);
     
     console.log('Status code:', statusCode);
     console.log('Days overdue:', days);
@@ -77,7 +77,7 @@ const status = computed(() => {
     switch (statusCode) {
       case 'red':
         result = {
-          text: `Überfällig (${days} Tage)`,
+          text: days === 0 ? 'Heute fällig' : `Überfällig (${days} Tage)`,
           colorClass: 'bg-red-100 text-red-800'
         };
         break;

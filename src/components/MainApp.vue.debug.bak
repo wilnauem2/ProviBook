@@ -1,0 +1,882 @@
+<template>
+  <div class="app-container">
+    <div class="min-h-screen bg-gray-50">
+      <AppHeader 
+        :isProduction="isProduction"
+        :gitBranch="gitBranch"
+        :viewMode="viewMode"
+        v-model:activeTab="activeTab"
+        @new-insurer="isCreateInsurerModalVisible = true"
+        @update:view-mode="viewMode = $event"
+        @export-pdf="exportToPdf"
+      />
+
+      <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
+        <!-- Loading Overlay -->
+        <div v-if="isLoading" class="fixed inset-0 bg-white bg-opacity-80 flex items-center justify-center z-50">
+          <div class="text-center">
+            <svg class="animate-spin h-10 w-10 text-blue-600 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p class="text-lg font-medium text-gray-700">Daten werden geladen...</p>
+            <p class="text-sm text-gray-500">{{ dataMode === 'production' ? 'Produktionsumgebung' : 'Testumgebung' }}</p>
+          </div>
+        </div>
+
+        <!-- Conditional Views -->
+        <div v-if="activeTab === 'main'" class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <!-- Left Sidebar -->
+          <div class="lg:col-span-1 space-y-4">
+            <!-- Status Summary -->
+            <div class="bg-white p-4 rounded-lg shadow">
+              <h2 class="text-lg font-medium text-gray-900 mb-4">Statusübersicht</h2>
+              <div class="space-y-3">
+                <button 
+                  v-for="status in ['all', 'on_time', 'warning', 'critical']" 
+                  :key="status"
+                  @click="status === 'all' ? clearStatusFilter() : handleStatusClicked(status)"
+                  :class="[
+                    'w-full flex items-center justify-between px-4 py-2 rounded-md text-sm font-medium',
+                    statusFilter === status || (status === 'all' && statusFilter === 'all')
+                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                      : 'text-gray-600 hover:bg-gray-50 border border-transparent'
+                  ]"
+                >
+                  <span class="capitalize">
+                    {{ 
+                      status === 'all' ? 'Alle' : 
+                      status === 'on_time' ? 'Aktuell' : 
+                      status === 'warning' ? 'Warnung' : 
+                      'Kritisch'
+                    }}
+                  </span>
+                  <span class="bg-white rounded-full px-2 py-0.5 text-xs font-semibold">
+                    {{ status === 'all' 
+                        ? ((insurersData && insurersData.length) || 0)
+                        : (statusCounts[status] || 0) }}
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="bg-white p-4 rounded-lg shadow">
+              <h2 class="text-lg font-medium text-gray-900 mb-4">Filter</h2>
+              <div class="space-y-4">
+                <!-- Zustellungsweg Filter -->
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Zustellungsweg</label>
+                  <select 
+                    v-model="zustellungswegFilter"
+                    class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                  >
+                    <option value="">Alle</option>
+                    <option value="email">E-Mail</option>
+                    <option value="post">Post</option>
+                    <option value="fax">Fax</option>
+                  </select>
+                </div>
+
+                <!-- Turnus Filter -->
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Turnus</label>
+                  <select 
+                    v-model="turnusFilter"
+                    class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                  >
+                    <option value="">Alle</option>
+                    <option value="monatlich">Monatlich</option>
+                    <option value="vierteljaehrlich">Vierteljährlich</option>
+                    <option value="jaehrlich">Jährlich</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Debug Info (temporary) -->
+          <div v-if="process.env.NODE_ENV === 'development'" class="bg-yellow-50 p-4 rounded-lg border border-yellow-200 mb-4">
+            <h3 class="font-medium text-yellow-800 mb-2">Debug Information</h3>
+            <div class="grid grid-cols-2 gap-2 text-sm">
+              <div>Filtered Insurers: <span class="font-mono">{{ filteredInsurers.length }}</span></div>
+              <div>Store Insurers: <span class="font-mono">{{ (insurerStore.insurers && insurerStore.insurers.length) || 0 }}</span></div>
+              <div>Is Loading: <span class="font-mono">{{ insurerStore.isLoading ? 'Yes' : 'No' }}</span></div>
+              <div>Error: <span class="font-mono text-red-600">{{ insurerStore.error || 'None' }}</span></div>
+              <div>Data Mode: <span class="font-mono">{{ insurerStore.dataMode }}</span></div>
+              <div>Status Filter: <span class="font-mono">{{ statusFilter || 'None' }}</span></div>
+              <div>Search Filter: <span class="font-mono">{{ searchFilter || 'None' }}</span></div>
+              <div>Current Date: <span class="font-mono">{{ currentDate.toISOString().split('T')[0] }}</span></div>
+            </div>
+            <div v-if="filteredInsurers.length > 0" class="mt-2 text-xs">
+              <div>First Insurer:</div>
+              <pre class="bg-white p-2 rounded border text-xs overflow-x-auto">{{ JSON.stringify(filteredInsurers[0], null, 2) }}</pre>
+            </div>
+          </div>
+          
+          <!-- Main Content Area -->
+          <div class="lg:col-span-3">
+            <div class="space-y-6">
+              <InsurerList 
+                v-if="viewMode === 'list'"
+                :insurers="filteredInsurers"
+                :selected-insurer="selectedInsurer"
+                :current-date="currentDate"
+                :sort-option="sortOption"
+                @select-insurer="handleInsurerSelection"
+                @clear-selection="handleClearSelection"
+              />
+              
+              <InsurerStats 
+                v-else
+                :insurers="filteredInsurers"
+                :status-counts="statusCounts"
+                @status-clicked="handleStatusClicked"
+              />
+              
+              <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center">
+                    <svg class="h-5 w-5 text-yellow-400 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <span class="text-sm text-yellow-700">Testumgebung - Daten werden nicht gespeichert</span>
+                  </div>
+                  
+                  <div class="flex items-center space-x-2">
+                    <button 
+                      @click="toggleEnvironment"
+                      class="px-3 py-1 text-sm text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                    >
+                      {{ dataMode === 'production' ? 'Zu Testdaten wechseln' : 'Zu Produktionsdaten wechseln' }}
+                    </button>
+                    
+                    <TestDateSimulator
+                      v-model:simulatedDate="simulatedDate"
+                      @change-date="changeDate"
+                      @reset-date="resetDate"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <HistoryView 
+          v-else-if="activeTab === 'history'"
+          :selectedInsurer="selectedInsurer"
+          :dataMode="dataMode"
+          :abrechnungen="abrechnungStore.abrechnungen"
+          :isCreatingSampleData="isCreatingSampleData"
+          :isLoading="abrechnungStore.isLoading"
+          @create-sample-data="createSampleData"
+        />
+        
+        <SettingsView
+          v-else-if="activeTab === 'settings'"
+          :isProduction="isProduction"
+          :gitBranch="gitBranch"
+          @switch-mode="toggleEnvironment"
+        />
+      </main>
+    </div>
+
+    <!-- Modals and Overlays -->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition-opacity duration-300 ease-out"
+        leave-active-class="transition-opacity duration-200 ease-in"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div v-if="selectedInsurer" class="fixed inset-0 z-50">
+          <!-- Backdrop -->
+          <div 
+            class="fixed inset-0 bg-black bg-opacity-50"
+            @click="handleClearSelection"
+          ></div>
+          
+          <!-- Modal -->
+          <div class="fixed inset-0 flex items-center justify-center p-4">
+            <Transition
+              enter-active-class="transition-all duration-300 ease-out"
+              leave-active-class="transition-all duration-200 ease-in"
+              enter-from-class="opacity-0 translate-y-4"
+              enter-to-class="opacity-100 translate-y-0"
+              leave-from-class="opacity-100 translate-y-0"
+              leave-to-class="opacity-0 -translate-y-4"
+            >
+              <div v-if="selectedInsurer" class="w-full max-w-3xl">
+                <InsurerDetail 
+                  :insurer="selectedInsurer" 
+                  :last-invoice="storeLastInvoices[selectedInsurer.id]"
+                  :data-mode="dataMode"
+                  :current-date="currentDate"
+                  @update:insurer="handleUpdateInsurer"
+                  @settlement-completed="handleSettlementCompleted"
+                  @insurer-deleted="handleInsurerDeleted"
+                  @close="handleClearSelection"
+                />
+              </div>
+            </Transition>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <CreateInsurerForm 
+      v-if="isCreateInsurerModalVisible" 
+      @close="isCreateInsurerModalVisible = false"
+      @save="handleSaveInsurer"
+    />
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted, watch, nextTick } from 'vue';
+import { storeToRefs } from 'pinia';
+
+// Import stores
+import { useInsurerStore } from '@/stores/insurerStore.js';
+import { useAbrechnungStore } from '@/stores/abrechnungStore';
+import { useAuthStore } from '@/stores/authStore';
+
+// Layout and View Components
+import AppHeader from './layout/AppHeader.vue';
+import DashboardView from '@/views/DashboardView.vue';
+import HistoryView from '@/views/HistoryView.vue';
+import SettingsView from '@/views/SettingsView.vue';
+
+// Other Components
+import InsurerList from '@/components/InsurerList.vue';
+import InsurerDetail from '@/components/InsurerDetail.vue';
+import CreateInsurerForm from '@/components/CreateInsurerForm.vue';
+import TestDateSimulator from '@/components/TestDateSimulator.vue';
+
+// Initialize stores
+const store = {
+  insurer: useInsurerStore(),
+  abrechnung: useAbrechnungStore(),
+  auth: useAuthStore()
+};
+
+// Destructure for easier access
+const { insurer: insurerStore, abrechnung: abrechnungStore, auth: userStore } = store;
+
+// Destructure store state with storeToRefs to maintain reactivity
+const { 
+  insurers: insurersData, 
+  lastInvoices, 
+  isLoading, 
+  error, 
+  dataMode 
+} = storeToRefs(insurerStore);
+
+// Debug log initial insurers data
+console.log('Initial insurersData:', {
+  value: insurersData.value,
+  isLoading: isLoading.value,
+  error: error.value,
+  dataMode: dataMode.value
+});
+
+// Watch for changes to insurers data
+watch(insurersData, (newValue) => {
+  const count = Array.isArray(newValue) ? newValue.length : 0;
+  const firstItem = Array.isArray(newValue) && newValue.length > 0 ? newValue[0] : null;
+  console.log('insurersData changed:', { count, firstItem });
+}, { deep: true });
+
+// --- App State ---
+const activeTab = ref('main');
+const viewMode = ref('list'); // 'list' or 'stats'
+const searchFilter = ref('');
+const statusFilter = ref('all');
+const sortOption = ref('name');
+const zustellungswegFilter = ref('');
+const turnusFilter = ref('');
+
+const isCreateInsurerModalVisible = ref(false);
+const isCreatingSampleData = ref(false);
+
+// --- Environment Info ---
+const gitBranch = ref(import.meta.env.VITE_GIT_BRANCH || 'unknown');
+const isProduction = computed(() => {
+  const prodBranches = ['main', 'master', 'staging'];
+  return prodBranches.includes(gitBranch.value);
+});
+
+// --- PDF Export ---
+const exportToPdf = () => {
+  console.log('Export to PDF functionality would go here');
+};
+
+
+// Note: In <script setup>, components are auto-registered via direct imports
+
+
+// Get store state
+const { selectedInsurer, lastInvoices: storeLastInvoices } = storeToRefs(insurerStore);
+
+// --- Lifecycle Hooks ---
+onMounted(async () => {
+  console.group('MainApp - onMounted');
+  try {
+    const initialMode = import.meta.env.PROD ? 'production' : 'test';
+    console.log('Initializing with mode:', initialMode);
+    
+    // Log initial store state
+    console.log('Initial insurerStore state:', {
+      isLoading: insurerStore.isLoading,
+      error: insurerStore.error,
+      insurers: insurerStore.insurers,
+      dataMode: insurerStore.dataMode
+    });
+    
+    // Fetch insurers
+    console.log('Calling insurerStore.switchEnvironmentAndFetchData...');
+    const result = await insurerStore.switchEnvironmentAndFetchData(initialMode);
+    console.log('switchEnvironmentAndFetchData result:', result);
+    
+    // Log store state after fetch
+    console.log('After fetching insurers:', {
+      isLoading: insurerStore.isLoading,
+      error: insurerStore.error,
+      insurersCount: (insurerStore.insurers && insurerStore.insurers.length) || 0,
+      dataMode: insurerStore.dataMode
+    });
+    
+    // Fetch abrechnungen
+    console.log('Fetching abrechnungen...');
+    await abrechnungStore.switchEnvironmentAndFetchData(initialMode);
+    console.log('After fetching abrechnungen:', {
+      abrechnungenCount: (abrechnungStore.abrechnungen && abrechnungStore.abrechnungen.length) || 0,
+      error: abrechnungStore.error
+    });
+    
+  } catch (error) {
+    console.error('Error in MainApp onMounted:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+      code: error.code
+    });
+  } finally {
+    console.groupEnd();
+  }
+});
+
+// Destructure additional state from insurerStore
+const { hasMore: hasMoreInsurers } = storeToRefs(insurerStore);
+
+// Load more insurers
+const loadMoreInsurers = async () => {
+  if (!isLoading.value && hasMoreInsurers.value) {
+    try {
+      await insurerStore.loadMoreInsurers();
+    } catch (error) {
+      console.error('Error loading more insurers:', error);
+    }
+  }
+};
+
+const toggleEnvironment = async () => {
+  const newMode = dataMode.value === 'production' ? 'test' : 'production';
+  try {
+    await insurerStore.switchEnvironmentAndFetchData(newMode);
+    await abrechnungStore.switchEnvironmentAndFetchData(newMode);
+  } catch (error) {
+    console.error('Error switching environment:', error);
+  }
+};
+
+
+// --- Date Management ---
+const simulatedDate = ref(null);
+
+// Debug log when simulatedDate changes
+watch(simulatedDate, (newDate) => {
+  console.log('simulatedDate changed to:', newDate ? newDate.toISOString() : 'null');
+}, { immediate: true });
+
+const changeDate = (days) => {
+  console.log('Change date called with days:', days);
+  const date = simulatedDate.value ? new Date(simulatedDate.value) : new Date();
+  date.setDate(date.getDate() + days);
+  date.setHours(12, 0, 0, 0); // Set to noon to avoid timezone issues
+  
+  // Create a new Date object to ensure reactivity
+  simulatedDate.value = new Date(date);
+  console.log('New simulated date set to:', simulatedDate.value.toISOString());
+  
+  // Force update of computed properties that depend on currentDate
+  nextTick(() => {
+    console.log('Forcing update of components that depend on currentDate');
+  });
+};
+
+const resetDate = () => {
+  console.log('Resetting date to current date');
+  simulatedDate.value = null;
+};
+
+const currentDate = computed(() => {
+  const date = simulatedDate.value || new Date();
+  // Always return a new Date object to ensure reactivity
+  const result = new Date(date);
+  console.log('currentDate computed:', result.toISOString());
+  return result;
+});
+
+// Status counts for the status summary
+const statusCounts = computed(() => {
+  // Force reactivity by accessing currentDate.value
+  const currentDateValue = currentDate.value;
+  
+  if (!insurersData.value || !Array.isArray(insurersData.value)) {
+    console.log('No insurers available for status counts');
+    return { 
+      critical: 0, 
+      warning: 0, 
+      on_time: 0,
+      all: 0
+    };
+  }
+  
+  // Create a fresh counts object for each calculation
+  const counts = { 
+    critical: 0, 
+    warning: 0, 
+    on_time: 0,
+    all: insurersData.value.length
+  };
+  
+  // Only calculate if we have data
+  if (insurersData.value.length > 0) {
+    insurersData.value.forEach(insurer => {
+      try {
+        const days = calculateDaysOverdue(insurer, currentDateValue);
+        if (days > 5) counts.critical++;
+        else if (days > 0) counts.warning++;
+        else counts.on_time++;
+      } catch (error) {
+        console.error('Error calculating days overdue for insurer:', insurer, error);
+      }
+    });
+  }
+  
+  console.log('Status counts calculated:', {
+    counts,
+    currentDate: currentDateValue,
+    simulatedDate: simulatedDate.value
+  });
+  
+  return counts;
+});
+
+// --- Lifecycle Hooks ---
+onMounted(async () => {
+  console.group('MainApp - onMounted');
+  console.log('Initializing with mode:', isProduction ? 'production' : 'sample');
+  const initialMode = isProduction ? 'production' : 'sample';
+  
+  // Log initial state
+  console.log('Initial state:', {
+    isProduction,
+    initialMode,
+    insurersData: insurersData.value,
+    storeInsurers: insurerStore.insurers,
+    storeDataMode: insurerStore.dataMode
+  });
+  
+  try {
+    // Log initial store state
+    console.log('[DEBUG] Initial insurerStore state:', {
+      isLoading: insurerStore.isLoading,
+      error: insurerStore.error,
+      insurers: insurerStore.insurers,
+      insurersData: insurersData.value,
+      dataMode: insurerStore.dataMode
+    });
+    
+    // Log component state before fetch
+    console.log('[DEBUG] Component state before fetch:', {
+      insurersDataLength: (insurersData.value && insurersData.value.length) || 0,
+      isLoading: isLoading.value,
+      error: error.value
+    });
+    
+    // Fetch insurers
+    console.log('[DEBUG] Calling insurerStore.switchEnvironmentAndFetchData...');
+    const result = await insurerStore.switchEnvironmentAndFetchData(initialMode);
+    console.log('[DEBUG] switchEnvironmentAndFetchData result:', result);
+    
+    // Log store state after fetch
+    console.log('[DEBUG] After fetching insurers:', {
+      storeInsurersCount: (insurerStore.insurers && insurerStore.insurers.length) || 0,
+      insurersDataCount: (insurersData.value && insurersData.value.length) || 0,
+      isLoading: insurerStore.isLoading,
+      error: insurerStore.error,
+      dataMode: insurerStore.dataMode,
+      insurersData: insurersData.value
+    });
+    
+    // Check if data is being loaded but not showing up
+    if (insurersData.value && insurersData.value.length > 0) {
+      console.log('[DEBUG] Insurers data is available but not showing. First item:', insurersData.value[0]);
+    } else {
+      console.log('[DEBUG] No insurers data available after fetch');
+    }
+    
+    // Fetch abrechnungen
+    console.log('[DEBUG] Fetching abrechnungen...');
+    await abrechnungStore.fetchAbrechnungen(initialMode);
+    console.log('[DEBUG] After fetching abrechnungen:', {
+      abrechnungenCount: (abrechnungStore.abrechnungen && abrechnungStore.abrechnungen.length) || 0,
+      error: abrechnungStore.error
+    });
+    
+  } catch (error) {
+    console.error('[ERROR] in MainApp onMounted:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+      serverResponse: error.serverResponse
+    });
+    
+    // Show error to user
+    error.value = error.message;
+  } finally {
+    console.groupEnd();
+    
+    // Force update the UI
+    nextTick(() => {
+      console.log('[DEBUG] Forcing UI update after data load');
+      console.log('[DEBUG] filteredInsurers:', filteredInsurers.value);
+      console.log('[DEBUG] Template should now re-render with data');
+    });
+  }
+});
+
+const selectedInsurerLastInvoice = computed(() => {
+  console.group('selectedInsurerLastInvoice computed');
+  try {
+    if (!selectedInsurer.value || !lastInvoices.value) {
+      console.warn('No valid selected insurer or last invoices data available in store', {
+        selectedInsurer: selectedInsurer.value,
+        lastInvoices: lastInvoices.value
+      });
+      return null;
+    }
+    
+    const invoice = lastInvoices.value[selectedInsurer.value.id];
+    console.log('Selected insurer last invoice:', {
+      insurerId: selectedInsurer.value.id,
+      insurerName: selectedInsurer.value.name,
+      invoice: invoice
+    });
+    
+    return invoice;
+  } catch (error) {
+    console.error('Error in selectedInsurerLastInvoice:', error);
+    return null;
+  } finally {
+    console.groupEnd();
+  }
+});
+
+// Computed
+const filteredInsurers = computed(() => {
+  // Log the current state for debugging
+  console.log('filteredInsurers computed - insurersData:', {
+    value: insurersData.value,
+    length: (insurersData.value && insurersData.value.length) || 0,
+    type: typeof insurersData.value,
+    isArray: Array.isArray(insurersData.value)
+  });
+  
+  // If no data, return empty array
+  if (!insurersData.value || !Array.isArray(insurersData.value)) {
+    console.warn('No valid insurers data available');
+    return [];
+  }
+  
+  // If we have data but the array is empty, log it
+  if (insurersData.value.length === 0) {
+    console.log('insurersData is an empty array');
+  }
+  console.group('filteredInsurers computed');
+  try {
+    // Get the current insurers data from the store
+    const insurers = insurersData.value || [];
+    
+    console.log('[DEBUG] Current insurers data:', {
+      insurersCount: insurers.length,
+      isLoading: insurerStore.isLoading,
+      error: insurerStore.error,
+      dataMode: insurerStore.dataMode,
+      insurersData: insurersData.value
+    });
+    
+    if (!Array.isArray(insurers)) {
+      console.warn('[WARN] No valid insurers data available in store');
+      console.groupEnd();
+      return [];
+    }
+    
+    console.log('[DEBUG] Found ' + insurers.length + ' insurers in store');
+    
+    if (insurers.length === 0) {
+      console.log('[DEBUG] No insurers found. Possible reasons:', {
+        isDataLoading: isLoading.value,
+        hasError: !!error.value,
+        dataMode: dataMode.value,
+        storeInsurers: insurerStore.insurers,
+        storeInsurersType: typeof insurerStore.insurers
+      });
+      
+      // If we have data in the store but not in the ref, try to debug why
+      if (insurerStore.insurers && insurerStore.insurers.length > 0) {
+        console.log('[DEBUG] Store has data but insurersData is empty. Store data:', insurerStore.insurers);
+      }
+    } else {
+      console.log('[DEBUG] First insurer sample:', JSON.parse(JSON.stringify(insurers[0])));
+    }
+    
+    // Create a new array to ensure reactivity
+    let filtered = [...insurers];
+    console.log('Initial insurers count:', filtered.length);
+    
+    // Debug: Log the first insurer's structure for verification
+    if (filtered.length > 0) {
+      console.log('[DEBUG] First insurer structure:', Object.keys(filtered[0]));
+    }
+    
+    // Apply search filter if any
+    if (searchFilter.value) {
+      console.log('Applying search filter:', searchFilter.value);
+      const lowerCaseFilter = searchFilter.value.toLowerCase();
+      filtered = filtered.filter(insurer => {
+        const nameMatch = insurer.name && insurer.name.toLowerCase().includes(lowerCaseFilter);
+        console.log('Insurer ' + (insurer.name || 'unnamed') + ': matches search?', nameMatch);
+        return nameMatch;
+      });
+      console.log('After search filter:', filtered.length, 'insurers');
+    }
+    
+    // Apply status filter if not 'all'
+    if (statusFilter.value !== 'all') {
+      console.log('Applying status filter:', statusFilter.value);
+      filtered = filtered.filter(insurer => {
+        try {
+          const days = calculateDaysOverdue(insurer, currentDate.value);
+          let matches = false;
+          
+          if (statusFilter.value === 'critical') matches = days > 5;
+          else if (statusFilter.value === 'warning') matches = days > 0 && days <= 5;
+          else if (statusFilter.value === 'on_time') matches = days <= 0;
+          
+          console.log('Insurer ' + (insurer.name || 'unnamed') + ': days=' + days + ', matches=' + matches);
+          return matches;
+        } catch (err) {
+          console.error('Error calculating days overdue for insurer:', insurer, err);
+          return false;
+        }
+      });
+      console.log('After status filter:', filtered.length, 'insurers');
+    }
+    
+    console.log('Final filtered insurers count:', filtered.length);
+    return filtered;
+  } catch (err) {
+    console.error('Error in filteredInsurers computed property:', err);
+    return [];
+  } finally {
+    console.groupEnd();
+  }
+});
+
+// --- Status Filter Handlers ---
+const handleStatusClicked = (status) => {
+  statusFilter.value = status;
+  console.log('Status filter changed to:', status);
+};
+
+const clearStatusFilter = () => {
+  statusFilter.value = 'all';
+  console.log('Status filter cleared');
+};
+
+// --- Event Handlers ---
+const handleInsurerSelection = (insurer) => {
+  insurerStore.setSelectedInsurer(insurer);
+  console.log('Selected insurer:', insurer);
+};
+
+const handleClearSelection = () => {
+  insurerStore.clearSelectedInsurer();  
+  console.log('Cleared insurer selection');
+};
+
+const handleUpdateInsurer = async (updatedInsurer) => {
+  try {
+    // Update the selected insurer in the store
+    insurerStore.setSelectedInsurer(updatedInsurer);
+    
+    // Refresh the insurers list to ensure we have the latest data
+    await insurerStore.fetchInsurers();
+    
+    // Update the selectedInsurer reference with the fresh data
+    const freshInsurer = insurerStore.insurers.find(i => i.id === updatedInsurer.id);
+    if (freshInsurer) {
+      selectedInsurer.value = freshInsurer;
+    } else {
+      selectedInsurer.value = updatedInsurer;
+    }
+    
+    console.log('Updated insurer data:', selectedInsurer.value);
+  } catch (error) {
+    console.error('Error updating insurer:', error);
+  }
+};
+
+const handleInsurerDeleted = () => { handleClearSelection(); };
+
+// Handle saving a new insurer from the form
+const handleSaveInsurer = (insurerData) => {
+  console.log('New insurer data received:', insurerData);
+  insurerStore.addInsurer(insurerData);
+  isCreateInsurerModalVisible.value = false;
+};
+
+// Handle settlement completed event
+const handleSettlementCompleted = (data) => {
+  const { insurer, last_invoice } = data;
+  
+  if (insurer && insurer.id) {
+    // Create a new object to ensure reactivity
+    const updatedLastInvoices = { ...lastInvoices.value };
+    
+    if (last_invoice === null) {
+      // If last_invoice is null, it means the last settlement was deleted
+      // Delete the property from our copy
+      delete updatedLastInvoices[insurer.id];
+      // Replace the entire object to ensure reactivity
+      lastInvoices.value = updatedLastInvoices;
+      
+      // Also update the insurer object in the insurers array to clear last_invoice
+      const insurerIndex = insurersData.value.findIndex(ins => ins.id === insurer.id);
+      if (insurerIndex !== -1) {
+        // Create a new object to ensure reactivity
+        const updatedInsurer = { ...insurersData.value[insurerIndex] };
+        updatedInsurer.last_invoice = null;
+        
+        // Replace the insurer in the array
+        insurersData.value[insurerIndex] = updatedInsurer;
+      }
+    } else {
+      // Otherwise, update with the new settlement
+      updatedLastInvoices[insurer.id] = last_invoice;
+      // Replace the entire object to ensure reactivity
+      lastInvoices.value = updatedLastInvoices;
+      
+      // Also update the insurer object in the insurers array
+      const insurerIndex = insurersData.value.findIndex(ins => ins.id === insurer.id);
+      if (insurerIndex !== -1) {
+        // Create a new object to ensure reactivity
+        const updatedInsurer = { ...insurersData.value[insurerIndex] };
+        updatedInsurer.last_invoice = last_invoice;
+        
+        // Replace the insurer in the array
+        insurersData.value[insurerIndex] = updatedInsurer;
+      }
+    }
+    
+    // If this is the currently selected insurer, update its display
+    if (selectedInsurer.value && selectedInsurer.value.id === insurer.id) {
+      // Force reactivity update for the selected insurer
+      selectedInsurer.value = { ...selectedInsurer.value };
+      if (last_invoice === null) {
+        selectedInsurer.value.last_invoice = null;
+      } else {
+        selectedInsurer.value.last_invoice = last_invoice;
+      }
+    }
+  }
+};
+
+// Create sample abrechnungen data for testing (stub during isolation)
+const createSampleData = async () => {
+  console.log('createSampleData stub called (disabled during syntax error isolation)');
+};
+
+// Refresh Abrechnungen data
+const refreshAbrechnungen = async () => {
+  try {
+    const currentMode = dataMode.value;
+    await abrechnungStore.switchEnvironmentAndFetchData(currentMode);
+    await insurerStore.switchEnvironmentAndFetchData(currentMode);
+  } catch (error) {
+    console.error('Error refreshing data:', error);
+  }
+  console.log('Abrechnungen data refreshed. Found ' + abrechnungStore.abrechnungen.length + ' documents.');
+};
+
+</script>
+
+<style>
+/* Ensure transforms work properly */
+.transform {
+  --tw-translate-y: 0;
+  --tw-translate-x: 0;
+  --tw-rotate: 0;
+  --tw-skew-x: 0;
+  --tw-skew-y: 0;
+  --tw-scale-x: 1;
+  --tw-scale-y: 1;
+  transform: translateX(var(--tw-translate-x)) translateY(var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y));
+}
+.app-container {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.form-select {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.5rem center;
+  background-repeat: no-repeat;
+  background-size: 1.5em 1.5em;
+  padding-right: 2.5rem;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.filter.blur-sm {
+  filter: blur(4px);
+  transition: filter 0.3s ease-in-out;
+}
+
+.slide-in-right-enter-active,
+.slide-in-right-leave-active {
+  transition: transform 0.3s ease-in-out;
+}
+
+.slide-in-right-enter-from,
+.slide-in-right-leave-to {
+  transform: translateX(100%);
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease-in-out;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>

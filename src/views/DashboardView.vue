@@ -2,120 +2,42 @@
   <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
     <!-- Left Sidebar -->
     <div class="lg:col-span-1 space-y-4">
-      <!-- Inlined StatusSummary -->
-      <div class="bg-white rounded-lg shadow">
-        <div class="p-4">
-          <h3 class="text-lg font-medium text-gray-900">Statusübersicht</h3>
-          <div class="mt-3 space-y-3">
-            <button @click="$emit('status-clicked', 'all')" :class="[
-              'w-full text-left p-3 rounded-lg text-sm font-medium transition-all duration-200',
-              'backdrop-blur-sm bg-white/80 border border-gray-200 shadow-sm',
-              'hover:bg-white/90 hover:shadow-md hover:border-gray-300',
-              'active:scale-[0.99] active:shadow-sm',
-              statusFilter === 'all' 
-                ? 'bg-blue-50/90 border-blue-200 text-blue-700 shadow-blue-100' 
-                : 'text-gray-700 hover:bg-gray-50'
-            ]">
-              <div class="flex justify-between items-center">
-                <span>Alle</span>
-                <span class="font-medium bg-white px-2 py-0.5 rounded-full text-xs border border-gray-200">{{ Object.values(statusCounts).reduce((a, b) => a + (b || 0), 0) }}</span>
-              </div>
-            </button>
-
-            <button @click="$emit('status-clicked', 'on_time')" :class="[
-              'w-full text-left p-3 rounded-lg text-sm font-medium transition-all duration-200',
-              'backdrop-blur-sm bg-white/80 border border-gray-200 shadow-sm',
-              'hover:bg-white/90 hover:shadow-md hover:border-gray-300',
-              'active:scale-[0.99] active:shadow-sm',
-              statusFilter === 'on_time' 
-                ? 'bg-green-50/90 border-green-200 text-green-700 shadow-green-100' 
-                : 'text-gray-700 hover:bg-gray-50'
-            ]">
-              <div class="flex justify-between items-center">
-                <span>OK</span>
-                <span class="font-medium bg-white px-2 py-0.5 rounded-full text-xs border border-gray-200">{{ statusCounts.on_time || 0 }}</span>
-              </div>
-            </button>
-
-            <button @click="$emit('status-clicked', 'warning')" :class="[
-              'w-full text-left p-3 rounded-lg text-sm font-medium transition-all duration-200',
-              'backdrop-blur-sm bg-white/80 border border-gray-200 shadow-sm',
-              'hover:bg-white/90 hover:shadow-md hover:border-gray-300',
-              'active:scale-[0.99] active:shadow-sm',
-              statusFilter === 'warning' 
-                ? 'bg-amber-50/90 border-amber-200 text-amber-700 shadow-amber-100' 
-                : 'text-gray-700 hover:bg-gray-50'
-            ]">
-              <div class="flex justify-between items-center">
-                <span>Mahnung</span>
-                <span class="font-medium bg-white px-2 py-0.5 rounded-full text-xs border border-gray-200">{{ statusCounts.warning || 0 }}</span>
-              </div>
-            </button>
-
-            <button @click="$emit('status-clicked', 'critical')" :class="[
-              'w-full text-left p-3 rounded-lg text-sm font-medium transition-all duration-200',
-              'backdrop-blur-sm bg-white/80 border border-gray-200 shadow-sm',
-              'hover:bg-white/90 hover:shadow-md hover:border-gray-300',
-              'active:scale-[0.99] active:shadow-sm',
-              statusFilter === 'critical' 
-                ? 'bg-red-50/90 border-red-200 text-red-700 shadow-red-100' 
-                : 'text-gray-700 hover:bg-gray-50'
-            ]">
-              <div class="flex justify-between items-center">
-                <span>Kritisch</span>
-                <span class="font-medium bg-white px-2 py-0.5 rounded-full text-xs border border-gray-200">{{ statusCounts.critical || 0 }}</span>
-              </div>
-            </button>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Inlined SearchBar -->
-      <div class="bg-white rounded-lg shadow overflow-hidden">
-        <div class="p-4">
-          <input 
-            type="text" 
-            :value="searchFilter" 
-            @input="$emit('update:searchFilter', $event.target.value)" 
-            placeholder="Versicherer suchen..." 
-            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-          />
-        </div>
-      </div>
-      
-      <!-- Development Features (only shown in development) -->
-      <template v-if="!isProduction">
-        <!-- Date Simulator -->
-        <div class="bg-white rounded-lg shadow p-4">
-          <label for="simulated-date" class="block text-sm font-medium text-gray-700 mb-1">Test-Datum</label>
-          <div class="flex items-center space-x-2">
-            <button @click="$emit('change-date', -1)" class="px-2 py-1 border border-gray-300 rounded-md text-sm hover:bg-gray-100">&#x25C0;</button>
-            <input 
-              type="date" 
-              id="simulated-date"
-              :value="formattedDate"
-              @input="handleDateInput($event.target.value)"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-            />
-            <button @click="$emit('change-date', 1)" class="px-2 py-1 border border-gray-300 rounded-md text-sm hover:bg-gray-100">&#x25B6;</button>
-          </div>
-          <button @click="$emit('reset-date')" class="mt-2 w-full text-center text-sm text-blue-600 hover:underline">Heute</button>
-        </div>
-
-        <!-- Data Mode Toggle -->
-        <div class="bg-white rounded-lg shadow p-4 text-center">
-          <p class="text-sm text-gray-600">Modus: <span class="font-semibold">{{ dataMode }}</span></p>
-          <button @click="$emit('switch-mode')" class="mt-2 text-sm text-blue-600 hover:underline">Wechseln</button>
-        </div>
-      </template>
+      <!-- Development Features removed: production data is always used -->
     </div>
     
     <!-- Main Content Area -->
     <div class="lg:col-span-3">
-      <div class="bg-white shadow overflow-hidden sm:rounded-md">
-        <div class="border-b border-gray-200 px-4 py-4 sm:px-6 flex justify-between items-center">
-          <div class="flex items-center">
-            <h2 class="text-lg font-medium text-gray-900">Versicherer</h2>
+      <div class="bg-white shadow sm:rounded-md">
+        <div class="border-b border-gray-200 px-4 py-4 sm:px-6 bg-white sticky top-0 z-20">
+          <div class="flex flex-col space-y-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
+            <div class="flex items-center">
+              <h2 class="text-lg font-medium text-gray-900">Versicherer</h2>
+            </div>
+            <!-- Date Simulator (Moved to header) -->
+            <div v-if="!isProduction" class="flex items-center space-x-2">
+              <span class="text-sm text-gray-500">Test-Datum:</span>
+              <div class="flex items-center space-x-1">
+                <button @click="$emit('change-date', -1)" class="p-1 text-gray-600 hover:bg-gray-100 rounded-md">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <input 
+                  type="date" 
+                  :value="currentDate ? new Date(currentDate).toISOString().split('T')[0] : ''"
+                  @input="handleDateInput($event.target.value)"
+                  class="text-sm border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <button @click="$emit('change-date', 1)" class="p-1 text-gray-600 hover:bg-gray-100 rounded-md">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+                <button @click="$emit('reset-date')" class="ml-1 text-xs text-blue-600 hover:underline whitespace-nowrap">
+                  Heute
+                </button>
+              </div>
+            </div>
             <div v-if="statusFilter !== 'all'" class="ml-3 flex items-center">
               <span class="text-sm text-gray-500">Filter:</span>
               <span class="ml-1 px-2 py-1 text-xs rounded-full" :class="statusFilterClass">{{ statusFilterLabel }}</span>
@@ -139,17 +61,15 @@
           <div class="animate-pulse flex space-x-4 items-center">
             <div class="h-3 w-3 bg-blue-400 rounded-full"></div>
             <div class="h-3 w-3 bg-blue-400 rounded-full"></div>
-            <div class="h-3 w-3 bg-blue-400 rounded-full"></div>
           </div>
         </div>
         <div v-else>
-          <InsurerList 
+            <InsurerList 
             :insurers="filteredInsurers"
             :current-date="currentDate"
             :selected-insurer="selectedInsurer"
             :is-loading="isLoading"
             @select-insurer="$emit('select-insurer', $event)"
-            @clear-selection="$emit('clear-selection')"
           />
         </div>
       </div>
@@ -176,10 +96,6 @@ if (import.meta.env.DEV) {
 
 const props = defineProps({
   isLoading: Boolean,
-  isProduction: {
-    type: Boolean,
-    default: false
-  },
   filteredInsurers: {
     type: Array,
     default: () => []
@@ -208,10 +124,6 @@ const props = defineProps({
     type: Date,
     required: true
   },
-  dataMode: {
-    type: String,
-    default: 'production'
-  },
   sortOption: {
     type: String,
     default: 'name'
@@ -230,7 +142,6 @@ const emit = defineEmits([
   'status-clicked',
   'update:searchFilter',
   'update:simulatedDate',
-  'switch-mode',
   'clear-status-filter',
   'create-insurer',
   'update:sortOption',
@@ -240,26 +151,23 @@ const emit = defineEmits([
   'reset-date',
 ]);
 
-// Format date for the input field
-const formattedDate = computed(() => {
-  return props.simulatedDate ? props.simulatedDate.toISOString().split('T')[0] : '';
-});
+// Format date for display
+const formatDate = (date) => {
+  if (!date) return '';
+  const d = new Date(date);
+  return d.toLocaleDateString('de-DE');
+};
 
 // Handle date input changes
 const handleDateInput = (dateString) => {
-  if (!dateString) {
-    emit('update:simulatedDate', null);
-    return;
-  }
-  
+  if (!dateString) return;
   const newDate = new Date(dateString);
   if (!isNaN(newDate.getTime())) {
-    // Set time to noon to avoid timezone issues
-    newDate.setHours(12, 0, 0, 0);
-    emit('update:simulatedDate', newDate);
+    emit('change-date', newDate.getTime());
   }
 };
 
+// Status filter label
 const statusFilterLabel = computed(() => {
   const labels = {
     warning: 'Mahnung',

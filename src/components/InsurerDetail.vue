@@ -45,24 +45,41 @@
       <div class="p-6 sm:p-8">
         <!-- Redesigned Summary Bar -->
         <div class="bg-white rounded-xl shadow-md p-4 mb-8 border border-gray-200/80">
-          <div class="grid grid-cols-1 md:grid-cols-3 items-center gap-4">
-
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <!-- Column 1: Last Invoice -->
             <div class="flex items-center gap-3">
-              <svg class="w-6 h-6 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+              <svg class="w-6 h-6 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+              </svg>
               <div>
                 <dt class="text-xs font-medium text-gray-500">Letzte Abrechnung</dt>
                 <dd class="text-lg font-bold text-gray-900">{{ formattedLastInvoiceDate }}</dd>
               </div>
             </div>
 
-            <!-- Column 2: Turnus -->
-            <div class="border-l border-r border-gray-200 px-4">
-              <dt class="text-xs font-medium text-gray-500">Turnus</dt>
-              <dd class="text-base font-semibold text-gray-800">{{ formattedTurnus }}</dd>
+            <!-- Column 2: Next Due Date -->
+            <div class="flex items-center gap-3">
+              <svg class="w-6 h-6 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              <div>
+                <dt class="text-xs font-medium text-gray-500">Nächste Fälligkeit</dt>
+                <dd class="text-lg font-bold text-gray-900">{{ nextDueDate }}</dd>
+              </div>
             </div>
 
-            <!-- Column 3: Action -->
+            <!-- Column 3: Turnus -->
+            <div class="flex items-center gap-3 border-l border-r border-gray-200 px-4">
+              <svg class="w-6 h-6 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              <div>
+                <dt class="text-xs font-medium text-gray-500">Turnus</dt>
+                <dd class="text-base font-semibold text-gray-800">{{ formattedTurnus }}</dd>
+              </div>
+            </div>
+
+            <!-- Column 4: Action -->
             <div class="flex items-center justify-start md:justify-end gap-4">
               <button @click="showDatePicker = true" class="flex-shrink-0 bg-green-600 text-white font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-200">
                 Abrechnung erledigt
@@ -134,9 +151,6 @@
                 <div>
                   <div class="flex justify-between items-center group">
                     <dt class="text-sm font-medium text-gray-500">Turnus</dt>
-                    <button v-if="insurer.turnus" @click="deleteField('turnus')" class="invisible group-hover:visible text-gray-400 hover:text-red-600 transition-opacity duration-200" title="Turnus löschen">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                    </button>
                     <button @click="startEditing('turnus')" class="text-gray-400 hover:text-blue-600 transition-colors duration-200 text-sm font-medium">Bearbeiten</button>
                   </div>
                   <dd v-if="!isEditing || editField !== 'turnus'" class="text-sm text-gray-900 font-semibold">{{ insurer.turnus ? formatTurnus(insurer.turnus) : 'Kein Turnus festgelegt' }}</dd>
@@ -146,8 +160,8 @@
                       class="w-32 text-base font-semibold border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                       autofocus
                     >
-                      <option v-for="option in turnusOptions" :key="option" :value="option">
-                        {{ option }}
+                      <option v-for="option in turnusOptions" :key="option.value" :value="option.value">
+                        {{ option.label }}
                       </option>
                     </select>
                     <div class="mt-2 flex justify-end gap-2">
@@ -378,6 +392,86 @@ const showToast = (message, type = 'success') => {
 const showSuccessToast = (message) => showToast(message, 'success');
 const showErrorToast = (message) => showToast(message, 'error');
 
+// Date picker related state and functions
+// (State variables moved to the main state section below)
+
+const handleDateSubmit = async () => {
+  try {
+    if (!selectedDate.value) {
+      showErrorToast('Bitte wählen Sie ein Datum aus');
+      return;
+    }
+
+    // Create a clean date object at noon to avoid timezone issues
+    const settlementDate = new Date(selectedDate.value);
+    settlementDate.setHours(12, 0, 0, 0);
+    
+    // Create a Firestore-compatible date
+    const firestoreDate = new Date(settlementDate);
+    
+    const settlementData = {
+      date: firestoreDate,
+      note: settlementNote.value || null,
+      createdAt: new Date()
+    };
+
+    console.log('Saving settlement data:', settlementData);
+    
+    // Save the new invoice and get the updated insurer data
+    const updatedInsurer = await insurerStore.addInvoiceToHistory(props.insurer.id, settlementData);
+    
+    // Create a new last_invoice object with proper date handling
+    const newLastInvoice = {
+      date: firestoreDate,
+      note: settlementNote.value || null,
+      id: updatedInsurer.id || Date.now().toString()
+    };
+    
+    console.log('New last invoice:', newLastInvoice);
+    
+    // Update local state
+    localLastInvoice.value = newLastInvoice;
+    
+    // Force a re-render of the nextDueDate computed property
+    await nextTick();
+    
+    // Reset form
+    showDatePicker.value = false;
+    selectedDate.value = '';
+    settlementNote.value = '';
+    
+    // Show success message
+    showSuccessToast('Abrechnung erfolgreich erfasst');
+    
+    // Create a new insurer object with the updated last_invoice
+    const updatedInsurerData = {
+      ...props.insurer,
+      last_invoice: newLastInvoice,
+      // Ensure turnus is set, default to 7 days if not set
+      turnus: props.insurer.turnus || '7'
+    };
+    
+    // Emit the update to the parent component
+    emit('update:insurer', updatedInsurerData);
+    
+    // Refresh the settlements list
+    await fetchSettlements();
+  } catch (error) {
+    console.error('Error adding settlement:', error);
+    showErrorToast('Fehler beim Speichern der Abrechnung');
+    showDatePicker.value = false; // Close modal on error
+  }
+};
+
+const handleCancel = () => {
+  showDatePicker.value = false;
+  selectedDate.value = '';
+  settlementNote.value = '';
+};
+
+// Define all component emits in one place
+const emit = defineEmits(['close', 'delete-insurer', 'settlement-completed', 'update:insurer', 'insurer-deleted']);
+
 // Initialize the utils object with docTypeColors
 const utils = {
   docTypeColors: {
@@ -419,41 +513,9 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['close', 'delete-insurer', 'settlement-completed', 'update:insurer', 'insurer-deleted']);
-
 const insurerStore = useInsurerStore();
 const { getStatusColor, getStatusText, calculateDaysOverdue, getNormalizedDocTypes, formatLastInvoice } = useInsurerUtils();
 
-// Compute status info for the current insurer
-// Format the last invoice date
-const formattedLastInvoiceDate = computed(() => {
-  try {
-    if (!props.insurer?.last_invoice) return 'Keine Abrechnung';
-    
-    let date;
-    if (props.insurer.last_invoice.date?.toDate) {
-      date = props.insurer.last_invoice.date.toDate();
-    } else if (props.insurer.last_invoice.date) {
-      date = new Date(props.insurer.last_invoice.date);
-    } else if (props.insurer.last_invoice.seconds) {
-      // Handle Firestore timestamp in seconds
-      date = new Date(props.insurer.last_invoice.seconds * 1000);
-    } else {
-      return 'Ungültiges Datum';
-    }
-    
-    // Check if the date is valid
-    if (isNaN(date.getTime())) {
-      console.error('Invalid date in last_invoice:', props.insurer.last_invoice);
-      return 'Ungültiges Datum';
-    }
-    
-    return format(date, 'dd.MM.yyyy');
-  } catch (error) {
-    console.error('Error formatting last invoice date:', error, 'Value:', props.insurer?.last_invoice);
-    return 'Fehler beim Formatieren';
-  }
-});
 
 // Compute status info for the current insurer
 const statusInfo = computed(() => {
@@ -483,18 +545,45 @@ const statusInfo = computed(() => {
 // Editing state
 const isEditing = ref(false);
 const editField = ref(null);
+const isSaving = ref(false);
 
-// State
-const localLastInvoice = computed(() => insurerStore.lastInvoices[props.insurer.id]);
+
+
+// State - Create a ref to store the local last invoice
+const localLastInvoice = ref(null);
+
+// Computed property that returns either the local value or falls back to the store
+const currentLastInvoice = computed(() => {
+  const invoice = localLastInvoice.value || insurerStore.lastInvoices[props.insurer?.id];
+  
+  if (!invoice) return null;
+  
+  // Return a new object to ensure reactivity
+  return {
+    ...invoice,
+    // Ensure date is always a proper Date object
+    date: (() => {
+      try {
+        if (!invoice.date) return null;
+        if (invoice.date.toDate) return invoice.date.toDate();
+        if (invoice.date instanceof Date) return new Date(invoice.date);
+        return new Date(invoice.date);
+      } catch (e) {
+        console.error('Error parsing invoice date:', e);
+        return null;
+      }
+    })()
+  };
+});
 
 const sortedLocalSettlements = computed(() => {
   // Start with a copy of the local settlement history
   let settlements = [...localSettlementHistory.value];
   
   // If we have a last invoice that's not already in the history, include it
-  if (localLastInvoice.value && localLastInvoice.value.date) {
-    const lastInvoiceDate = localLastInvoice.value.date?.toDate ? 
-      localLastInvoice.value.date.toDate() : new Date(localLastInvoice.value.date);
+  if (currentLastInvoice.value && currentLastInvoice.value.date) {
+    const lastInvoiceDate = currentLastInvoice.value.date?.toDate ? 
+      currentLastInvoice.value.date.toDate() : new Date(currentLastInvoice.value.date);
     
     // Check if the last invoice is already in the history
     const isInHistory = settlements.some(settlement => {
@@ -507,8 +596,8 @@ const sortedLocalSettlements = computed(() => {
     if (!isInHistory) {
       settlements.push({
         id: 'last_invoice',
-        date: localLastInvoice.value.date,
-        note: localLastInvoice.value.note || 'Letzte Abrechnung',
+        date: currentLastInvoice.value.date,
+        note: currentLastInvoice.value.note || 'Letzte Abrechnung',
         isLastInvoice: true
       });
     }
@@ -541,7 +630,13 @@ const editedDokumentenart = ref([]);
 const editedVemapool = ref(false);
 
 // Options
-const turnusOptions = ['7-tägig', '14-tägig', '31-tägig', 'Jährlich'];
+// Use canonical numeric string values for the select to avoid format mismatches
+const turnusOptions = [
+  { value: '7', label: '7-tägig' },
+  { value: '14', label: '14-tägig' },
+  { value: '31', label: '31-tägig' },
+  { value: '365', label: 'Jährlich' },
+];
 const zustellungswegOptions = [
   { value: 'E-Mail', label: 'E-Mail' },
   { value: 'Per Post', label: 'Per Post' },
@@ -593,36 +688,106 @@ const getSafeZustellungsweg = (insurer = props.insurer) => {
   return result;
 };
 
-// Initialize form fields when insurer changes
+// Watch for insurer changes to initialize all local states
 watch(() => props.insurer, (newInsurer) => {
   if (newInsurer) {
-    console.log('Initializing form with insurer data:', newInsurer);
+    console.log('Insurer changed, updating all local states.');
+    // Initialize editable fields
     editedName.value = newInsurer.name || '';
     editedComment.value = newInsurer.comment || '';
-    editedTurnus.value = newInsurer.turnus || '';
-    
-    // Log all properties of the insurer for debugging
-    console.log('All insurer properties:', Object.keys(newInsurer));
-    
-    // Try different possible property names for zustellungsweg
-    const possibleKeys = ['zustellungsweg', 'zustellweg', 'bezugsweg'];
-    const foundKey = possibleKeys.find(key => key in newInsurer);
-    
-    if (foundKey) {
-      console.log(`Found zustellungsweg in property '${foundKey}':`, newInsurer[foundKey]);
-    } else {
-      console.log('No zustellungsweg found in any expected property');
-    }
-    
-    // Use the safe getter for initialization
-    const zustellungsweg = getSafeZustellungsweg(newInsurer);
-    console.log('Initializing zustellungsweg with:', zustellungsweg);
-    editedZustellungsweg.value = zustellungsweg;
-    
+    // Normalize turnus from prop (supports '7', '7-tägig', 'Jährlich') to numeric string ('7','14','31','365') for the select
+    editedTurnus.value = normalizeTurnusForStore(newInsurer.turnus || '');
+    editedZustellungsweg.value = getSafeZustellungsweg(newInsurer);
     editedDokumentenart.value = getNormalizedDocTypes(newInsurer.dokumentenart);
     editedVemapool.value = newInsurer.vemapool || false;
+
+    // Initialize local last invoice
+    if (newInsurer.last_invoice) {
+      let date = null;
+      if (newInsurer.last_invoice.date?.toDate) {
+        date = newInsurer.last_invoice.date.toDate();
+      } else if (newInsurer.last_invoice.date) {
+        date = new Date(newInsurer.last_invoice.date);
+      }
+      localLastInvoice.value = { ...newInsurer.last_invoice, date };
+    } else {
+      localLastInvoice.value = null;
+    }
+
+    // Fetch settlement history for the new insurer
+    fetchSettlements();
+
+    // Reset editing state
+    cancelEditing();
   }
-}, { immediate: true, deep: true });
+}, { immediate: true });
+
+// This is the duplicate and incorrect declaration. It will be removed.
+
+// Format the last invoice date for display
+const formattedLastInvoiceDate = computed(() => {
+  if (!currentLastInvoice.value) return 'Keine Abrechnung';
+  try {
+    const date = currentLastInvoice.value.date?.toDate ? 
+      currentLastInvoice.value.date.toDate() : 
+      new Date(currentLastInvoice.value.date);
+    return format(date, 'dd.MM.yyyy');
+  } catch (e) {
+    console.error('Error formatting last invoice date:', e);
+    return 'Ungültiges Datum';
+  }
+});
+
+// Calculate next due date based on turnus and last invoice date
+const nextDueDate = computed(() => {
+  console.log('Calculating next due date...');
+  
+  try {
+    // If we don't have a last invoice, return 'Nicht verfügbar'
+    if (!currentLastInvoice.value || !currentLastInvoice.value.date) {
+      console.log('No last invoice date available');
+      return 'Nicht verfügbar';
+    }
+
+    console.log('Current last invoice:', currentLastInvoice.value);
+    
+    // Handle different date formats (Firestore Timestamp, Date object, or ISO string)
+    let lastDate;
+    if (currentLastInvoice.value.date.toDate) {
+      // Handle Firestore Timestamp
+      lastDate = currentLastInvoice.value.date.toDate();
+    } else if (currentLastInvoice.value.date instanceof Date) {
+      // Already a Date object
+      lastDate = new Date(currentLastInvoice.value.date);
+    } else {
+      // Try to parse as ISO string
+      lastDate = new Date(currentLastInvoice.value.date);
+    }
+    
+    // Validate the date
+    if (isNaN(lastDate.getTime())) {
+      console.error('Invalid date format:', currentLastInvoice.value.date);
+      return 'Ungültiges Datum';
+    }
+    
+    console.log('Last invoice date:', lastDate);
+    
+    // Get the turnus in days (default to 7 days if not set)
+    const turnusDays = props.insurer?.turnus ? parseInt(props.insurer.turnus) : 7;
+    console.log('Turnus days:', turnusDays);
+    
+    // Calculate the next due date by adding the turnus days to the last invoice date
+    const nextDate = new Date(lastDate);
+    nextDate.setDate(nextDate.getDate() + turnusDays);
+    
+    console.log('Next due date:', nextDate);
+    
+    return format(nextDate, 'dd.MM.yyyy');
+  } catch (e) {
+    console.error('Error calculating next due date:', e);
+    return 'Fehler bei Berechnung';
+  }
+});
 
 // Helper function to check if a field is empty
 const isFieldEmpty = (field) => {
@@ -684,7 +849,6 @@ const startEditing = (field) => {
       editedDokumentenart.value = getNormalizedDocTypes(props.insurer.dokumentenart);
       break;
     case 'vemapool':
-      editedVemapool.value = props.insurer.vemapool || false;
       break;
   }
 };
@@ -711,64 +875,90 @@ const formattedTurnus = computed(() => {
   return formatTurnus(props.insurer.turnus);
 });
 
+// Normalize 'X-tägig' or labels to digits for storing in the store; keep existing digits as-is
+const normalizeTurnusForStore = (val) => {
+  if (!val) return '';
+  if (typeof val === 'number') return String(val);
+  const s = String(val);
+  if (s.toLowerCase() === 'jährlich') return '365';
+  const m = s.match(/\d+/);
+  return m ? m[0] : s;
+};
+
 const saveField = async (field) => {
-  let valueToSave;
-  
-  // Get the value based on the field being edited
-  switch(field) {
-    case 'name':
-      valueToSave = editedName.value;
-      break;
-    case 'comment':
-      valueToSave = editedComment.value;
-      break;
-    case 'turnus':
-      valueToSave = editedTurnus.value;
-      break;
-    case 'zustellungsweg': {
-      // Save the selected value
-      valueToSave = editedZustellungsweg.value;
-      
-      // Log the value being saved
-      console.log('Saving zustellungsweg:', valueToSave);
-      
-      // If the value is empty, we'll set it to null to clear the field
-      if (!valueToSave) {
-        valueToSave = null;
-      }
-      
-      // Also update the local state to ensure consistency
-      if (props.insurer) {
-        // Update all possible property names to ensure consistency
-        props.insurer.zustellungsweg = valueToSave;
-        props.insurer.zustellweg = valueToSave;
-        props.insurer.bezugsweg = valueToSave;
-      }
-      break;
-    }
-    case 'dokumentenart':
-      valueToSave = editedDokumentenart.value;
-      break;
-    case 'vemapool':
-      valueToSave = editedVemapool.value;
-      break;
-    default:
-      valueToSave = '';
-  }
-
-  if ((!valueToSave || (Array.isArray(valueToSave) && valueToSave.length === 0)) && field !== 'vemapool') {
-    showErrorToast('Bitte geben Sie einen Wert ein');
-    return;
-  }
-
+  isSaving.value = true;
   try {
-    await insurerStore.updateInsurer(props.insurer.id, { [field]: valueToSave });
-    isEditing.value = false;
-    editField.value = null;
-    showSuccessToast(`${fieldNames[field] || field} erfolgreich aktualisiert`);
+    let updateData = {};
+    let successMessage = '';
+
+    switch (field) {
+      case 'name':
+        if (!editedName.value.trim()) {
+          showErrorToast('Der Name darf nicht leer sein.');
+          return;
+        }
+        updateData = { name: editedName.value };
+        successMessage = 'Name erfolgreich aktualisiert.';
+        break;
+      case 'comment':
+        updateData = { comment: editedComment.value };
+        successMessage = 'Kommentar erfolgreich gespeichert.';
+        break;
+      case 'turnus':
+        // Save normalized numeric string value back to the store
+        updateData = { turnus: editedTurnus.value };
+        successMessage = 'Turnus erfolgreich aktualisiert.';
+        break;
+      case 'zustellungsweg':
+        updateData = { zustellungsweg: editedZustellungsweg.value };
+        successMessage = 'Zustellungsweg aktualisiert.';
+        break;
+      case 'dokumentenart':
+        updateData = { dokumentenart: editedDokumentenart.value };
+        successMessage = 'Dokumentenart aktualisiert.';
+        break;
+      case 'vemapool':
+        updateData = { vemapool: editedVemapool.value };
+        successMessage = `Vemapool ${editedVemapool.value ? 'aktiviert' : 'deaktiviert'}.`;
+        break;
+      default:
+        console.warn('Unhandled field save:', field);
+        return;
+    }
+
+    await insurerStore.updateInsurer(props.insurer.id, updateData);
+    showSuccessToast(successMessage);
+
+    // Emit an event to notify parent about the update
+    emit('update:insurer', { ...props.insurer, ...updateData });
+
+    // Emit an event to notify parent about the update
+    emit('update:insurer', { ...props.insurer, ...updateData });
+
+    // Watch for the prop to update, then cancel editing.
+    // This prevents a race condition where the UI reverts to the old value
+    // before the parent component has processed the update.
+    const unwatch = watch(() => props.insurer,
+      (newInsurer) => {
+        if (newInsurer[field] === updateData[field]) {
+          cancelEditing();
+          unwatch(); // Stop watching immediately after success
+        }
+      },
+      { deep: true } // Deep watch is needed here to catch the property change
+    );
+
+    // Failsafe: if the prop doesn't update in 2 seconds, cancel editing anyway.
+    setTimeout(() => {
+      unwatch();
+      cancelEditing();
+    }, 2000);
+
   } catch (error) {
-    console.error(`Error updating ${field}:`, error);
-    showErrorToast(`Fehler beim Aktualisieren des ${fieldNames[field] || field}`);
+    console.error(`Error saving field ${field}:`, error);
+    showErrorToast(`Fehler beim Speichern von ${field}.`);
+  } finally {
+    isSaving.value = false;
   }
 };
 

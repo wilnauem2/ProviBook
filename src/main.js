@@ -1,3 +1,6 @@
+// Import Firebase to initialize it
+import './firebase';
+
 // Set the global production flag based on Vite's environment mode.
 // import.meta.env.PROD is a boolean provided by Vite that is true during a build.
 window.IS_PRODUCTION = import.meta.env.PROD;

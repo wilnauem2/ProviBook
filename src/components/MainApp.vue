@@ -96,6 +96,19 @@
                 <span class="px-2 py-1 bg-gray-100 rounded text-xs">
                   {{ Array.isArray(abrechnungen) ? abrechnungen.length : 0 }} Dokumente
                 </span>
+                <button
+                  v-if="route.path.startsWith('/insurers')"
+                  @click="clearAllFilters"
+                  :disabled="!anyFiltersActive"
+                  :class="[
+                    'ml-2 inline-flex items-center gap-1 px-3 py-1.5 rounded transition border',
+                    anyFiltersActive ? 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50' : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                  ]"
+                  title="Filter zurücksetzen"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4"><path d="M9 13h6v8H9z"/><path d="M4 7h16v2H4z"/><path d="M10 3h4v2h-4z"/></svg>
+                  Filter zurücksetzen
+                </button>
                 <button 
                   v-if="route.path.startsWith('/insurers')"
                   @click="exportInsurersPdf"
@@ -362,19 +375,21 @@ const getStatusColor = (status) => {
 };
 
 const getSafeZustellungsweg = (insurer) => {
-  if (!insurer) {
+  try {
+    if (!insurer) return '';
+    const z = insurer?.zustellungsweg || insurer?.zustellweg || insurer?.bezugsweg;
+    if (!z) return '';
+    if (typeof z === 'string') return z;
+    if (Array.isArray(z)) {
+      const first = z[0];
+      if (typeof first === 'object' && first) return first.value || first.label || first.name || '';
+      return first || '';
+    }
+    if (typeof z === 'object') return z.value || z.label || z.name || z.display || '';
+    return String(z);
+  } catch {
     return '';
   }
-
-  if (typeof insurer.zustellungsweg === 'string') {
-    return insurer.zustellungsweg;
-  }
-
-  if (insurer.zustellungsweg && typeof insurer.zustellungsweg.display === 'string') {
-    return insurer.zustellungsweg.display;
-  }
-
-  return '';
 };
 
 const filteredInsurers = computed(() => {
@@ -412,7 +427,15 @@ const filteredInsurers = computed(() => {
     }
 
     if (activeFilters.value.dokumentenart) {
-      const docs = Array.isArray(insurer.dokumentenart) ? insurer.dokumentenart : [];
+      const docsRaw = Array.isArray(insurer.dokumentenart) ? insurer.dokumentenart : [];
+      const docs = docsRaw.map((item) => {
+        if (typeof item === 'string') return item.trim().toUpperCase();
+        if (item && typeof item === 'object') {
+          const strVal = Object.values(item).find(v => typeof v === 'string');
+          return strVal ? strVal.trim().toUpperCase() : '';
+        }
+        return String(item).trim().toUpperCase();
+      });
       if (!docs.includes(activeFilters.value.dokumentenart)) {
         return false;
       }
@@ -478,10 +501,23 @@ const normalizeZustellungsweg = (val) => {
   if (!val) return '';
   const s = String(val).trim().toLowerCase();
   if (!s) return '';
-  if (s.includes('bipro')) return 'BiPRO';
-  if (s.includes('maklerportal') || s.includes('getmyinvoices')) return 'Maklerportal/GetMyInvoices';
+  if (s.includes('bipro') || s.includes('bi-pro')) return 'BiPRO';
+  const isPortal = (
+    s.includes('maklerportal') ||
+    s.includes('makler-portal') ||
+    s.includes('getmyinvoices') ||
+    s.includes('get my invoices') ||
+    s.includes('gmi') ||
+    s.includes('portal') ||
+    s.includes('kundenportal') ||
+    s.includes('serviceportal') ||
+    s.includes('login') ||
+    s.includes('online') ||
+    (s.startsWith('http') && (s.includes('portal') || s.includes('makler')))
+  );
+  if (isPortal) return 'Maklerportal/GetMyInvoices';
   if (s.includes('mail') || s.includes('e-mail') || s.includes('email')) return 'E-Mail';
-  if (s.includes('post')) return 'Per Post';
+  if (s.includes('post') || s.includes('brief')) return 'Per Post';
   return val;
 };
 
@@ -491,6 +527,8 @@ const handleSortByZustellungsweg = (label) => {
   activeFilters.value.zustellungsweg = label;
   // Clear previous doc-type filter priority and sort priorities
   activeFilters.value.dokumentenart = null;
+  statusFilter.value = 'all';
+  searchQuery.value = '';
   priorityZustellungsweg.value = null;
   priorityDokumentenart.value = null;
   // Navigate to insurers view to see filtered cards
@@ -504,6 +542,8 @@ const handleSortByDokumentenart = (docType) => {
   activeFilters.value.dokumentenart = String(docType).trim().toUpperCase();
   // Clear previous zustellungsweg filter and sort priorities
   activeFilters.value.zustellungsweg = null;
+  statusFilter.value = 'all';
+  searchQuery.value = '';
   priorityZustellungsweg.value = null;
   priorityDokumentenart.value = null;
   if (!route.path.startsWith('/insurers')) {
@@ -531,6 +571,25 @@ const handleInsurerDeleted = () => {
 
 const applyFilter = (filter) => {
   statusFilter.value = filter;
+};
+
+// Show 'Clear Filters' button when any filter/search is active
+const anyFiltersActive = computed(() => {
+  return (
+    statusFilter.value !== 'all' ||
+    !!searchQuery.value ||
+    !!activeFilters.value.zustellungsweg ||
+    !!activeFilters.value.dokumentenart ||
+    !!activeFilters.value.turnus
+  );
+});
+
+const clearAllFilters = () => {
+  statusFilter.value = 'all';
+  searchQuery.value = '';
+  activeFilters.value = { zustellungsweg: null, dokumentenart: null, turnus: null };
+  priorityZustellungsweg.value = null;
+  priorityDokumentenart.value = null;
 };
 
 const handleCreateInsurer = () => {

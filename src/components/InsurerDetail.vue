@@ -546,11 +546,33 @@ const currentLastInvoice = computed(() => {
     date: (() => {
       try {
         if (!invoice.date) return null;
+        
+        // Handle Firestore Timestamp
         if (invoice.date.toDate) return invoice.date.toDate();
+        
+        // Handle Date object
         if (invoice.date instanceof Date) return new Date(invoice.date);
+        
+        // Handle string format
+        if (typeof invoice.date === 'string') {
+          // Check if it's DD.MM.YYYY format
+          if (invoice.date.includes('.')) {
+            const parts = invoice.date.split('.');
+            if (parts.length === 3) {
+              const day = parseInt(parts[0], 10);
+              const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed
+              const year = parseInt(parts[2], 10);
+              return new Date(year, month, day);
+            }
+          }
+          // Try ISO format
+          return new Date(invoice.date);
+        }
+        
+        // Fallback
         return new Date(invoice.date);
       } catch (e) {
-        console.error('Error parsing invoice date:', e);
+        console.error('Error parsing invoice date:', e, invoice.date);
         return null;
       }
     })()
@@ -685,12 +707,45 @@ watch(() => props.insurer, (newInsurer) => {
     // Initialize local last invoice
     if (newInsurer.last_invoice) {
       let date = null;
-      if (newInsurer.last_invoice.date?.toDate) {
-        date = newInsurer.last_invoice.date.toDate();
-      } else if (newInsurer.last_invoice.date) {
-        date = new Date(newInsurer.last_invoice.date);
+      try {
+        if (newInsurer.last_invoice.date?.toDate) {
+          // Firestore Timestamp
+          date = newInsurer.last_invoice.date.toDate();
+        } else if (newInsurer.last_invoice.date instanceof Date) {
+          // Already a Date object
+          date = new Date(newInsurer.last_invoice.date);
+        } else if (typeof newInsurer.last_invoice.date === 'string') {
+          // Handle string formats
+          if (newInsurer.last_invoice.date.includes('.')) {
+            // DD.MM.YYYY format
+            const parts = newInsurer.last_invoice.date.split('.');
+            if (parts.length === 3) {
+              const day = parseInt(parts[0], 10);
+              const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed
+              const year = parseInt(parts[2], 10);
+              date = new Date(year, month, day);
+            }
+          } else {
+            // Try ISO format
+            date = new Date(newInsurer.last_invoice.date);
+          }
+        } else if (newInsurer.last_invoice.date) {
+          // Fallback
+          date = new Date(newInsurer.last_invoice.date);
+        }
+        
+        // Validate the parsed date
+        if (date && isNaN(date.getTime())) {
+          console.error('Invalid date after parsing:', newInsurer.last_invoice.date);
+          date = null;
+        }
+      } catch (e) {
+        console.error('Error parsing last_invoice date:', e, newInsurer.last_invoice.date);
+        date = null;
       }
+      
       localLastInvoice.value = { ...newInsurer.last_invoice, date };
+      console.log('Initialized localLastInvoice:', localLastInvoice.value);
     } else {
       localLastInvoice.value = null;
     }
@@ -707,11 +762,11 @@ watch(() => props.insurer, (newInsurer) => {
 
 // Format the last invoice date for display
 const formattedLastInvoiceDate = computed(() => {
-  if (!currentLastInvoice.value) return 'Keine Abrechnung';
+  if (!currentLastInvoice.value || !currentLastInvoice.value.date) return 'Keine Abrechnung';
   try {
-    const date = currentLastInvoice.value.date?.toDate ? 
-      currentLastInvoice.value.date.toDate() : 
-      new Date(currentLastInvoice.value.date);
+    // currentLastInvoice.value.date is already a Date object
+    const date = currentLastInvoice.value.date;
+    if (!date || isNaN(date.getTime())) return 'Ungültiges Datum';
     return format(date, 'dd.MM.yyyy');
   } catch (e) {
     console.error('Error formatting last invoice date:', e);
@@ -721,52 +776,79 @@ const formattedLastInvoiceDate = computed(() => {
 
 // Calculate next due date based on turnus and last invoice date
 const nextDueDate = computed(() => {
-  console.log('Calculating next due date...');
-  
   try {
-    // If we don't have a last invoice, return 'Nicht verfügbar'
-    if (!currentLastInvoice.value || !currentLastInvoice.value.date) {
-      console.log('No last invoice date available');
+    console.log('=== Calculating next due date ===');
+    
+    // Get last invoice date - try multiple sources
+    let lastDate = null;
+    
+    // Try currentLastInvoice first
+    if (currentLastInvoice.value?.date) {
+      lastDate = currentLastInvoice.value.date;
+      console.log('Using currentLastInvoice.date:', lastDate);
+    }
+    
+    // If no date yet, try localLastInvoice
+    if (!lastDate && localLastInvoice.value?.date) {
+      lastDate = localLastInvoice.value.date;
+      console.log('Using localLastInvoice.date:', lastDate);
+    }
+    
+    // If still no date, try from store
+    if (!lastDate && props.insurer?.id && insurerStore.lastInvoices[props.insurer.id]?.date) {
+      const storeInvoice = insurerStore.lastInvoices[props.insurer.id];
+      if (storeInvoice.date?.toDate) {
+        lastDate = storeInvoice.date.toDate();
+      } else {
+        lastDate = new Date(storeInvoice.date);
+      }
+      console.log('Using store lastInvoice.date:', lastDate);
+    }
+    
+    // If still no date, return not available
+    if (!lastDate) {
+      console.log('❌ No last invoice date found');
       return 'Nicht verfügbar';
     }
-
-    console.log('Current last invoice:', currentLastInvoice.value);
     
-    // Handle different date formats (Firestore Timestamp, Date object, or ISO string)
-    let lastDate;
-    if (currentLastInvoice.value.date.toDate) {
-      // Handle Firestore Timestamp
-      lastDate = currentLastInvoice.value.date.toDate();
-    } else if (currentLastInvoice.value.date instanceof Date) {
-      // Already a Date object
-      lastDate = new Date(currentLastInvoice.value.date);
-    } else {
-      // Try to parse as ISO string
-      lastDate = new Date(currentLastInvoice.value.date);
-    }
-    
-    // Validate the date
-    if (isNaN(lastDate.getTime())) {
-      console.error('Invalid date format:', currentLastInvoice.value.date);
+    // Ensure it's a valid Date object
+    if (!(lastDate instanceof Date) || isNaN(lastDate.getTime())) {
+      console.error('❌ Invalid date object:', lastDate);
       return 'Ungültiges Datum';
     }
     
-    console.log('Last invoice date:', lastDate);
+    console.log('✅ Last date:', lastDate.toISOString(), lastDate.toString());
     
-    // Get the turnus in days (default to 7 days if not set)
-    const turnusDays = props.insurer?.turnus ? parseInt(props.insurer.turnus) : 7;
-    console.log('Turnus days:', turnusDays);
+    // Get turnus
+    let turnusDays = 7; // default
+    if (props.insurer?.turnus) {
+      turnusDays = parseInt(String(props.insurer.turnus), 10);
+      if (isNaN(turnusDays) || turnusDays <= 0) {
+        console.warn('⚠️ Invalid turnus, using default 7:', props.insurer.turnus);
+        turnusDays = 7;
+      }
+    }
+    console.log('✅ Turnus days:', turnusDays);
     
-    // Calculate the next due date by adding the turnus days to the last invoice date
+    // Calculate next date
     const nextDate = new Date(lastDate);
     nextDate.setDate(nextDate.getDate() + turnusDays);
     
-    console.log('Next due date:', nextDate);
+    console.log('✅ Next date:', nextDate.toISOString(), nextDate.toString());
     
-    return format(nextDate, 'dd.MM.yyyy');
+    // Format manually
+    const day = String(nextDate.getDate()).padStart(2, '0');
+    const month = String(nextDate.getMonth() + 1).padStart(2, '0');
+    const year = nextDate.getFullYear();
+    const formatted = `${day}.${month}.${year}`;
+    
+    console.log('✅ Formatted:', formatted);
+    return formatted;
+    
   } catch (e) {
-    console.error('Error calculating next due date:', e);
-    return 'Fehler bei Berechnung';
+    console.error('❌❌❌ EXCEPTION in nextDueDate:', e);
+    console.error('Stack:', e.stack);
+    return 'Fehler';
   }
 });
 

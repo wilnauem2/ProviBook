@@ -795,33 +795,117 @@ const formatDate = (dateValue) => {
 // Format next due date for display on the card header
 const formatNextDue = (insurer) => {
   try {
-    if (!insurer) return '–';
+    if (!insurer) {
+      return '–';
+    }
 
     const insurerStore = useInsurerStore();
     const lastInvoice = insurer.last_invoice || insurerStore.lastInvoices[insurer.id];
 
-    if (!lastInvoice?.date) {
+    if (!lastInvoice) {
       return 'Keine Abrechnung';
     }
 
-    const lastDateValue = lastInvoice.date?.toDate
-      ? lastInvoice.date.toDate()
-      : lastInvoice.date?.seconds
-        ? new Date(lastInvoice.date.seconds * 1000)
-        : new Date(lastInvoice.date);
+    // Extract date value from various possible formats (same logic as formatLastInvoice)
+    let dateValue;
+    
+    // Handle direct string format (e.g., "11.10.2025")
+    if (typeof lastInvoice === 'string') {
+      dateValue = lastInvoice.trim();
+      if (!dateValue) return 'Keine Abrechnung';
+    }
+    // Handle object formats
+    else if (typeof lastInvoice === 'object' && lastInvoice !== null) {
+      if (lastInvoice.display) {
+        dateValue = lastInvoice.display;
+      } else if (lastInvoice.seconds) {
+        dateValue = lastInvoice; // Will be handled by parseToDate
+      } else if (lastInvoice.date) {
+        dateValue = lastInvoice.date;
+      } else if (lastInvoice.datum) {
+        dateValue = lastInvoice.datum;
+      } else {
+        return 'Keine Abrechnung';
+      }
+    } else {
+      return 'Keine Abrechnung';
+    }
 
-    if (!(lastDateValue instanceof Date) || isNaN(lastDateValue.getTime())) {
+    // Parse the extracted date value to a Date object
+    let lastDateValue = parseToDate(dateValue);
+    
+    if (!lastDateValue || !(lastDateValue instanceof Date) || isNaN(lastDateValue.getTime())) {
       return 'Ungültiges Datum';
     }
 
-    const turnusDays = parseTurnus(insurer.turnus) ?? 7;
+    // Parse turnus to days
+    let turnusDays = 7; // default
+    if (insurer.turnus) {
+      const turnusStr = String(insurer.turnus);
+      // Extract number from formats like '7', '7-tägig', '31-tägig', 'Jährlich'
+      const match = turnusStr.match(/\d+/);
+      if (match) {
+        turnusDays = parseInt(match[0], 10);
+      } else if (turnusStr.toLowerCase().includes('jährlich')) {
+        turnusDays = 365;
+      }
+    }
+    
+    // Calculate next date
     const nextDate = new Date(lastDateValue);
     nextDate.setDate(nextDate.getDate() + turnusDays);
 
     return format(nextDate, 'dd.MM.yyyy', { locale: de });
   } catch (e) {
-    console.error('formatNextDue error:', e);
+    console.error('[formatNextDue] Exception:', e);
     return 'Fehler';
+  }
+}
+
+// Helper function to parse various date formats to a Date object
+const parseToDate = (dateValue) => {
+  try {
+    if (!dateValue) return null;
+    
+    // Handle Firestore Timestamp with toDate method
+    if (dateValue && typeof dateValue === 'object' && 'toDate' in dateValue) {
+      return dateValue.toDate();
+    }
+    
+    // Handle Firestore Timestamp with seconds property
+    if (dateValue && typeof dateValue === 'object' && 'seconds' in dateValue) {
+      return new Date(dateValue.seconds * 1000);
+    }
+    
+    // Handle Date object
+    if (dateValue instanceof Date) {
+      return new Date(dateValue);
+    }
+    
+    // Handle string formats
+    if (typeof dateValue === 'string') {
+      const trimmed = dateValue.trim();
+      
+      // Handle DD.MM.YYYY format
+      if (trimmed.includes('.')) {
+        const parts = trimmed.split('.');
+        if (parts.length === 3) {
+          const day = parseInt(parts[0], 10);
+          const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed
+          const year = parseInt(parts[2], 10);
+          return new Date(year, month, day);
+        }
+      }
+      
+      // Try ISO format or other standard formats
+      return new Date(trimmed);
+    }
+    
+    // Fallback
+    return new Date(dateValue);
+  } catch (e) {
+    console.error('Error in parseToDate:', e);
+    return null;
   }
 }
 

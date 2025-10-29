@@ -55,6 +55,43 @@
       </div>
     </div>
     
+    <!-- Incomplete Cards Section -->
+    <div class="mt-8 bg-white p-6 rounded-lg border border-gray-200">
+      <h3 class="text-lg font-semibold mb-4">Unvollständige Einträge ({{ uniqueIncompleteInsurers.length || 0 }})</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Missing Document Types -->
+        <div class="bg-amber-50 p-4 rounded-lg border border-amber-200">
+          <h4 class="font-medium text-amber-800 mb-2">Ohne Dokumentenart ({{ insurersWithoutDocType.length || 0 }})</h4>
+          <div v-if="insurersWithoutDocType.length > 0" class="space-y-2">
+            <div v-for="insurer in insurersWithoutDocType" :key="insurer.id" 
+                 class="flex items-center justify-between p-2 hover:bg-amber-100 rounded">
+              <span class="text-sm font-medium text-gray-700">{{ insurer.name || 'Unbenannter Eintrag' }}</span>
+              <button @click="handleSelectInsurer(insurer)" 
+                      class="text-xs bg-amber-200 hover:bg-amber-300 text-amber-800 px-2 py-1 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-300 focus:ring-opacity-50 transition-colors">
+                Bearbeiten
+              </button>
+            </div>
+          </div>
+          <p v-else class="text-sm text-amber-700">Keine Einträge ohne Dokumentenart vorhanden</p>
+        </div>
+        
+        <!-- Missing Delivery Method -->
+        <div class="bg-amber-50 p-4 rounded-lg border border-amber-200">
+          <h4 class="font-medium text-amber-800 mb-2">Ohne Zustellungsweg ({{ insurersWithoutZustellungsweg.length || 0 }})</h4>
+          <div v-if="insurersWithoutZustellungsweg.length > 0" class="space-y-2">
+            <div v-for="insurer in insurersWithoutZustellungsweg" :key="insurer.id"
+                 class="flex items-center justify-between p-2 hover:bg-amber-100 rounded">
+              <span class="text-sm font-medium text-gray-700">{{ insurer.name || 'Unbenannter Eintrag' }}</span>
+              <button @click="handleSelectInsurer(insurer)" 
+                      class="text-xs bg-amber-200 hover:bg-amber-300 text-amber-800 px-2 py-1 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-300 focus:ring-opacity-50 transition-colors">
+                Bearbeiten
+              </button>
+            </div>
+          </div>
+          <p v-else class="text-sm text-amber-700">Keine Einträge ohne Zustellungsweg vorhanden</p>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -66,7 +103,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 
-const emit = defineEmits(['filter-by-zustellungsweg', 'filter-by-turnus', 'filter-by-dokumentenart']);
+const emit = defineEmits(['filter-by-zustellungsweg', 'filter-by-turnus', 'filter-by-dokumentenart', 'select-insurer']);
 
 const props = defineProps({
   insurers: {
@@ -81,8 +118,317 @@ const props = defineProps({
 });
 
 const insurerStore = useInsurerStore();
+
+// Handler for selecting an insurer
+const handleSelectInsurer = (insurer) => {
+  console.log('[InsurerStats] Bearbeiten clicked for:', insurer.name, insurer);
+  emit('select-insurer', insurer);
+};
+
+// Debug function to log insurer data
+const debugIncompleteInsurers = (insurers) => {
+  console.log('=== DEBUG: Checking incomplete insurers ===');
+  console.log('Total insurers:', insurers.length);
+  
+  insurers.forEach((insurer, index) => {
+    if (!insurer) return;
+    
+    const docTypes = normalizeDocTypes(insurer.dokumentenart);
+    const zustellungsweg = getSafeZustellungsweg(insurer);
+    const normalizedZustellungsweg = normalizeZustellungsweg(zustellungsweg);
+    
+    const isMissingDocType = docTypes.length === 0;
+    const isMissingZustellungsweg = !zustellungsweg || zustellungsweg.trim() === '' || normalizedZustellungsweg === 'Nicht angegeben';
+    
+    if (isMissingDocType || isMissingZustellungsweg) {
+      console.log(`\nInsurer ${index + 1}:`, insurer.name || 'Unnamed Insurer');
+      console.log('Document Types:', insurer.dokumentenart, '→', docTypes, isMissingDocType ? 'MISSING' : 'OK');
+      console.log('Zustellungsweg:', {
+        raw: insurer.zustellungsweg || insurer.zustellweg || insurer.bezugsweg,
+        safe: zustellungsweg,
+        normalized: normalizedZustellungsweg,
+        status: isMissingZustellungsweg ? 'MISSING' : 'OK'
+      });
+    }
+  });
+  console.log('=== END DEBUG ===');
+};
+
+// Enhanced function to check for missing document types
+const isMissingDocType = (insurer) => {
+  if (!insurer) return false;
+  
+  // Debug log for the current insurer being checked
+  const debugLog = [];
+  const shouldDebug = process.env.NODE_ENV === 'development';
+  
+  if (shouldDebug) {
+    debugLog.push(`Checking insurer: ${insurer.name || 'Unnamed'} (ID: ${insurer.id})`);
+    debugLog.push(`Raw dokumentenart:`, insurer.dokumentenart);
+  }
+  
+  // Check if dokumentenart is missing, null, empty array, or empty string
+  if (!insurer.dokumentenart || 
+      (Array.isArray(insurer.dokumentenart) && insurer.dokumentenart.length === 0) ||
+      (typeof insurer.dokumentenart === 'string' && insurer.dokumentenart.trim() === '')) {
+    if (shouldDebug) debugLog.push('Missing dokumentenart - returning true');
+    return true;
+  }
+  
+  // Check if normalization results in empty array
+  const docTypes = normalizeDocTypes(insurer.dokumentenart);
+  const isEmpty = docTypes.length === 0;
+  
+  if (shouldDebug) {
+    debugLog.push(`Normalized docTypes:`, docTypes);
+    debugLog.push(`Is empty: ${isEmpty}`);
+    console.log(debugLog.join('\n'));
+  }
+  
+  return isEmpty;
+};
+
+// Enhanced function to check for missing delivery method
+const isMissingZustellungsweg = (insurer) => {
+  if (!insurer) return false;
+  
+  // Debug log for the current insurer being checked
+  const debugLog = [];
+  const shouldDebug = process.env.NODE_ENV === 'development';
+  
+  if (shouldDebug) {
+    debugLog.push(`Checking insurer: ${insurer.name || 'Unnamed'} (ID: ${insurer.id})`);
+    debugLog.push(`Raw zustellungsweg:`, insurer.zustellungsweg);
+    debugLog.push(`Raw zustellweg:`, insurer.zustellweg);
+    debugLog.push(`Raw bezugsweg:`, insurer.bezugsweg);
+  }
+  
+  // Check all possible field names for delivery method
+  const hasNoZustellungsweg = !insurer.zustellungsweg && 
+                            !insurer.zustellweg && 
+                            !insurer.bezugsweg;
+  
+  // If all fields are missing, it's definitely missing
+  if (hasNoZustellungsweg) {
+    if (shouldDebug) debugLog.push('No zustellungsweg found - returning true');
+    return true;
+  }
+  
+  // Check the normalized value
+  const zustellungsweg = getSafeZustellungsweg(insurer);
+  const normalized = normalizeZustellungsweg(zustellungsweg);
+  const isMissing = !zustellungsweg || 
+                   zustellungsweg.trim() === '' || 
+                   normalized === 'Nicht angegeben' ||
+                   normalized === 'nicht angegeben';
+  
+  if (shouldDebug) {
+    debugLog.push(`Safe zustellungsweg: ${zustellungsweg}`);
+    debugLog.push(`Normalized: ${normalized}`);
+    debugLog.push(`Is missing: ${isMissing}`);
+    console.log(debugLog.join('\n'));
+  }
+  
+  return isMissing;
+};
+
+// Get insurers missing document types
+const insurersWithoutDocType = computed(() => {
+  if (!props.insurers || props.insurers.length === 0) return [];
+  
+  const result = props.insurers.filter(insurer => {
+    return isMissingDocType(insurer);
+  });
+  
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`Found ${result.length} insurers without document type`);
+  }
+  
+  return result;
+});
+
+// Get insurers missing delivery method
+const insurersWithoutZustellungsweg = computed(() => {
+  if (!props.insurers || props.insurers.length === 0) return [];
+  
+  const result = props.insurers.filter(insurer => {
+    return isMissingZustellungsweg(insurer);
+  });
+  
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`Found ${result.length} insurers without zustellungsweg`);
+  }
+  
+  return result;
+});
+
+// Get unique incomplete insurers (without duplicates between the two categories)
+const uniqueIncompleteInsurers = computed(() => {
+  if (!props.insurers || props.insurers.length === 0) return [];
+  
+  // Create a Map to store unique insurers by ID
+  const uniqueInsurers = new Map();
+  
+  // Add all insurers without doc type
+  insurersWithoutDocType.value.forEach(insurer => {
+    if (insurer && insurer.id) {
+      uniqueInsurers.set(insurer.id, insurer);
+    }
+  });
+  
+  // Add all insurers without zustellungsweg
+  insurersWithoutZustellungsweg.value.forEach(insurer => {
+    if (insurer && insurer.id) {
+      uniqueInsurers.set(insurer.id, insurer);
+    }
+  });
+  
+  // Convert Map values to array and log for debugging
+  const result = Array.from(uniqueInsurers.values());
+  
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`Found ${result.length} unique insurers with incomplete data`);
+    if (result.length > 0) {
+      console.log('Sample incomplete insurers:', 
+        result.slice(0, 3).map(i => ({
+          id: i.id,
+          name: i.name,
+          dokumentenart: i.dokumentenart,
+          zustellungsweg: i.zustellungsweg || i.zustellweg || i.bezugsweg
+        }))
+      );
+    }
+  }
+  
+  return result;
+});
 const { calculateDaysOverdue, calculateNextSettlementDate, parseTurnus } = useInsurerUtils();
+
+// Debug: Log initial data when component mounts
+onMounted(() => {
+  console.log('=== INSURER STATS DEBUGGING ===');
+  console.log('Total insurers received:', props.insurers?.length || 0);
+  
+  if (props.insurers && props.insurers.length > 0) {
+    // Log a few sample insurers
+    const sampleSize = Math.min(3, props.insurers.length);
+    console.log(`=== SAMPLE OF ${sampleSize} INSURERS ===`);
+    
+    for (let i = 0; i < sampleSize; i++) {
+      const insurer = props.insurers[i];
+      if (!insurer) continue;
+      
+      const docTypes = normalizeDocTypes(insurer.dokumentenart);
+      const zustellungsweg = getSafeZustellungsweg(insurer);
+      const normalizedZustellungsweg = normalizeZustellungsweg(zustellungsweg);
+      
+      console.log(`\nInsurer ${i + 1}: ${insurer.name || 'Unnamed'}`);
+      console.log('  - dokumentenart (raw):', insurer.dokumentenart);
+      console.log('  - dokumentenart (normalized):', docTypes);
+      console.log('  - zustellungsweg (raw):', insurer.zustellungsweg);
+      console.log('  - zustellweg (raw):', insurer.zustellweg);
+      console.log('  - bezugsweg (raw):', insurer.bezugsweg);
+      console.log('  - safeZustellungsweg:', zustellungsweg);
+      console.log('  - normalizedZustellungsweg:', normalizedZustellungsweg);
+      console.log('  - Is missing doc type?', docTypes.length === 0);
+      console.log('  - Is missing zustellungsweg?', 
+                 !zustellungsweg || 
+                 zustellungsweg.trim() === '' || 
+                 normalizedZustellungsweg === 'Nicht angegeben');
+    }
+    
+    // Count missing data
+    const missingDocType = props.insurers.filter(i => {
+      const dt = normalizeDocTypes(i?.dokumentenart);
+      return dt.length === 0;
+    }).length;
+    
+    const missingZustellungsweg = props.insurers.filter(i => {
+      const z = getSafeZustellungsweg(i);
+      const nz = normalizeZustellungsweg(z);
+      return !z || z.trim() === '' || nz === 'Nicht angegeben';
+    }).length;
+    
+    console.log('\n=== SUMMARY ===');
+    console.log(`Total insurers: ${props.insurers.length}`);
+    console.log(`Missing document types: ${missingDocType}`);
+    console.log(`Missing zustellungsweg: ${missingZustellungsweg}`);
+  } else {
+    console.log('No insurers data available');
+  }
+  
+  console.log('=== END INSURER STATS DEBUGGING ===');
+  
+  // Run the detailed debug function
+  debugIncompleteInsurers(props.insurers);
+});
+// Debug function to log insurer data
+const debugInsurerData = (insurers) => {
+  console.log('=== DEBUG: Insurer Data ===');
+  console.log(`Total insurers: ${insurers?.length || 0}`);
+  
+  if (insurers && insurers.length > 0) {
+    console.log('Sample insurer (first 3):', JSON.parse(JSON.stringify(insurers.slice(0, 3))));
+    
+    // Check document types
+    const withDocType = insurers.filter(i => {
+      if (!i) return false;
+      const docTypes = normalizeDocTypes(i.dokumentenart);
+      return docTypes && docTypes.length > 0;
+    });
+    
+    // Check delivery methods
+    const withZustellungsweg = insurers.filter(i => {
+      if (!i) return false;
+      const zustellungsweg = getSafeZustellungsweg(i);
+      const normalized = normalizeZustellungsweg(zustellungsweg);
+      return zustellungsweg && 
+             zustellungsweg.trim() !== '' && 
+             normalized !== 'Nicht angegeben' &&
+             normalized !== 'nicht angegeben';
+    });
+    
+    console.log(`Insurers with document type: ${withDocType.length}/${insurers.length}`);
+    console.log(`Insurers with delivery method: ${withZustellungsweg.length}/${insurers.length}`);
+    
+    // Log first few insurers without document type
+    const withoutDocType = insurers.filter((i, idx) => {
+      if (!i) return false;
+      const docTypes = normalizeDocTypes(i.dokumentenart);
+      return !docTypes || docTypes.length === 0;
+    });
+    
+    if (withoutDocType.length > 0) {
+      console.log('First 3 insurers without document type:', 
+        JSON.parse(JSON.stringify(withoutDocType.slice(0, 3))));
+    }
+    
+    // Log first few insurers without delivery method
+    const withoutZustellungsweg = insurers.filter(i => {
+      if (!i) return false;
+      const zustellungsweg = getSafeZustellungsweg(i);
+      const normalized = normalizeZustellungsweg(zustellungsweg);
+      return !zustellungsweg || 
+             zustellungsweg.trim() === '' || 
+             normalized === 'Nicht angegeben' ||
+             normalized === 'nicht angegeben';
+    });
+    
+    if (withoutZustellungsweg.length > 0) {
+      console.log('First 3 insurers without delivery method:', 
+        JSON.parse(JSON.stringify(withoutZustellungsweg.slice(0, 3))));
+    }
+  }
+  
+  console.log('=== END DEBUG ===');
+};
+
 const stats = computed(() => {
+  // Debug the insurers data when stats are computed
+  if (process.env.NODE_ENV === 'development') {
+    debugInsurerData(props.insurers);
+  }
+  
   const result = {
     total: 0,
     byStatus: {
@@ -197,36 +543,106 @@ function getSafeZustellungsweg(insurer) {
 }
 
 function normalizeZustellungsweg(val) {
-  const s = String(val).trim().toLowerCase();
-  if (!s) return 'Nicht angegeben';
-  if (s.includes('bipro')) return 'BiPRO';
-  if (s.includes('maklerportal') || s.includes('getmyinvoices')) return 'Maklerportal/GetMyInvoices';
-  if (s.includes('mail') || s.includes('e-mail') || s.includes('email')) return 'E-Mail';
-  if (s.includes('post')) return 'Per Post';
-  return val;
+  if (val === undefined || val === null) {
+    return 'Nicht angegeben';
+  }
+  
+  const strVal = String(val).trim();
+  if (!strVal) return 'Nicht angegiven';
+  
+  const lowerVal = strVal.toLowerCase();
+  
+  // Common delivery methods
+  if (lowerVal.includes('bipro')) return 'BiPRO';
+  if (lowerVal.includes('maklerportal') || lowerVal.includes('getmyinvoices') || lowerVal === 'portal') {
+    return 'Maklerportal/GetMyInvoices';
+  }
+  if (lowerVal.includes('mail') || lowerVal.includes('e-mail') || lowerVal.includes('email')) {
+    return 'E-Mail';
+  }
+  if (lowerVal.includes('post') || lowerVal.includes('brief')) {
+    return 'Per Post';
+  }
+  if (lowerVal === 'kein' || lowerVal === 'nein' || lowerVal === 'none' || lowerVal === 'n/a') {
+    return 'Nicht angegeben';
+  }
+  
+  // Return the original value with first letter capitalized
+  return strVal.charAt(0).toUpperCase() + strVal.slice(1).toLowerCase();
 }
 
 function normalizeDocTypes(docArt) {
-  if (!docArt) return [];
+  // Debug log
+  const debugLog = [];
+  const shouldDebug = process.env.NODE_ENV === 'development';
+  
+  if (shouldDebug) {
+    debugLog.push('normalizeDocTypes input:', JSON.stringify(docArt));
+  }
+  
+  if (!docArt && docArt !== 0) {
+    if (shouldDebug) debugLog.push('Empty input, returning empty array');
+    return [];
+  }
+  
   try {
+    let result = [];
+    
+    // Handle array input
     if (Array.isArray(docArt)) {
-      return docArt
-        .map(item => {
-          if (typeof item === 'string') return item.trim().toUpperCase();
-          if (item && typeof item === 'object') {
-            const strValue = Object.values(item).find(v => typeof v === 'string');
-            return strValue ? strValue.trim().toUpperCase() : null;
-          }
-          return String(item).trim().toUpperCase();
-        })
-        .filter(Boolean);
+      result = docArt.flatMap(item => {
+        if (!item && item !== 0) return [];
+        
+        // Handle string items
+        if (typeof item === 'string') {
+          return item.split(',')
+            .map(t => t.trim().toUpperCase())
+            .filter(t => t && t !== 'NULL' && t !== 'UNDEFINED');
+        }
+        
+        // Handle object items
+        if (typeof item === 'object' && item !== null) {
+          // Try common property names
+          const possibleValues = [
+            item.value, item.label, item.name, item.type, 
+            ...Object.values(item).filter(v => typeof v === 'string')
+          ];
+          
+          return possibleValues
+            .filter(Boolean)
+            .flatMap(v => String(v).split(','))
+            .map(t => t.trim().toUpperCase())
+            .filter(t => t && t !== 'NULL' && t !== 'UNDEFINED');
+        }
+        
+        // Handle other types
+        const strVal = String(item).trim().toUpperCase();
+        return strVal && strVal !== 'NULL' && strVal !== 'UNDEFINED' ? [strVal] : [];
+      });
+    } 
+    // Handle string input
+    else if (typeof docArt === 'string') {
+      result = docArt.split(',')
+        .map(t => t.trim().toUpperCase())
+        .filter(t => t && t !== 'NULL' && t !== 'UNDEFINED');
+    } 
+    // Handle other types
+    else {
+      const strVal = String(docArt).trim().toUpperCase();
+      result = strVal && strVal !== 'NULL' && strVal !== 'UNDEFINED' ? [strVal] : [];
     }
-    if (typeof docArt === 'string') {
-      return docArt.split(',').map(t => t.trim().toUpperCase()).filter(Boolean);
+    
+    // Remove duplicates
+    const uniqueResult = [...new Set(result)];
+    
+    if (shouldDebug) {
+      debugLog.push('Normalized document types:', uniqueResult);
+      console.log(debugLog.join('\n'));
     }
-    return [String(docArt).trim().toUpperCase()].filter(Boolean);
+    
+    return uniqueResult;
   } catch (e) {
-    console.error('normalizeDocTypes error', e);
+    console.error('Error normalizing document types:', e, 'Input was:', docArt);
     return [];
   }
 }

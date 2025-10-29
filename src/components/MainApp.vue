@@ -86,16 +86,41 @@
       <!-- Main Content -->
       <div class="flex-1 flex flex-col">
         <header class="bg-white shadow-sm sticky top-0 z-30">
-          <div class="container mx-auto px-4">
+          <div class="w-full px-4">
             <div class="flex justify-between items-center py-4">
               <h1 class="text-xl font-semibold text-gray-900">{{ currentRouteName }}</h1>
-              <div class="flex items-center space-x-2 text-sm text-gray-600">
-                <span class="px-2 py-1 bg-gray-100 rounded text-xs">
-                  {{ Array.isArray(insurers) ? insurers.length : 0 }} Versicherer
-                </span>
-                <span class="px-2 py-1 bg-gray-100 rounded text-xs">
-                  {{ Array.isArray(abrechnungen) ? abrechnungen.length : 0 }} Dokumente
-                </span>
+              <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-2 text-sm text-gray-600">
+                  <span class="px-2 py-1 bg-gray-100 rounded text-xs">
+                    {{ Array.isArray(insurers) ? insurers.length : 0 }} Versicherer
+                  </span>
+                  <span class="px-2 py-1 bg-gray-100 rounded text-xs">
+                    {{ Array.isArray(abrechnungen) ? abrechnungen.length : 0 }} Dokumente
+                  </span>
+                </div>
+                
+                <!-- User Info & Logout -->
+                <div class="flex items-center space-x-3 border-l pl-4">
+                  <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
+                      <span class="text-indigo-800 font-medium text-sm">
+                        {{ userStore.userDisplayName.charAt(0).toUpperCase() }}
+                      </span>
+                    </div>
+                    <div class="flex flex-col">
+                      <span class="text-sm font-medium text-gray-900">{{ userStore.userDisplayName }}</span>
+                      <span v-if="isAdmin" class="text-xs text-indigo-600">Admin</span>
+                    </div>
+                  </div>
+                  <button
+                    @click="handleLogout"
+                    class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                    title="Abmelden"
+                  >
+                    <ArrowRightOnRectangleIcon class="w-5 h-5" />
+                  </button>
+                </div>
+                
                 <button
                   v-if="route.path.startsWith('/insurers')"
                   @click="clearAllFilters"
@@ -123,7 +148,7 @@
           </div>
         </header>
         
-        <main class="flex-1 overflow-y-auto p-6">
+        <main class="flex-1 overflow-y-auto p-4">
           <!-- Main content will be rendered here -->
           <router-view v-slot="{ Component, route }">
             <component
@@ -189,18 +214,23 @@ import { useRoute, useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useInsurerStore } from '../stores/insurerStore';
 import { useAbrechnungStore } from '../stores/abrechnungStore';
+import { useUserStore } from '../stores/userStore';
+import { useActivityStore } from '../stores/activityStore';
 import { useInsurerUtils } from '@/composables/useInsurerUtils.js';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
-import { HomeIcon, UserGroupIcon, ChartBarIcon, ClockIcon, CogIcon } from '@heroicons/vue/24/outline';
+import { HomeIcon, UserGroupIcon, ChartBarIcon, ClockIcon, CogIcon, ShieldCheckIcon, ArrowRightOnRectangleIcon } from '@heroicons/vue/24/outline';
 import InsurerDetail from './InsurerDetail.vue';
+import TestDateSimulator from './TestDateSimulator.vue';
 
 const router = useRouter();
 const route = useRoute();
 
 const insurerStore = useInsurerStore();
 const abrechnungStore = useAbrechnungStore();
+const userStore = useUserStore();
+const activityStore = useActivityStore();
 const { calculateDaysOverdue } = useInsurerUtils();
 
 const { 
@@ -215,6 +245,7 @@ const {
 } = storeToRefs(abrechnungStore);
 
 const isProduction = import.meta.env.PROD;
+const isDevelopment = !import.meta.env.PROD;
 
 const systemDate = computed(() => new Date());
 
@@ -308,17 +339,32 @@ const statusFilters = ref([
   { key: 'warning', label: 'Mahnung', count: 0 },
   { key: 'critical', label: 'Kritisch', count: 0 },
   { key: 'no_invoice', label: 'Keine Abrechnung', count: 0 },
+  { key: 'incomplete', label: 'Unvollständig', count: 0 },
 ]);
 
-const navItems = [
-  { name: 'Versicherungen', path: '/insurers', icon: 'users', component: UserGroupIcon },
-  { name: 'Statistiken', path: '/stats', icon: 'stats', component: ChartBarIcon },
-  { name: 'Aktivitäten', path: '/activities', icon: 'activity', component: ClockIcon },
-  { name: 'Einstellungen', path: '/settings', icon: 'settings', component: CogIcon },
-];
+// Check if user is admin
+const isAdmin = computed(() => userStore.isAdmin);
+
+// Navigation items - dynamically show admin panel
+const navItems = computed(() => {
+  const items = [
+    { name: 'Versicherungen', path: '/insurers', icon: 'users', component: UserGroupIcon },
+    { name: 'Statistiken', path: '/stats', icon: 'stats', component: ChartBarIcon },
+    { name: 'Aktivitäten', path: '/activities', icon: 'activity', component: ClockIcon },
+  ];
+  
+  // Add admin panel for admins only
+  if (isAdmin.value) {
+    items.push({ name: 'Benutzerverwaltung', path: '/users', icon: 'admin', component: ShieldCheckIcon });
+  }
+  
+  items.push({ name: 'Einstellungen', path: '/settings', icon: 'settings', component: CogIcon });
+  
+  return items;
+});
 
 const currentRouteName = computed(() => {
-  const currentNav = navItems.find((item) => {
+  const currentNav = navItems.value.find((item) => {
     return route.path.startsWith(item.path);
   });
   return currentNav ? currentNav.name : 'Übersicht';
@@ -331,11 +377,24 @@ const statusCounts = computed(() => {
     warning: 0,
     critical: 0,
     no_invoice: 0,
+    incomplete: 0,
   };
 
   (insurers.value || []).forEach((insurer) => {
     if (!insurer) {
       return;
+    }
+
+    // Check for incomplete data
+    const hasNoDokumentenart = !insurer.dokumentenart || 
+                              (Array.isArray(insurer.dokumentenart) && insurer.dokumentenart.length === 0) ||
+                              (typeof insurer.dokumentenart === 'string' && insurer.dokumentenart.trim() === '');
+                              
+    const hasNoZustellungsweg = !getSafeZustellungsweg(insurer) || 
+                               (typeof getSafeZustellungsweg(insurer) === 'string' && getSafeZustellungsweg(insurer).trim() === '');
+    
+    if (hasNoDokumentenart || hasNoZustellungsweg) {
+      counts.incomplete += 1;
     }
 
     const status = insurerStore.getInsurerStatus(insurer, currentDate.value);
@@ -365,10 +424,11 @@ const statusCountsForView = computed(() => {
 
 const getStatusColor = (status) => {
   const colors = {
-    on_time: 'bg-green-500',
-    warning: 'bg-yellow-500',
-    critical: 'bg-red-500',
-    no_invoice: 'bg-gray-400',
+    on_time: 'bg-green-100 text-green-800',
+    warning: 'bg-yellow-100 text-yellow-800',
+    critical: 'bg-red-100 text-red-800',
+    no_invoice: 'bg-gray-100 text-gray-800',
+    incomplete: 'bg-amber-100 text-amber-800',
   };
 
   return colors[status] ?? 'bg-gray-300';
@@ -401,9 +461,22 @@ const filteredInsurers = computed(() => {
     }
 
     if (statusFilter.value !== 'all') {
-      const status = insurerStore.getInsurerStatus(insurer, currentDate.value);
-      if (status !== statusFilter.value) {
-        return false;
+      if (statusFilter.value === 'incomplete') {
+        const hasNoDokumentenart = !insurer.dokumentenart || 
+                                 (Array.isArray(insurer.dokumentenart) && insurer.dokumentenart.length === 0) ||
+                                 (typeof insurer.dokumentenart === 'string' && insurer.dokumentenart.trim() === '');
+                                  
+        const hasNoZustellungsweg = !getSafeZustellungsweg(insurer) || 
+                                  (typeof getSafeZustellungsweg(insurer) === 'string' && getSafeZustellungsweg(insurer).trim() === '');
+        
+        if (!hasNoDokumentenart && !hasNoZustellungsweg) {
+          return false;
+        }
+      } else {
+        const status = insurerStore.getInsurerStatus(insurer, currentDate.value);
+        if (status !== statusFilter.value) {
+          return false;
+        }
       }
     }
 
@@ -416,8 +489,14 @@ const filteredInsurers = computed(() => {
     }
 
     if (activeFilters.value.zustellungsweg) {
-      const zVal = normalizeZustellungsweg(getSafeZustellungsweg(insurer));
-      if (zVal !== activeFilters.value.zustellungsweg) {
+      const zVal = getSafeZustellungsweg(insurer);
+      const normalizedZVal = normalizeZustellungsweg(zVal);
+      // Special handling for 'Nicht angegeben' to match both empty and 'Nicht angegeben' values
+      if (activeFilters.value.zustellungsweg === 'Nicht angegeben') {
+        if (zVal && zVal.trim() !== '' && normalizedZVal !== 'Nicht angegeben') {
+          return false;
+        }
+      } else if (normalizedZVal !== activeFilters.value.zustellungsweg) {
         return false;
       }
     }
@@ -592,6 +671,17 @@ const clearAllFilters = () => {
   priorityDokumentenart.value = null;
 };
 
+// Logout function
+const handleLogout = async () => {
+  try {
+    await userStore.logout();
+    router.push('/login');
+  } catch (error) {
+    console.error('Logout error:', error);
+    alert('Fehler beim Abmelden');
+  }
+};
+
 const handleCreateInsurer = () => {
   newInsurerName.value = '';
   showCreateInsurerModal.value = true;
@@ -604,8 +694,17 @@ const saveNewInsurer = async () => {
   }
 
   try {
-    await insurerStore.addInsurer({ name: newInsurerName.value.trim() });
+    const newInsurer = await insurerStore.addInsurer({ name: newInsurerName.value.trim() });
     showCreateInsurerModal.value = false;
+    
+    // Log activity
+    await activityStore.logActivity(activityStore.ActivityType.INSURER_CREATED, {
+      entityType: 'insurer',
+      entityId: newInsurer?.id,
+      entityName: newInsurerName.value.trim(),
+      description: `Versicherer "${newInsurerName.value.trim()}" erstellt`
+    });
+    
     newInsurerName.value = '';
     // Optionally, show a success message
   } catch (error) {

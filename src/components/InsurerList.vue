@@ -85,7 +85,7 @@
           </div>
 
           <!-- Main Content -->
-          <div class="p-6">
+          <div class="p-4">
             <!-- Loading State -->
             <div v-if="isLoading" class="flex flex-col items-center justify-center p-8 space-y-4">
               <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -107,7 +107,7 @@
             </div>
 
             <!-- Insurers Grid -->
-            <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+            <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               <div 
                 v-for="insurer in insurersWithStatus" 
                 :key="insurer.id"
@@ -120,46 +120,45 @@
                   class="absolute top-0 left-0 w-2 h-full rounded-l z-20"
                   :class="{
                     'bg-red-500': insurer.status === 'critical',
-                    'bg-yellow-400': insurer.status === 'warning',
+                    'bg-yellow-500': insurer.status === 'warning',
                     'bg-green-500': insurer.status === 'on_time',
                     'bg-gray-400': insurer.status === 'no_invoice'
                   }"
                 ></div>
+                
+                <!-- VEMA/FEMA Pool Badge - Centered Watermark -->
+                <div 
+                  v-if="hasPool(insurer, 'VEMA') || hasPool(insurer, 'FEMA')"
+                  class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none"
+                >
+                  <div class="pool-stamp opacity-40">
+                    {{ getPoolName(insurer) }} POOL
+                  </div>
+                </div>
                 
                 <div class="flex flex-col h-full">
                   <!-- Header with name and status -->
                   <div class="flex justify-between items-start">
                     <h3 class="text-2xl font-semibold text-gray-800 leading-snug">{{ insurer.name }}</h3>
                     <span 
+                      v-if="insurer.status !== 'no_invoice'"
                       class="px-3 py-1 text-sm font-medium rounded-full whitespace-nowrap"
                       :class="{
                         'bg-red-100 text-red-800': insurer.status === 'critical',
                         'bg-yellow-100 text-yellow-800': insurer.status === 'warning',
-                        'bg-green-100 text-green-800': insurer.status === 'on_time',
-                        'bg-gray-100 text-gray-800': insurer.status === 'no_invoice'
+                        'bg-green-100 text-green-800': insurer.status === 'on_time'
                       }"
                     >
                       {{ {
                         critical: 'Überfällig',
                         warning: 'Fällig',
-                        on_time: 'Aktuell',
-                        no_invoice: 'Keine Abrechnung'
+                        on_time: 'Aktuell'
                       }[insurer.status] || 'Unbekannt' }}
                     </span>
                   </div>
                   
                   <!-- Document Type Badges (if exists) -->
-                  <div class="mt-2 flex flex-wrap gap-2 relative">
-                    <!-- FEMA/VEMA Pool Badge -->
-                    <div 
-                      v-if="hasPool(insurer, 'VEMA') || hasPool(insurer, 'FEMA')"
-                      class="absolute top-1 left-20 z-10 pointer-events-none"
-                    >
-                      <div class="pool-stamp">
-                        {{ getPoolName(insurer) }} POOL
-                      </div>
-                    </div>
-                    
+                  <div class="mt-2 flex flex-wrap gap-2">
                     <!-- Document Type Badges -->
                     <template v-if="insurer.dokumentenart">
                       <template v-if="Array.isArray(insurer.dokumentenart)">
@@ -191,6 +190,19 @@
                         </span>
                       </template>
                     </template>
+                  </div>
+                  
+                  <!-- No Invoice Warning Box -->
+                  <div v-if="insurer.status === 'no_invoice'" class="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div class="flex items-start">
+                      <svg class="h-5 w-5 text-amber-600 mr-2 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                      <div>
+                        <p class="text-sm font-medium text-amber-900">Keine Abrechnung vorhanden</p>
+                        <p class="text-xs text-amber-700 mt-1">Für diesen Versicherer wurde noch keine Abrechnung erfasst.</p>
+                      </div>
+                    </div>
                   </div>
                   
                   <!-- Key information in a grid -->

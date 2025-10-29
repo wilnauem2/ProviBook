@@ -112,34 +112,12 @@
               </div>
             </div>
 
-            <!-- Abrechnungsverlauf Card -->
-            <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 transition-shadow duration-200 hover:shadow-md">
-              <h3 class="text-lg font-semibold text-gray-800 mb-4">Abrechnungsverlauf</h3>
-              <ul v-if="sortedLocalSettlements.length > 0" class="space-y-3">
-                <li v-for="settlement in sortedLocalSettlements" :key="settlement.id" 
-                    @click="showSettlementDetails(settlement)"
-                    class="flex items-center justify-between p-2 rounded-md hover:bg-gray-50 cursor-pointer group"
-                    :class="{ 'bg-blue-50': settlement.isLastInvoice }">
-                  <div class="flex items-center gap-2">
-                    <span class="text-sm font-medium" :class="{ 'text-blue-700': settlement.isLastInvoice, 'text-gray-700': !settlement.isLastInvoice }">
-                      {{ format(settlement.date.toDate ? settlement.date.toDate() : new Date(settlement.date), 'dd.MM.yyyy') }}
-                      <span v-if="settlement.isLastInvoice" class="ml-1 text-xs font-normal text-blue-600">(Aktuell)</span>
-                    </span>
-                    <svg v-if="settlement.note && !settlement.isLastInvoice" class="w-4 h-4 text-gray-400 group-hover:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" title="Mit Kommentar">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
-                    </svg>
-                    <svg v-else-if="settlement.isLastInvoice" class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" title="Aktuelle Abrechnung">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                    </svg>
-                  </div>
-                  <button v-if="!settlement.isLastInvoice" @click.stop="confirmSettlementDelete(settlement.id)" class="text-gray-400 hover:text-red-500 transition-colors duration-200" title="Diesen Eintrag löschen">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                  </button>
-                  <span v-else class="w-5"></span>
-                </li>
-              </ul>
-              <p v-else class="text-sm text-gray-400 italic">Noch keine Abrechnungen erfasst.</p>
-            </div>
+            <!-- Timeline View -->
+            <Timeline
+              :events="timelineEvents"
+              @event-click="handleTimelineEventClick"
+              @delete-event="handleTimelineDeleteEvent"
+            />
           </div>
 
           <!-- Right Column: Details -->
@@ -369,10 +347,12 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, inject } from 'vue';
+import { ref, computed, watch, onMounted, inject, nextTick } from 'vue';
 import { useInsurerStore } from '@/stores/insurerStore.js';
+import { useActivityStore } from '@/stores/activityStore.js';
 import { useInsurerUtils, allDocTypes } from '@/composables/useInsurerUtils.js';
 import { format, differenceInDays, addDays } from 'date-fns';
+import Timeline from '@/components/Timeline.vue';
 
 // Toast notification functions
 const showToast = (message, type = 'success') => {
@@ -514,6 +494,7 @@ const props = defineProps({
 });
 
 const insurerStore = useInsurerStore();
+const activityStore = useActivityStore();
 const { getStatusColor, getStatusText, calculateDaysOverdue, getNormalizedDocTypes, formatLastInvoice } = useInsurerUtils();
 
 
@@ -797,9 +778,21 @@ const isFieldEmpty = (field) => {
 const confirmDelete = async () => {
   if (confirm('Möchten Sie diesen Versicherer wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.')) {
     try {
-      await insurerStore.deleteInsurer(props.insurer.id);
+      const insurerName = props.insurer.name;
+      const insurerId = props.insurer.id;
+      
+      await insurerStore.deleteInsurer(insurerId);
+      
+      // Log activity
+      await activityStore.logActivity(activityStore.ActivityType.INSURER_DELETED, {
+        entityType: 'insurer',
+        entityId: insurerId,
+        entityName: insurerName,
+        description: `Versicherer "${insurerName}" gelöscht`
+      });
+      
       showSuccessToast('Versicherer erfolgreich gelöscht');
-      emit('insurer-deleted', props.insurer.id);
+      emit('insurer-deleted', insurerId);
       handleClose();
     } catch (error) {
       console.error('Error deleting insurer:', error);
@@ -815,6 +808,56 @@ const handleClose = () => {
 const showSettlementDetails = (settlement) => {
   selectedSettlement.value = settlement;
   showSettlementModal.value = true;
+};
+
+// Settlement delete functions
+const confirmSettlementDelete = (settlementId) => {
+  settlementToDeleteId.value = settlementId;
+  showSettlementDeleteConfirmation.value = true;
+};
+
+const cancelSettlementDelete = () => {
+  settlementToDeleteId.value = null;
+  showSettlementDeleteConfirmation.value = false;
+};
+
+const executeDeleteSettlement = async () => {
+  if (!settlementToDeleteId.value) return;
+  
+  try {
+    // Get settlement details before deleting for activity log
+    const settlement = localSettlementHistory.value.find(s => s.id === settlementToDeleteId.value);
+    const settlementDate = settlement?.date || settlement?.datum || 'Unbekannt';
+    
+    await insurerStore.deleteSettlement(props.insurer.id, settlementToDeleteId.value);
+    
+    // Log activity
+    await activityStore.logActivity(activityStore.ActivityType.BILLING_DELETED, {
+      entityType: 'insurer',
+      entityId: props.insurer.id,
+      entityName: props.insurer.name,
+      changes: { 
+        settlementId: settlementToDeleteId.value,
+        date: settlementDate
+      },
+      description: `Abrechnung vom ${formatDate(settlementDate)} gelöscht für "${props.insurer.name}"`
+    });
+    
+    // Update local settlement history
+    localSettlementHistory.value = localSettlementHistory.value.filter(
+      s => s.id !== settlementToDeleteId.value
+    );
+    
+    showSuccessToast('Abrechnung erfolgreich gelöscht');
+    
+    // Refresh settlements from store
+    await fetchSettlements();
+  } catch (error) {
+    console.error('Error deleting settlement:', error);
+    showErrorToast('Fehler beim Löschen der Abrechnung');
+  } finally {
+    cancelSettlementDelete();
+  }
 };
 
 const startEditing = (field) => {
@@ -885,6 +928,70 @@ const normalizeTurnusForStore = (val) => {
   return m ? m[0] : s;
 };
 
+// Transform settlement history into timeline events
+const timelineEvents = computed(() => {
+  const events = [];
+  
+  // Add settlement history events
+  sortedLocalSettlements.value.forEach((settlement) => {
+    const date = settlement.date?.toDate ? settlement.date.toDate() : new Date(settlement.date);
+    
+    const event = {
+      id: settlement.id,
+      type: 'settlement',
+      title: settlement.isLastInvoice ? 'Aktuelle Abrechnung erfasst' : 'Abrechnung erfasst',
+      description: `Abrechnung vom ${format(date, 'dd.MM.yyyy')} wurde erfasst`,
+      date: date,
+      note: settlement.note,
+      isLastInvoice: settlement.isLastInvoice,
+      metadata: settlement.isLastInvoice ? { Status: 'Aktuell' } : null,
+      deletable: !settlement.isLastInvoice, // Explicit deletable flag
+    };
+    
+    console.log('Timeline event created:', event);
+    events.push(event);
+  });
+  
+  // Add creation event if we have an insurer
+  if (props.insurer?.createdAt) {
+    const createdDate = props.insurer.createdAt.toDate ? 
+      props.insurer.createdAt.toDate() : 
+      new Date(props.insurer.createdAt);
+    
+    events.push({
+      id: 'creation',
+      type: 'creation',
+      title: 'Versicherer erstellt',
+      description: `${props.insurer.name} wurde zur Datenbank hinzugefügt`,
+      date: createdDate,
+      metadata: {
+        Turnus: formatTurnus(props.insurer.turnus),
+      },
+    });
+  }
+  
+  // Sort events by date (newest first)
+  return events.sort((a, b) => b.date - a.date);
+});
+
+// Handle timeline event clicks
+const handleTimelineEventClick = (event) => {
+  if (event.type === 'settlement') {
+    // Find the settlement in sortedLocalSettlements
+    const settlement = sortedLocalSettlements.value.find(s => s.id === event.id);
+    if (settlement) {
+      showSettlementDetails(settlement);
+    }
+  }
+};
+
+// Handle timeline delete event
+const handleTimelineDeleteEvent = (event) => {
+  if (event.type === 'settlement' && !event.isLastInvoice) {
+    confirmSettlementDelete(event.id);
+  }
+};
+
 const saveField = async (field) => {
   isSaving.value = true;
   try {
@@ -928,6 +1035,23 @@ const saveField = async (field) => {
 
     await insurerStore.updateInsurer(props.insurer.id, updateData);
     showSuccessToast(successMessage);
+    
+    // Log activity
+    const activityType = field === 'name' ? activityStore.ActivityType.NAME_UPDATED :
+                        field === 'turnus' ? activityStore.ActivityType.TURNUS_UPDATED :
+                        field === 'dokumentenart' ? activityStore.ActivityType.DOKUMENTENART_UPDATED :
+                        field === 'zustellungsweg' ? activityStore.ActivityType.ZUSTELLUNGSWEG_UPDATED :
+                        field === 'comment' ? activityStore.ActivityType.COMMENT_UPDATED :
+                        field === 'vemapool' ? activityStore.ActivityType.VEMAPOOL_UPDATED :
+                        activityStore.ActivityType.FIELD_UPDATED;
+    
+    await activityStore.logActivity(activityType, {
+      entityType: 'insurer',
+      entityId: props.insurer.id,
+      entityName: field === 'name' ? updateData.name : props.insurer.name,
+      changes: { [field]: updateData[field] },
+      description: successMessage
+    });
 
     // Emit an event to notify parent about the update
     emit('update:insurer', { ...props.insurer, ...updateData });
@@ -965,7 +1089,10 @@ const saveField = async (field) => {
 // Fetch settlement history when component mounts or dataMode changes
 const fetchSettlements = async () => {
   try {
-    await insurerStore.fetchSettlements(props.insurer.id, props.dataMode);
+    const settlements = await insurerStore.fetchSettlements(props.insurer.id, props.dataMode);
+    // Update local settlement history with fetched data
+    localSettlementHistory.value = settlements || [];
+    console.log('Fetched settlements:', settlements);
   } catch (error) {
     console.error('Error fetching settlements:', error);
     showErrorToast('Fehler beim Laden der Abrechnungen');
@@ -975,6 +1102,14 @@ const fetchSettlements = async () => {
 // Watch for changes to insurer or dataMode
 watch([() => props.insurer, () => props.dataMode], () => {
   fetchSettlements();
+}, { immediate: true, deep: true });
+
+// Watch for changes in the store's settlement history
+watch(() => insurerStore.settlementHistories[props.insurer?.id], (newHistory) => {
+  if (newHistory) {
+    console.log('Settlement history updated from store:', newHistory);
+    localSettlementHistory.value = newHistory;
+  }
 }, { immediate: true, deep: true });
 
 

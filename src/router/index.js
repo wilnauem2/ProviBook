@@ -1,10 +1,13 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import Login from '../components/Login.vue'
+import { useUserStore } from '@/stores/userStore'
+import LoginView from '../views/LoginView.vue'
 import MainApp from '../components/MainApp.vue'
 import DashboardView from '../views/DashboardView.vue'
 import HistoryView from '../views/HistoryView.vue'
+import ActivitiesView from '../views/ActivitiesView.vue'
 import StatisticsView from '../views/StatisticsView.vue'
 import SettingsView from '../views/SettingsView.vue'
+import UserManagement from '../views/UserManagement.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.VITE_APP_BASE_URL || '/'),
@@ -12,7 +15,7 @@ const router = createRouter({
     {
       path: '/login',
       name: 'login',
-      component: Login,
+      component: LoginView,
       meta: { requiresAuth: false }
     },
     {
@@ -41,14 +44,20 @@ const router = createRouter({
         {
           path: 'activities',
           name: 'activities',
-          component: HistoryView,
+          component: ActivitiesView,
           meta: { title: 'Aktivitäten' }
         },
         {
           path: 'history',
           name: 'history',
           component: HistoryView,
-          meta: { title: 'Historie' }
+          meta: { title: 'Abrechnungsverlauf' }
+        },
+        {
+          path: 'users',
+          name: 'users',
+          component: UserManagement,
+          meta: { title: 'Benutzerverwaltung', requiresAdmin: true }
         },
         {
           path: 'settings',
@@ -74,17 +83,39 @@ const router = createRouter({
 
 
 // Authentication guard
-router.beforeEach((to, from, next) => {
-  const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
-  const token = localStorage.getItem('authToken')
+router.beforeEach(async (to, from, next) => {
+  const userStore = useUserStore()
   
-  if (requiresAuth && !token) {
-    next('/login')
-  } else if (to.path === '/login' && token) {
-    next('/')
-  } else {
-    next()
+  // Wait for auth initialization
+  if (!userStore.isInitialized) {
+    await userStore.initAuth()
   }
+  
+  const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
+  const requiresAdmin = to.matched.some(record => record.meta.requiresAdmin)
+  const isAuthenticated = userStore.isAuthenticated
+  const isAdmin = userStore.isAdmin
+  
+  // Redirect to login if not authenticated
+  if (requiresAuth && !isAuthenticated) {
+    next('/login')
+    return
+  }
+  
+  // Redirect to dashboard if trying to access login while authenticated
+  if (to.path === '/login' && isAuthenticated) {
+    next('/')
+    return
+  }
+  
+  // Check admin permission
+  if (requiresAdmin && !isAdmin) {
+    alert('Sie haben keine Berechtigung für diese Seite.')
+    next('/')
+    return
+  }
+  
+  next()
 })
 
 export default router

@@ -242,7 +242,8 @@ export const useInsurerStore = defineStore('insurer', () => {
     try {
       if (!insurerId || !invoiceData) throw new Error('Invalid insurer ID or invoice data');
       
-      const invoicesSubcollection = 'invoice-history';
+      // Use the correct subcollection name based on data mode
+      const invoicesSubcollection = dataMode.value === 'production' ? 'invoice-history' : 'invoice-history-test';
       const invoicesRef = collection(db, collections.value.insurers, insurerId, invoicesSubcollection);
       
       const invoiceToSave = {
@@ -371,7 +372,7 @@ export const useInsurerStore = defineStore('insurer', () => {
       
       await deleteDoc(settlementRef);
       
-      // Update local state
+      // Update local settlement histories state
       if (settlementHistories.value[insurerId]) {
         settlementHistories.value[insurerId] = settlementHistories.value[insurerId]
           .filter(s => s.id !== settlementId);
@@ -385,6 +386,20 @@ export const useInsurerStore = defineStore('insurer', () => {
             delete lastInvoices.value[insurerId];
           }
         }
+      }
+      
+      // Also update abrechnungStore if it exists (for sync with history view)
+      try {
+        const { useAbrechnungStore } = await import('./abrechnungStore.js');
+        const abrechnungStore = useAbrechnungStore();
+        if (abrechnungStore.abrechnungen) {
+          const index = abrechnungStore.abrechnungen.findIndex(a => a.id === settlementId);
+          if (index !== -1) {
+            abrechnungStore.abrechnungen.splice(index, 1);
+          }
+        }
+      } catch (e) {
+        console.log('Could not update abrechnungStore:', e);
       }
       
       return true;
@@ -428,14 +443,17 @@ export const useInsurerStore = defineStore('insurer', () => {
     try {
       if (!insurerId) return [];
       
+      // Use the correct subcollection name based on data mode
+      const invoicesSubcollection = dataMode.value === 'production' ? 'invoice-history' : 'invoice-history-test';
+      
       const settlementsRef = collection(
         db, 
         collections.value.insurers, 
         insurerId, 
-        'settlements'
+        invoicesSubcollection
       );
       
-      const q = query(settlementsRef, orderBy('createdAt', 'desc'));
+      const q = query(settlementsRef, orderBy('date', 'desc'));
       const querySnapshot = await getDocs(q);
       
       const settlements = [];

@@ -36,23 +36,14 @@
         </svg>
       </button>
       
-      <!-- Today Button -->
+      <!-- Today Button (only shown when not today) -->
       <button
+        v-if="!isToday"
         @click="goToToday"
         class="px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded hover:bg-blue-100 transition-colors whitespace-nowrap"
         title="Go to today"
       >
-        Today
-      </button>
-      
-      <!-- Reset Button (only shown when not today) -->
-      <button
-        v-if="!isToday"
-        @click="resetDate"
-        class="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
-        title="Reset to current date"
-      >
-        Reset
+        Heute
       </button>
     </div>
   </div>

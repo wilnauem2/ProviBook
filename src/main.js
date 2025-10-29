@@ -10,6 +10,7 @@ import { createPinia } from 'pinia';
 import App from './App.vue';
 import router from './router';
 import './assets/css/main.css'; // Use the main CSS file for all environments
+import { useUserStore } from './stores/userStore';
 
 // Create a function to initialize the app
 const initApp = async () => {

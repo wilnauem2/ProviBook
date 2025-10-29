@@ -14,11 +14,12 @@
 
     <section>
       <InsurerStats
-        :insurers="insurers"
+        :insurers="actualInsurers"
         :current-date="currentDate"
-        @filter-by-zustellungsweg="$emit('filter-by-zustellungsweg', $event)"
-        @filter-by-turnus="$emit('filter-by-turnus', $event)"
-        @filter-by-dokumentenart="$emit('filter-by-dokumentenart', $event)"
+        @filter-by-zustellungsweg="handleFilter('zustellungsweg', $event)"
+        @filter-by-turnus="handleFilter('turnus', $event)"
+        @filter-by-dokumentenart="handleFilter('dokumentenart', $event)"
+        @select-insurer="handleSelectInsurer"
       />
     </section>
   </div>
@@ -28,42 +29,41 @@
 import { computed } from 'vue';
 import InsurerStats from '@/components/InsurerStats.vue';
 
+const emit = defineEmits(['filter-by-zustellungsweg', 'filter-by-turnus', 'filter-by-dokumentenart', 'select-insurer']);
+
 const props = defineProps({
-  insurers: {
-    type: Array,
-    default: () => [],
-  },
-  statusCounts: {
-    type: Object,
-    default: () => ({}),
-  },
-  statusFilter: {
-    type: String,
-    default: 'all',
-  },
-  searchFilter: {
-    type: String,
-    default: '',
-  },
-  simulatedDate: {
-    type: [Date, String, Number],
-    default: null,
-  },
-  currentDate: {
-    type: [Date, String, Number],
-    default: () => new Date(),
-  },
+  filteredInsurers: { type: Array, default: () => [] },
+  insurers: { type: Array, default: () => [] },
+  statusCounts: { type: Object, default: () => ({}) },
+  statusFilter: { type: String, default: 'all' },
+  searchFilter: { type: String, default: '' },
+  currentDate: { type: [Date, String, Number], default: () => new Date() },
+  simulatedDate: { type: [Date, String, Number], default: null }
 });
 
-defineEmits([
-  'filter-by-zustellungsweg',
-  'filter-by-turnus',
-  'filter-by-dokumentenart',
-]);
+const actualInsurers = computed(() => props.filteredInsurers || props.insurers || []);
 
 const formattedCurrentDate = computed(() => {
-  const date = props.currentDate ? new Date(props.currentDate) : new Date();
-  if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleDateString('de-DE');
+  try {
+    const date = props.currentDate ? new Date(props.currentDate) : new Date();
+    return date.toLocaleDateString('de-DE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch (e) {
+    return 'Unbekannt';
+  }
 });
+
+const handleFilter = (type, value) => {
+  emit(`filter-by-${type}`, value);
+};
+
+const handleSelectInsurer = (insurer) => {
+  console.log('[StatisticsView] Received select-insurer event:', insurer);
+  emit('select-insurer', insurer);
+};
 </script>

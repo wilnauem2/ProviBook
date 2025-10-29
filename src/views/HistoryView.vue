@@ -40,9 +40,10 @@
             <div class="grid grid-cols-12 gap-0 border-b border-gray-200 bg-gray-50">
               <div class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider col-span-2">Datum</div>
               <div class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider col-span-3">Versicherer</div>
-              <div class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider col-span-3">Dokumenttyp</div>
+              <div class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider col-span-2">Dokumenttyp</div>
               <div class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider col-span-2">Bezugsweg</div>
               <div class="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider col-span-2">Notiz</div>
+              <div class="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider col-span-1">Aktionen</div>
             </div>
             
             <!-- Table Rows -->
@@ -50,17 +51,25 @@
               <div 
                 v-for="(abrechnung, index) in abrechnungen" 
                 :key="abrechnung.id ? `abrechnung-${abrechnung.id}` : `abrechnung-${index}-${Date.now()}`"
-                @click="handleAbrechnungClick(abrechnung)"
-                class="grid grid-cols-12 gap-0 hover:bg-gray-50 cursor-pointer transition-colors duration-150"
+                class="grid grid-cols-12 gap-0 hover:bg-gray-50 transition-colors duration-150 group"
               >
                 <!-- Table Cells Here -->
-                <div class="px-2 py-4 whitespace-nowrap text-sm font-medium text-gray-900 col-span-2">
+                <div 
+                  @click="handleAbrechnungClick(abrechnung)"
+                  class="px-2 py-4 whitespace-nowrap text-sm font-medium text-gray-900 col-span-2 cursor-pointer"
+                >
                   {{ formatDate(abrechnung.date) }}
                 </div>
-                <div class="px-2 py-4 whitespace-nowrap text-sm text-gray-500 col-span-3">
+                <div 
+                  @click="handleAbrechnungClick(abrechnung)"
+                  class="px-2 py-4 whitespace-nowrap text-sm text-gray-500 col-span-3 cursor-pointer"
+                >
                   {{ abrechnung.insurer || 'Unbekannt' }}
                 </div>
-                <div class="px-2 py-4 flex flex-wrap gap-1 col-span-3">
+                <div 
+                  @click="handleAbrechnungClick(abrechnung)"
+                  class="px-2 py-4 flex flex-wrap gap-1 col-span-2 cursor-pointer"
+                >
                   <template v-if="Array.isArray(abrechnung.documentType) && abrechnung.documentType.length > 0">
                     <span 
                       v-for="(type, index) in abrechnung.documentType" 
@@ -82,11 +91,29 @@
                     {{ abrechnung.documentType || 'Kein Typ' }}
                   </span>
                 </div>
-                <div class="px-2 py-4 whitespace-nowrap text-sm text-gray-500 col-span-2">
+                <div 
+                  @click="handleAbrechnungClick(abrechnung)"
+                  class="px-2 py-4 whitespace-nowrap text-sm text-gray-500 col-span-2 cursor-pointer"
+                >
                   {{ abrechnung.bezugsweg || 'E-Mail' }}
                 </div>
-                <div class="px-2 py-4 whitespace-nowrap text-sm text-gray-500 col-span-2 truncate">
+                <div 
+                  @click="handleAbrechnungClick(abrechnung)"
+                  class="px-2 py-4 whitespace-nowrap text-sm text-gray-500 col-span-2 truncate cursor-pointer"
+                >
                   {{ abrechnung.note || 'Keine Notiz' }}
+                </div>
+                <!-- Action Column with Delete Button -->
+                <div class="px-2 py-4 text-center col-span-1 flex items-center justify-center">
+                  <button
+                    @click.stop="confirmDelete(abrechnung)"
+                    class="p-1.5 hover:bg-red-50 rounded-md text-gray-400 hover:text-red-600 transition-all duration-200"
+                    title="Aktivität löschen"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                  </button>
                 </div>
               </div>
             </div>
@@ -198,6 +225,36 @@
                 class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
                 Schließen
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Delete Confirmation Modal -->
+      <div v-if="showDeleteConfirmation" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
+          <div class="p-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-2">Aktivität löschen?</h3>
+            <p class="text-sm text-gray-600 mb-4">
+              Möchten Sie diese Aktivität wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.
+            </p>
+            <div v-if="abrechnungToDelete" class="bg-gray-50 p-3 rounded-md mb-4">
+              <p class="text-sm"><strong>Versicherer:</strong> {{ abrechnungToDelete.insurer }}</p>
+              <p class="text-sm"><strong>Datum:</strong> {{ formatDate(abrechnungToDelete.date) }}</p>
+            </div>
+            <div class="flex justify-end gap-3">
+              <button 
+                @click="cancelDelete" 
+                class="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300"
+              >
+                Abbrechen
+              </button>
+              <button 
+                @click="executeDelete" 
+                class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+              >
+                Löschen
               </button>
             </div>
           </div>
@@ -438,6 +495,10 @@ const selectedAbrechnung = ref(null);
 const isMounted = ref(false);
 const observer = ref(null);
 const loadMoreTrigger = ref(null);
+
+// Delete state
+const showDeleteConfirmation = ref(false);
+const abrechnungToDelete = ref(null);
 
 // Helper function to safely extract array from Proxy or regular array
 const safeExtractArray = (value) => {
@@ -810,6 +871,64 @@ const statusClass = (status) => {
     return 'bg-yellow-100 text-yellow-800';
   } else {
     return 'bg-gray-100 text-gray-800';
+  }
+};
+
+// Delete functions
+const confirmDelete = (abrechnung) => {
+  abrechnungToDelete.value = abrechnung;
+  showDeleteConfirmation.value = true;
+};
+
+const cancelDelete = () => {
+  abrechnungToDelete.value = null;
+  showDeleteConfirmation.value = false;
+};
+
+const executeDelete = async () => {
+  if (!abrechnungToDelete.value) return;
+  
+  try {
+    const abrechnungId = abrechnungToDelete.value.id;
+    const path = abrechnungToDelete.value.path;
+    
+    if (!abrechnungId || !path) {
+      console.error('Missing abrechnungId or path:', { abrechnungId, path });
+      alert('Fehler: Aktivität konnte nicht gelöscht werden (fehlende IDs)');
+      return;
+    }
+    
+    // Extract insurerId from path: "insurers/{insurerId}/invoice-history/{invoiceId}"
+    const pathParts = path.split('/');
+    const insurerId = pathParts.length > 2 ? pathParts[1] : null;
+    
+    if (!insurerId) {
+      console.error('Could not extract insurerId from path:', path);
+      alert('Fehler: Versicherer-ID konnte nicht ermittelt werden');
+      return;
+    }
+    
+    console.log('Deleting:', { insurerId, abrechnungId, path });
+    
+    // Use insurerStore to delete from Firestore
+    const { useInsurerStore } = await import('@/stores/insurerStore.js');
+    const insurerStore = useInsurerStore();
+    await insurerStore.deleteSettlement(insurerId, abrechnungId);
+    
+    // Remove from local abrechnungen array
+    const index = abrechnungStore.abrechnungen.findIndex(a => a.id === abrechnungId);
+    if (index !== -1) {
+      abrechnungStore.abrechnungen.splice(index, 1);
+    }
+    
+    console.log('Successfully deleted abrechnung:', abrechnungId);
+    alert('Aktivität erfolgreich gelöscht');
+    
+  } catch (error) {
+    console.error('Error deleting abrechnung:', error);
+    alert('Fehler beim Löschen der Aktivität: ' + error.message);
+  } finally {
+    cancelDelete();
   }
 };
 </script>

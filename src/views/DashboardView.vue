@@ -1,12 +1,7 @@
 <template>
-  <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-    <!-- Left Sidebar -->
-    <div class="lg:col-span-1 space-y-4">
-      <!-- Development Features removed: production data is always used -->
-    </div>
-    
+  <div class="w-full">
     <!-- Main Content Area -->
-    <div class="lg:col-span-3">
+    <div class="w-full">
       <div class="bg-white shadow sm:rounded-md">
         <div class="border-b border-gray-200 px-4 py-4 sm:px-6 bg-white sticky top-0 z-20">
           <div class="flex flex-col space-y-3 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">

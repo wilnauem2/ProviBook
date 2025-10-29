@@ -455,12 +455,12 @@ const emit = defineEmits(['close', 'delete-insurer', 'settlement-completed', 'up
 // Initialize the utils object with docTypeColors
 const utils = {
   docTypeColors: {
-    'PDF': {
-      classes: 'bg-red-100 text-red-800',
-      icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>'
-    },
-    'CSV': {
+    'PDF (STANDARD) - CSV AUF WUNSCH MÖGLICH (PER MAIL ANFORDERN)': {
       classes: 'bg-blue-100 text-blue-800',
+      icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>'
+    },
+    'PAPIER (STANDARD) - CSV AUF WUNSCH MÖGLICH (PER MAIL ANFORDERN)': {
+      classes: 'bg-gray-100 text-gray-800',
       icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>'
     },
     'XLS': {
@@ -470,6 +470,14 @@ const utils = {
     'XML': {
       classes: 'bg-yellow-100 text-yellow-800',
       icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>'
+    },
+    'PDF': {
+      classes: 'bg-red-100 text-red-800',
+      icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>'
+    },
+    'CSV': {
+      classes: 'bg-blue-100 text-blue-800',
+      icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>'
     },
     'Papier': {
       classes: 'bg-gray-100 text-gray-800',
@@ -496,7 +504,6 @@ const props = defineProps({
 const insurerStore = useInsurerStore();
 const activityStore = useActivityStore();
 const { getStatusColor, getStatusText, calculateDaysOverdue, getNormalizedDocTypes, formatLastInvoice } = useInsurerUtils();
-
 
 // Compute status info for the current insurer
 const statusInfo = computed(() => {
@@ -527,8 +534,6 @@ const statusInfo = computed(() => {
 const isEditing = ref(false);
 const editField = ref(null);
 const isSaving = ref(false);
-
-
 
 // State - Create a ref to store the local last invoice
 const localLastInvoice = ref(null);
@@ -613,6 +618,7 @@ const sortedLocalSettlements = computed(() => {
     return dateB - dateA;
   });
 });
+
 const localSettlementHistory = ref([]);
 const showDatePicker = ref(false);
 const selectedDate = ref('');
@@ -631,6 +637,17 @@ const editedTurnus = ref('');
 const editedZustellungsweg = ref('');
 const editedDokumentenart = ref([]);
 const editedVemapool = ref(false);
+
+// Document type colors (allDocTypes is imported from useInsurerUtils)
+const docTypeColors = {
+  'PDF (STANDARD) - CSV AUF WUNSCH MÖGLICH (PER MAIL ANFORDERN)': 'bg-blue-100 text-blue-800',
+  'PAPIER (STANDARD) - CSV AUF WUNSCH MÖGLICH (PER MAIL ANFORDERN)': 'bg-gray-100 text-gray-800',
+  'XLS': 'bg-green-100 text-green-800',
+  'XML': 'bg-yellow-100 text-yellow-800',
+  'PDF': 'bg-red-100 text-red-800',
+  'CSV': 'bg-blue-100 text-blue-800',
+  'Papier': 'bg-gray-100 text-gray-800',
+};
 
 // Options
 // Use canonical numeric string values for the select to avoid format mismatches

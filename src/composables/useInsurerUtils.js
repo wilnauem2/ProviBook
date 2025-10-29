@@ -1,7 +1,16 @@
 import { useInsurerStore } from '@/stores/insurerStore.js';
 import { addMonths, addYears, addDays, format, differenceInCalendarDays } from 'date-fns';
 
-export const allDocTypes = ['PDF', 'CSV', 'XLS', 'XML', 'Papier'];
+export const allDocTypes = [
+  'PDF (STANDARD) - CSV AUF WUNSCH MÖGLICH (PER MAIL ANFORDERN)',
+  'PDF',
+  'CSV',
+  'XLS',
+  'XML',
+  'PAPIER',
+  'Papier',
+  'PAPIER (STANDARD) - CSV AUF WUNSCH MÖGLICH (PER MAIL ANFORDERN)'
+];
 
 const parseTurnus = (turnus) => {
   if (!turnus) {
@@ -282,11 +291,11 @@ export function useInsurerUtils() {
     // Handle null/undefined
     if (!docTypes) return [];
     
-    // Handle string input (comma-separated values)
+    // Handle string input (comma-separated values or single value)
     if (typeof docTypes === 'string') {
       return docTypes.split(',')
-        .map(type => type.trim().toUpperCase())
-        .filter(type => allDocTypes.includes(type));
+        .map(type => type.trim())
+        .filter(type => type && type !== 'NULL' && type !== 'UNDEFINED');
     }
     
     // Handle array input
@@ -294,11 +303,11 @@ export function useInsurerUtils() {
       return docTypes
         .map(type => {
           if (typeof type === 'string') {
-            return type.trim().toUpperCase();
+            return type.trim();
           }
           return null;
         })
-        .filter(type => type && allDocTypes.includes(type));
+        .filter(type => type && type !== 'NULL' && type !== 'UNDEFINED');
     }
     
     return [];

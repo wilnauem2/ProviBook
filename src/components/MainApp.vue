@@ -506,7 +506,15 @@ const filteredInsurers = computed(() => {
     }
 
     if (activeFilters.value.dokumentenart) {
-      const docsRaw = Array.isArray(insurer.dokumentenart) ? insurer.dokumentenart : [];
+      // Handle both array and string values for dokumentenart
+      let docsRaw = [];
+      if (Array.isArray(insurer.dokumentenart)) {
+        docsRaw = insurer.dokumentenart;
+      } else if (insurer.dokumentenart) {
+        // If it's a string or other value, wrap it in an array
+        docsRaw = [insurer.dokumentenart];
+      }
+      
       const docs = docsRaw.map((item) => {
         if (typeof item === 'string') return item.trim().toUpperCase();
         if (item && typeof item === 'object') {
@@ -515,6 +523,9 @@ const filteredInsurers = computed(() => {
         }
         return String(item).trim().toUpperCase();
       });
+      
+      console.log(`[Filter] Insurer "${insurer.name}" docs:`, docs, 'Looking for:', activeFilters.value.dokumentenart, 'Match:', docs.includes(activeFilters.value.dokumentenart));
+      
       if (!docs.includes(activeFilters.value.dokumentenart)) {
         return false;
       }
@@ -618,7 +629,10 @@ const handleSortByZustellungsweg = (label) => {
 
 const handleSortByDokumentenart = (docType) => {
   // Apply filter by upper-cased doc type
-  activeFilters.value.dokumentenart = String(docType).trim().toUpperCase();
+  console.log('[handleSortByDokumentenart] Input docType:', docType);
+  const normalizedDocType = String(docType).trim().toUpperCase();
+  console.log('[handleSortByDokumentenart] Normalized to:', normalizedDocType);
+  activeFilters.value.dokumentenart = normalizedDocType;
   // Clear previous zustellungsweg filter and sort priorities
   activeFilters.value.zustellungsweg = null;
   statusFilter.value = 'all';

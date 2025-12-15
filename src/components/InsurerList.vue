@@ -107,23 +107,25 @@
             </div>
 
             <!-- Insurers Grid -->
-            <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               <div 
                 v-for="insurer in insurersWithStatus" 
                 :key="insurer.id"
                 @click="emit('select-insurer', insurer)"
-                class="relative p-8 bg-white rounded-xl shadow-md border border-gray-200 hover:shadow-lg transition-shadow duration-200 cursor-pointer"
-                :class="{ 'ring-2 ring-blue-500': safeSelectedInsurer && safeSelectedInsurer.id === insurer.id }"
+                class="group relative bg-white rounded-lg overflow-hidden transition-all duration-300 cursor-pointer hover:-translate-y-1"
+                :class="{
+                  'ring-2 ring-blue-500 shadow-lg': safeSelectedInsurer && safeSelectedInsurer.id === insurer.id,
+                  'shadow hover:shadow-xl': !(safeSelectedInsurer && safeSelectedInsurer.id === insurer.id),
+                  'border-l-4 border-red-500': insurer.status === 'critical',
+                  'border-l-4 border-yellow-500': insurer.status === 'warning',
+                  'border-l-4 border-green-500': insurer.status === 'on_time',
+                  'border-l-4 border-gray-400': insurer.status === 'no_invoice'
+                }"
               >
-                <!-- Status indicator -->
+                <!-- Red Overlay for VEMA/FEMA Pool Cards -->
                 <div 
-                  class="absolute top-0 left-0 w-2 h-full rounded-l z-20"
-                  :class="{
-                    'bg-red-500': insurer.status === 'critical',
-                    'bg-yellow-500': insurer.status === 'warning',
-                    'bg-green-500': insurer.status === 'on_time',
-                    'bg-gray-400': insurer.status === 'no_invoice'
-                  }"
+                  v-if="hasPool(insurer, 'VEMA') || hasPool(insurer, 'FEMA')"
+                  class="absolute inset-0 bg-red-500/10 pointer-events-none z-0"
                 ></div>
                 
                 <!-- VEMA/FEMA Pool Badge - Centered Watermark -->
@@ -136,25 +138,29 @@
                   </div>
                 </div>
                 
-                <div class="flex flex-col h-full">
-                  <!-- Header with name and status -->
-                  <div class="flex justify-between items-start">
-                    <h3 class="text-2xl font-semibold text-gray-800 leading-snug">{{ insurer.name }}</h3>
-                    <span 
-                      v-if="insurer.status !== 'no_invoice'"
-                      class="px-3 py-1 text-sm font-medium rounded-full whitespace-nowrap"
-                      :class="{
-                        'bg-red-100 text-red-800': insurer.status === 'critical',
-                        'bg-yellow-100 text-yellow-800': insurer.status === 'warning',
-                        'bg-green-100 text-green-800': insurer.status === 'on_time'
-                      }"
-                    >
-                      {{ {
-                        critical: 'Überfällig',
-                        warning: 'Fällig',
-                        on_time: 'Aktuell'
-                      }[insurer.status] || 'Unbekannt' }}
-                    </span>
+                <div class="flex flex-col h-full p-5 relative z-5">
+                  <!-- Status Badge (Top Right) -->
+                  <div 
+                    v-if="insurer.status !== 'no_invoice'"
+                    class="absolute top-3 right-3 px-3 py-1.5 text-xs font-bold rounded-full backdrop-blur-sm shadow-lg tracking-wide"
+                    :class="{
+                      'bg-red-500/90 text-white': insurer.status === 'critical',
+                      'bg-yellow-500/90 text-white': insurer.status === 'warning',
+                      'bg-green-500/90 text-white': insurer.status === 'on_time'
+                    }"
+                  >
+                    {{ {
+                      critical: 'Überfällig',
+                      warning: 'Fällig',
+                      on_time: 'Aktuell'
+                    }[insurer.status] || 'Unbekannt' }}
+                  </div>
+                  
+                  <!-- Header with name -->
+                  <div class="mb-3">
+                    <h3 class="text-lg font-extrabold text-gray-900 leading-tight tracking-tight group-hover:text-blue-600 transition-colors">
+                      {{ insurer.name }}
+                    </h3>
                   </div>
                   
                   <!-- Document Type Badges (if exists) -->
@@ -205,19 +211,21 @@
                     </div>
                   </div>
                   
-                  <!-- Key information in a grid -->
-                  <div class="mt-3 grid grid-cols-1 gap-2">
-                    <!-- Next due date -->
-                    <div class="text-sm text-gray-700 flex items-center">
-                      <svg class="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      <span>Nächste Fälligkeit: <span class="font-medium">{{ formatNextDue(insurer) }}</span></span>
+                  <!-- Key information -->
+                  <div class="mt-4 space-y-2.5">
+                    <!-- Next due date - Highlighted -->
+                    <div class="p-3 bg-gradient-to-r from-blue-50 via-indigo-50 to-blue-50 rounded-xl border border-blue-100 shadow-sm">
+                      <div class="flex items-center text-sm">
+                        <svg class="h-5 w-5 text-blue-600 mr-2.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span class="text-gray-700 font-medium">Fällig: <span class="font-extrabold text-gray-900">{{ formatNextDue(insurer) }}</span></span>
+                      </div>
                     </div>
                   </div>
                   
                   <!-- Additional details -->
-                  <div class="mt-3 pt-3 border-t border-gray-100 space-y-2 text-sm text-gray-600">
+                  <div class="mt-3 space-y-2.5 text-sm text-gray-600">
                     <!-- Last invoice -->
                     <div class="flex items-center">
                       <svg class="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">

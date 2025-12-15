@@ -12,55 +12,77 @@
     </button>
   </div>
   
-  <div class="p-6 bg-white rounded-lg shadow-md">
+  <div class="p-8 bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-lg">
     <!-- Title Row -->
-    <div class="mb-6">
-      <h2 class="text-2xl font-bold text-gray-800">Statistische Übersicht</h2>
+    <div class="mb-8">
+      <h2 class="text-4xl font-extrabold text-gray-900 tracking-tight">Statistische Übersicht</h2>
+      <p class="text-lg text-gray-600 mt-2 font-medium">Analyse und Verteilung Ihrer Versichererdaten</p>
     </div>
     
     <!-- Distributions (high visibility) -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <!-- Zustellungsweg Distribution -->
-      <div class="bg-white p-6 rounded-lg border border-gray-200">
-        <h3 class="text-lg font-semibold mb-4">Zustellungswege</h3>
-        <div v-if="sortedZustellungswege.length" class="space-y-3">
-          <div v-for="row in sortedZustellungswege" :key="row.name" class="cursor-pointer" @click="emit('filter-by-zustellungsweg', row.name)">
-            <div class="flex justify-between text-sm">
-              <span class="font-medium text-gray-700">{{ row.name }}</span>
-              <span class="text-gray-600">{{ row.count }} · {{ percent(row.count, stats.total) }}</span>
+      <div class="bg-white p-6 rounded-xl border-2 border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+        <div class="flex items-center mb-5">
+          <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+            <svg class="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <h3 class="text-xl font-extrabold text-gray-900 tracking-tight">Zustellungswege</h3>
+        </div>
+        <div v-if="sortedZustellungswege.length" class="space-y-4">
+          <div v-for="row in sortedZustellungswege" :key="row.name" class="group cursor-pointer hover:bg-blue-50 p-3 rounded-lg transition-all" @click="emit('filter-by-zustellungsweg', row.name)">
+            <div class="flex justify-between text-sm mb-2">
+              <span class="font-bold text-gray-900 group-hover:text-blue-700 tracking-tight">{{ row.name }}</span>
+              <span class="text-gray-600 font-semibold">{{ row.count }} · <span class="text-blue-600 font-extrabold">{{ percent(row.count, stats.total) }}</span></span>
             </div>
-            <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-              <div class="h-3 rounded-full bg-blue-600" :style="{ width: percentNumber(row.count, stats.total) + '%' }"></div>
+            <div class="w-full bg-gray-100 rounded-full h-4 overflow-hidden">
+              <div class="h-4 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-300 group-hover:from-blue-600 group-hover:to-blue-700" :style="{ width: percentNumber(row.count, stats.total) + '%' }"></div>
             </div>
           </div>
         </div>
-        <div v-else class="text-sm text-gray-400">Keine Daten</div>
+        <div v-else class="text-sm text-gray-400 text-center py-8">Keine Daten verfügbar</div>
       </div>
 
       <!-- Dokumentenformate Distribution -->
-      <div class="bg-white p-6 rounded-lg border border-gray-200">
-        <h3 class="text-lg font-semibold mb-4">Dokumentenformate</h3>
-        <div v-if="sortedDocTypes.length" class="space-y-3">
-          <div v-for="row in sortedDocTypes" :key="row.name" class="cursor-pointer" @click="emit('filter-by-dokumentenart', row.name)">
-            <div class="flex justify-between text-sm">
-              <span class="font-medium text-gray-700">{{ row.name }}</span>
-              <span class="text-gray-600">{{ row.count }} · {{ percent(row.count, stats.total) }}</span>
+      <div class="bg-white p-6 rounded-xl border-2 border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+        <div class="flex items-center mb-5">
+          <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
+            <svg class="w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+          <h3 class="text-xl font-extrabold text-gray-900 tracking-tight">Dokumentenformate</h3>
+        </div>
+        <div v-if="sortedDocTypes.length" class="space-y-4">
+          <div v-for="row in sortedDocTypes" :key="row.name" class="group cursor-pointer hover:bg-purple-50 p-3 rounded-lg transition-all" @click="emit('filter-by-dokumentenart', row.name)">
+            <div class="flex justify-between text-sm mb-2">
+              <span class="font-bold text-gray-900 group-hover:text-purple-700 tracking-tight">{{ row.name }}</span>
+              <span class="text-gray-600 font-semibold">{{ row.count }} · <span class="text-purple-600 font-extrabold">{{ percent(row.count, stats.total) }}</span></span>
             </div>
-            <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-              <div class="h-3 rounded-full bg-purple-600" :style="{ width: percentNumber(row.count, stats.total) + '%' }"></div>
+            <div class="w-full bg-gray-100 rounded-full h-4 overflow-hidden">
+              <div class="h-4 rounded-full bg-gradient-to-r from-purple-500 to-purple-600 transition-all duration-300 group-hover:from-purple-600 group-hover:to-purple-700" :style="{ width: percentNumber(row.count, stats.total) + '%' }"></div>
             </div>
           </div>
         </div>
-        <div v-else class="text-sm text-gray-400">Keine Daten</div>
+        <div v-else class="text-sm text-gray-400 text-center py-8">Keine Daten verfügbar</div>
       </div>
     </div>
     
     <!-- Incomplete Cards Section -->
-    <div class="mt-8 bg-white p-6 rounded-lg border border-gray-200">
-      <h3 class="text-lg font-semibold mb-4">Unvollständige Einträge ({{ uniqueIncompleteInsurers.length || 0 }})</h3>
+    <div class="mt-8 bg-white p-6 rounded-xl border-2 border-gray-100 shadow-sm">
+      <div class="flex items-center mb-6">
+        <div class="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center mr-3">
+          <svg class="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        </div>
+        <h3 class="text-xl font-extrabold text-gray-900 tracking-tight">Unvollständige Einträge <span class="text-amber-600 font-extrabold">({{ uniqueIncompleteInsurers.length || 0 }})</span></h3>
+      </div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <!-- Missing Document Types -->
-        <div class="bg-amber-50 p-4 rounded-lg border border-amber-200">
+        <div class="bg-gradient-to-br from-amber-50 to-amber-100/50 p-5 rounded-xl border border-amber-200 shadow-sm">
           <h4 class="font-medium text-amber-800 mb-2">Ohne Dokumentenart ({{ insurersWithoutDocType.length || 0 }})</h4>
           <div v-if="insurersWithoutDocType.length > 0" class="space-y-2">
             <div v-for="insurer in insurersWithoutDocType" :key="insurer.id" 
@@ -454,10 +476,12 @@ const stats = computed(() => {
     if (result.byStatus[s] === undefined) result.byStatus[s] = 0;
     result.byStatus[s] += 1;
 
-    // Zustellungsweg
-    const zustRaw = getSafeZustellungsweg(insurer) || 'Nicht angegeben';
-    const zust = normalizeZustellungsweg(zustRaw);
-    result.byZustellungsweg[zust] = (result.byZustellungsweg[zust] || 0) + 1;
+    // Zustellungsweg (nur zählen wenn vorhanden)
+    const zustRaw = getSafeZustellungsweg(insurer);
+    if (zustRaw) {
+      const zust = normalizeZustellungsweg(zustRaw);
+      result.byZustellungsweg[zust] = (result.byZustellungsweg[zust] || 0) + 1;
+    }
 
     // Turnus
     const turnus = insurer.turnus || 'Nicht angegeben';

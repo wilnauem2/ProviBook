@@ -10,11 +10,18 @@
     
     <!-- Main Layout with Sidebar -->
     <div class="min-h-screen bg-gray-50 flex">
-      <div class="w-64 bg-white shadow-md h-screen overflow-y-auto sticky top-0">
-        <div class="p-4 border-b border-gray-200 sticky top-0 bg-white z-10">
-          <h2 class="text-lg font-semibold text-gray-800">Navigation</h2>
+      <div class="w-64 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 shadow-2xl h-screen overflow-y-auto sticky top-0">
+        <div class="p-6 border-b border-slate-700/50 sticky top-0 bg-slate-900/95 backdrop-blur-sm z-10">
+          <div class="flex items-center mb-4">
+            <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mr-3 shadow-lg shadow-blue-500/30">
+              <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <h2 class="text-xl font-extrabold text-white tracking-tight">ProviBook</h2>
+          </div>
           <!-- Search -->
-          <div class="px-4 py-2">
+          <div class="px-0 py-0">
             <div class="relative">
               <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -24,7 +31,7 @@
               <input
                 v-model="searchQuery"
                 type="text"
-                class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                class="block w-full pl-10 pr-3 py-2.5 border border-slate-600/50 rounded-lg leading-5 bg-slate-800/50 text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm transition-all backdrop-blur-sm"
                 placeholder="Versicherer suchen..."
                 @input="handleSearch"
               >
@@ -33,39 +40,39 @@
         </div>
         <div class="p-4 space-y-1">
           <!-- Main Navigation -->
-          <div class="mb-4">
-            <h3 class="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Hauptmenü</h3>
+          <div class="mb-6">
+            <h3 class="px-4 text-xs font-extrabold text-slate-400 uppercase tracking-widest mb-3">Hauptmenü</h3>
             <div class="space-y-1">
               <router-link 
                 v-for="item in navItems" 
                 :key="item.path" 
                 :to="item.path"
-                class="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors duration-150"
-                :class="{ 'bg-blue-50 text-blue-600 font-medium': isNavItemActive(item.path) }"
+                class="flex items-center px-4 py-3 text-slate-300 hover:bg-slate-700/60 rounded-xl transition-all duration-200 group"
+                :class="{ 'bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold shadow-lg shadow-blue-500/40': isNavItemActive(item.path) }"
               >
-                <component :is="item.component" class="w-5 h-5 mr-3 flex-shrink-0" />
+                <component :is="item.component" class="w-5 h-5 mr-3 flex-shrink-0 group-hover:scale-110 transition-transform" />
                 <span class="truncate">{{ item.name }}</span>
               </router-link>
             </div>
           </div>
 
           <!-- Status Filter -->
-          <div class="mb-4">
-            <h3 class="px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Status</h3>
+          <div class="mb-6">
+            <h3 class="px-4 text-xs font-extrabold text-slate-400 uppercase tracking-widest mb-3">Status</h3>
             <div class="space-y-1">
               <a 
                 v-for="filter in statusFilters" 
                 :key="filter.key"
                 href="#"
                 @click.prevent="statusFilter = filter.key"
-                class="flex items-center justify-between px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md transition-colors duration-150"
-                :class="{ 'bg-blue-50 text-blue-600 font-medium': statusFilter === filter.key }"
+                class="flex items-center justify-between px-4 py-3 text-sm text-slate-300 hover:bg-slate-700/60 rounded-xl transition-all duration-200 group"
+                :class="{ 'bg-slate-700/80 text-white font-semibold': statusFilter === filter.key }"
               >
                 <div class="flex items-center">
-                  <span class="w-2 h-2 rounded-full mr-3" :class="getStatusColor(filter.key)"></span>
+                  <span class="w-2.5 h-2.5 rounded-full mr-3 group-hover:scale-125 transition-transform" :class="getStatusColor(filter.key)"></span>
                   <span>{{ filter.label }}</span>
                 </div>
-                <span v-if="filter.count > 0" class="bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5 rounded-full">
+                <span v-if="filter.count > 0" class="bg-slate-600/80 text-slate-100 text-xs font-bold px-2.5 py-1 rounded-full">
                   {{ filter.count }}
                 </span>
               </a>
@@ -73,34 +80,28 @@
           </div>
 
         </div>
-        
-        <div v-if="isDevelopment" class="p-4 border-t border-gray-200 mt-4 sticky bottom-0 bg-white">
-          <TestDateSimulator 
-            v-model="currentDate"
-            @change-date="handleDateChange"
-            class="w-full"
-          />
-        </div>
       </div>
       
       <!-- Main Content -->
       <div class="flex-1 flex flex-col">
-        <header class="bg-white shadow-sm sticky top-0 z-30">
-          <div class="w-full px-4">
-            <div class="flex justify-between items-center py-4">
-              <h1 class="text-xl font-semibold text-gray-900">{{ currentRouteName }}</h1>
-              <div class="flex items-center space-x-4">
-                <div class="flex items-center space-x-2 text-sm text-gray-600">
-                  <span class="px-2 py-1 bg-gray-100 rounded text-xs">
+        <header class="bg-white border-b border-gray-200 sticky top-0 z-30">
+          <div class="w-full px-6">
+            <div class="flex justify-between items-center py-5">
+              <div>
+                <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">{{ currentRouteName }}</h1>
+                <div class="flex items-center space-x-2 mt-2">
+                  <span class="inline-flex items-center px-3 py-1.5 bg-gradient-to-r from-blue-50 to-blue-100 text-blue-700 rounded-full text-xs font-bold tracking-wide shadow-sm">
+                    <svg class="w-3.5 h-3.5 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/>
+                    </svg>
                     {{ Array.isArray(insurers) ? insurers.length : 0 }} Versicherer
                   </span>
-                  <span class="px-2 py-1 bg-gray-100 rounded text-xs">
-                    {{ Array.isArray(abrechnungen) ? abrechnungen.length : 0 }} Dokumente
-                  </span>
                 </div>
+              </div>
+              <div class="flex items-center space-x-4">
                 
-                <!-- User Info & Logout -->
-                <div class="flex items-center space-x-3 border-l pl-4">
+                <!-- User Info & Logout (hidden for public access) -->
+                <div v-if="!isPublicAccess" class="flex items-center space-x-3 border-l pl-4">
                   <div class="flex items-center space-x-2">
                     <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
                       <span class="text-indigo-800 font-medium text-sm">
@@ -122,16 +123,18 @@
                 </div>
                 
                 <button
-                  v-if="route.path.startsWith('/insurers')"
+                  v-if="route.path.startsWith('/insurers') || route.path.startsWith('/stats')"
                   @click="clearAllFilters"
                   :disabled="!anyFiltersActive"
                   :class="[
-                    'ml-2 inline-flex items-center gap-1 px-3 py-1.5 rounded transition border',
-                    anyFiltersActive ? 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50' : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                    'ml-2 inline-flex items-center gap-1 px-3 py-1.5 rounded transition border font-medium',
+                    anyFiltersActive ? 'bg-yellow-400 text-yellow-900 border-yellow-500 hover:bg-yellow-500 blink-yellow' : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
                   ]"
                   title="Filter zurücksetzen"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4"><path d="M9 13h6v8H9z"/><path d="M4 7h16v2H4z"/><path d="M10 3h4v2h-4z"/></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                  </svg>
                   Filter zurücksetzen
                 </button>
                 <button 
@@ -160,6 +163,7 @@
               :search-filter="searchQuery"
               :simulated-date="systemDate"
               :current-date="currentDate"
+              :any-filters-active="anyFiltersActive"
               @status-clicked="applyFilter"
               @filter-by-zustellungsweg="handleSortByZustellungsweg"
               @filter-by-dokumentenart="handleSortByDokumentenart"
@@ -168,6 +172,7 @@
               @change-date="handleDateChange"
               @reset-date="resetDate"
               @clear-status-filter="statusFilter = 'all'"
+              @clear-all-filters="clearAllFilters"
               @select-insurer="selectedInsurer = $event"
               @delete-insurer="handleDeleteInsurer"
               @create-insurer="handleCreateInsurer"
@@ -345,20 +350,24 @@ const statusFilters = ref([
 // Check if user is admin
 const isAdmin = computed(() => userStore.isAdmin);
 
+// Check if this is public access (ChatGPT route)
+const isPublicAccess = computed(() => route.path.startsWith('/ChatGPT'));
+
 // Navigation items - dynamically show admin panel
 const navItems = computed(() => {
+  const basePath = isPublicAccess.value ? '/ChatGPT' : '';
   const items = [
-    { name: 'Versicherungen', path: '/insurers', icon: 'users', component: UserGroupIcon },
-    { name: 'Statistiken', path: '/stats', icon: 'stats', component: ChartBarIcon },
-    { name: 'Aktivitäten', path: '/activities', icon: 'activity', component: ClockIcon },
+    { name: 'Versicherungen', path: `${basePath}/insurers`, icon: 'users', component: UserGroupIcon },
+    { name: 'Statistiken', path: `${basePath}/stats`, icon: 'stats', component: ChartBarIcon },
+    { name: 'Aktivitäten', path: `${basePath}/activities`, icon: 'activity', component: ClockIcon },
   ];
   
-  // Add admin panel for admins only
-  if (isAdmin.value) {
+  // Add admin panel for admins only (not for public access)
+  if (isAdmin.value && !isPublicAccess.value) {
     items.push({ name: 'Benutzerverwaltung', path: '/users', icon: 'admin', component: ShieldCheckIcon });
   }
   
-  items.push({ name: 'Einstellungen', path: '/settings', icon: 'settings', component: CogIcon });
+  items.push({ name: 'Einstellungen', path: `${basePath}/settings`, icon: 'settings', component: CogIcon });
   
   return items;
 });
@@ -760,3 +769,27 @@ onUnmounted(() => {
   console.log('MainApp unmounted');
 });
 </script>
+
+<style scoped>
+@keyframes blink-yellow {
+  0% {
+    background-color: rgb(250 204 21); /* yellow-400 */
+    border-color: rgb(234 179 8); /* yellow-500 */
+    opacity: 1;
+  }
+  50% {
+    background-color: rgb(234 179 8); /* yellow-500 */
+    border-color: rgb(202 138 4); /* yellow-600 */
+    opacity: 0.7;
+  }
+  100% {
+    background-color: rgb(250 204 21); /* yellow-400 */
+    border-color: rgb(234 179 8); /* yellow-500 */
+    opacity: 1;
+  }
+}
+
+.blink-yellow {
+  animation: blink-yellow 1s ease-in-out infinite;
+}
+</style>

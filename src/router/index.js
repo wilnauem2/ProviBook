@@ -73,6 +73,56 @@ const router = createRouter({
         }
       ]
     },
+    // Public access route (no login required)
+    {
+      path: '/ChatGPT',
+      component: MainApp,
+      meta: { requiresAuth: false, isPublicAccess: true },
+      children: [
+        {
+          path: '',
+          name: 'chatgpt-dashboard',
+          component: DashboardView,
+          meta: { title: 'Dashboard', requiresAuth: false }
+        },
+        {
+          path: 'insurers',
+          name: 'chatgpt-insurers',
+          component: DashboardView,
+          meta: { title: 'Versicherungen', requiresAuth: false }
+        },
+        {
+          path: 'stats',
+          name: 'chatgpt-statistics',
+          component: StatisticsView,
+          meta: { title: 'Statistiken', requiresAuth: false }
+        },
+        {
+          path: 'activities',
+          name: 'chatgpt-activities',
+          component: ActivitiesView,
+          meta: { title: 'Aktivitäten', requiresAuth: false }
+        },
+        {
+          path: 'history',
+          name: 'chatgpt-history',
+          component: HistoryView,
+          meta: { title: 'Abrechnungsverlauf', requiresAuth: false }
+        },
+        {
+          path: 'settings',
+          name: 'chatgpt-settings',
+          component: SettingsView,
+          meta: { title: 'Einstellungen', requiresAuth: false }
+        },
+        {
+          path: 'insurer/:name',
+          name: 'chatgpt-insurer-detail',
+          component: () => import('../components/InsurerDetail.vue'),
+          meta: { title: 'Versicherungsdetails', requiresAuth: false }
+        }
+      ]
+    },
     // Redirect old routes to new ones
     {
       path: '/:pathMatch(.*)*',

@@ -29,7 +29,7 @@
 import { computed } from 'vue';
 import InsurerStats from '@/components/InsurerStats.vue';
 
-const emit = defineEmits(['filter-by-zustellungsweg', 'filter-by-turnus', 'filter-by-dokumentenart', 'select-insurer']);
+const emit = defineEmits(['filter-by-zustellungsweg', 'filter-by-turnus', 'filter-by-dokumentenart', 'select-insurer', 'clear-all-filters']);
 
 const props = defineProps({
   filteredInsurers: { type: Array, default: () => [] },

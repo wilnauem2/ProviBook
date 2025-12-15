@@ -193,6 +193,12 @@ export const useActivityStore = defineStore('activity', () => {
     error.value = null;
 
     try {
+      const userStore = useUserStore();
+      console.log('[ActivityStore] Fetching activities...', {
+        isAuthenticated: userStore.isAuthenticated,
+        userId: userStore.userId
+      });
+
       const { 
         forceRefresh = false,
         userId = null,

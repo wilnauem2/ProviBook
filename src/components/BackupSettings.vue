@@ -2,7 +2,20 @@
   <div class="bg-white p-6 rounded-lg shadow-md">
     <h2 class="text-xl font-semibold mb-4">Daten-Sicherung & Wiederherstellung</h2>
     
-    <div class="space-y-6">
+    <!-- Admin-only notice -->
+    <div v-if="!isAdmin" class="bg-amber-50 border border-amber-200 rounded-lg p-4">
+      <div class="flex items-center">
+        <svg class="h-5 w-5 text-amber-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <span class="text-amber-800 font-medium">Zugriff verweigert</span>
+      </div>
+      <p class="mt-2 text-sm text-amber-700">
+        Die Datensicherung und Wiederherstellung ist nur für Administratoren verfügbar.
+      </p>
+    </div>
+    
+    <div v-else class="space-y-6">
       <!-- Backup Section -->
       <div class="border-b pb-4">
         <h3 class="text-lg font-medium mb-3">Sicherung erstellen</h3>
@@ -83,31 +96,31 @@
         <p>Sammlungen: {{ backupInfo.collections.join(', ') }}</p>
         <p>Gesamte Dokumente: {{ backupInfo.totalDocuments }}</p>
       </div>
-    </div>
     
-    <!-- Confirmation Dialog -->
-    <div v-if="showConfirmation" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div class="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
-        <h3 class="text-lg font-semibold mb-4">Sicherung wiederherstellen</h3>
-        <p class="mb-6">
-          Möchten Sie wirklich die Sicherung wiederherstellen? 
-          <span v-if="overwriteExisting" class="font-semibold text-red-600">
-            Dies wird alle bestehenden Daten überschreiben!
-          </span>
-        </p>
-        <div class="flex justify-end space-x-3">
-          <button 
-            @click="showConfirmation = false" 
-            class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
-          >
-            Abbrechen
-          </button>
-          <button 
-            @click="confirmRestore"
-            class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-          >
-            Ja, wiederherstellen
-          </button>
+      <!-- Confirmation Dialog -->
+      <div v-if="showConfirmation" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
+          <h3 class="text-lg font-semibold mb-4">Sicherung wiederherstellen</h3>
+          <p class="mb-6">
+            Möchten Sie wirklich die Sicherung wiederherstellen? 
+            <span v-if="overwriteExisting" class="font-semibold text-red-600">
+              Dies wird alle bestehenden Daten überschreiben!
+            </span>
+          </p>
+          <div class="flex justify-end space-x-3">
+            <button 
+              @click="showConfirmation = false" 
+              class="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
+            >
+              Abbrechen
+            </button>
+            <button 
+              @click="confirmRestore"
+              class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+            >
+              Ja, wiederherstellen
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -115,8 +128,12 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { backupFirestore, restoreFirestore, handleBackupFileSelect } from '@/utils/firebaseBackup';
+import { useUserStore } from '@/stores/userStore';
+
+const userStore = useUserStore();
+const isAdmin = computed(() => userStore.isAdmin);
 
 const fileInput = ref(null);
 const selectedFile = ref(null);

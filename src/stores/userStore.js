@@ -6,7 +6,10 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  updateProfile
+  updateProfile,
+  updatePassword,
+  EmailAuthProvider,
+  reauthenticateWithCredential
 } from 'firebase/auth';
 import { 
   getFirestore, 
@@ -341,6 +344,54 @@ export const useUserStore = defineStore('user', () => {
     throw new Error('Password Reset ist noch nicht implementiert. Bitte Firebase Console verwenden.');
   };
 
+  // Change own password (any authenticated user)
+  const changePassword = async (currentPassword, newPassword) => {
+    if (!isAuthenticated.value) {
+      throw new Error('Sie müssen angemeldet sein.');
+    }
+    
+    isLoading.value = true;
+    error.value = null;
+    
+    try {
+      const user = auth.currentUser;
+      
+      if (!user || !user.email) {
+        throw new Error('Benutzer nicht gefunden.');
+      }
+      
+      // Re-authenticate user before changing password
+      const credential = EmailAuthProvider.credential(user.email, currentPassword);
+      await reauthenticateWithCredential(user, credential);
+      
+      // Update password
+      await updatePassword(user, newPassword);
+      
+      // Update Firestore document
+      await updateDoc(doc(db, 'users', user.uid), {
+        passwordChangedAt: serverTimestamp()
+      });
+      
+      return true;
+    } catch (err) {
+      console.error('Error changing password:', err);
+      
+      let errorMessage = 'Fehler beim Ändern des Passworts.';
+      if (err.code === 'auth/wrong-password') {
+        errorMessage = 'Das aktuelle Passwort ist falsch.';
+      } else if (err.code === 'auth/weak-password') {
+        errorMessage = 'Das neue Passwort ist zu schwach. Mindestens 6 Zeichen erforderlich.';
+      } else if (err.code === 'auth/requires-recent-login') {
+        errorMessage = 'Bitte melden Sie sich erneut an und versuchen Sie es dann noch einmal.';
+      }
+      
+      error.value = errorMessage;
+      throw new Error(errorMessage);
+    } finally {
+      isLoading.value = false;
+    }
+  };
+
   return {
     // State
     currentUser,
@@ -364,6 +415,7 @@ export const useUserStore = defineStore('user', () => {
     createUser,
     updateUser,
     deleteUser,
-    resetUserPassword
+    resetUserPassword,
+    changePassword
   };
 });

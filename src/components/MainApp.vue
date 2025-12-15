@@ -97,11 +97,51 @@
                     {{ Array.isArray(insurers) ? insurers.length : 0 }} Versicherer
                   </span>
                 </div>
+                
+                <!-- Filter Buttons (nur auf Versicherungen-Seite) -->
+                <div v-if="route.path.startsWith('/insurers')" class="flex flex-wrap items-center gap-4 mt-3">
+                  <!-- Dokumentenformat Filter -->
+                  <div class="flex items-center gap-1">
+                    <span class="text-xs text-gray-500 font-medium mr-1">Format:</span>
+                    <button
+                      v-for="format in dokumentenFormatOptions"
+                      :key="format.value"
+                      @click="toggleDokumentenartFilter(format.value)"
+                      :class="[
+                        'px-2.5 py-1 text-xs font-medium rounded-md transition-all',
+                        activeFilters.dokumentenart === format.value
+                          ? 'bg-purple-600 text-white shadow-sm'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      ]"
+                    >
+                      {{ format.label }}
+                    </button>
+                  </div>
+                  
+                  <!-- Zustellungsweg Filter -->
+                  <div class="flex items-center gap-1">
+                    <span class="text-xs text-gray-500 font-medium mr-1">Zustellung:</span>
+                    <button
+                      v-for="weg in zustellungswegOptions"
+                      :key="weg.value"
+                      @click="toggleZustellungswegFilter(weg.value)"
+                      :class="[
+                        'px-2.5 py-1 text-xs font-medium rounded-md transition-all',
+                        activeFilters.zustellungsweg === weg.value
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      ]"
+                    >
+                      {{ weg.label }}
+                    </button>
+                  </div>
+                  
+                </div>
               </div>
               <div class="flex items-center space-x-4">
                 
-                <!-- User Info & Logout (hidden for public access) -->
-                <div v-if="!isPublicAccess" class="flex items-center space-x-3 border-l pl-4">
+                <!-- User Info & Logout -->
+                <div class="flex items-center space-x-3 border-l pl-4">
                   <div class="flex items-center space-x-2">
                     <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
                       <span class="text-indigo-800 font-medium text-sm">
@@ -271,6 +311,38 @@ const activeFilters = ref({
   dokumentenart: null,
 });
 
+// Filter Options
+const dokumentenFormatOptions = [
+  { label: 'PDF', value: 'PDF' },
+  { label: 'CSV', value: 'CSV' },
+  { label: 'Papier', value: 'PAPIER' },
+];
+
+const zustellungswegOptions = [
+  { label: 'E-Mail', value: 'E-Mail' },
+  { label: 'Post', value: 'Per Post' },
+  { label: 'BiPRO', value: 'BiPRO' },
+  { label: 'GetMyInvoices', value: 'Maklerportal/GetMyInvoices' },
+];
+
+// Toggle functions for filter buttons
+const toggleDokumentenartFilter = (value) => {
+  if (activeFilters.value.dokumentenart === value) {
+    activeFilters.value.dokumentenart = null;
+  } else {
+    activeFilters.value.dokumentenart = value;
+  }
+};
+
+const toggleZustellungswegFilter = (value) => {
+  if (activeFilters.value.zustellungsweg === value) {
+    activeFilters.value.zustellungsweg = null;
+  } else {
+    activeFilters.value.zustellungsweg = value;
+  }
+};
+
+
 // PDF export for current insurer list (filteredInsurers)
 const exportInsurersPdf = () => {
   try {
@@ -350,24 +422,20 @@ const statusFilters = ref([
 // Check if user is admin
 const isAdmin = computed(() => userStore.isAdmin);
 
-// Check if this is public access (ChatGPT route)
-const isPublicAccess = computed(() => route.path.startsWith('/ChatGPT'));
-
 // Navigation items - dynamically show admin panel
 const navItems = computed(() => {
-  const basePath = isPublicAccess.value ? '/ChatGPT' : '';
   const items = [
-    { name: 'Versicherungen', path: `${basePath}/insurers`, icon: 'users', component: UserGroupIcon },
-    { name: 'Statistiken', path: `${basePath}/stats`, icon: 'stats', component: ChartBarIcon },
-    { name: 'Aktivitäten', path: `${basePath}/activities`, icon: 'activity', component: ClockIcon },
+    { name: 'Versicherungen', path: '/insurers', icon: 'users', component: UserGroupIcon },
+    { name: 'Statistiken', path: '/stats', icon: 'stats', component: ChartBarIcon },
+    { name: 'Aktivitäten', path: '/activities', icon: 'activity', component: ClockIcon },
   ];
   
-  // Add admin panel for admins only (not for public access)
-  if (isAdmin.value && !isPublicAccess.value) {
+  // Add admin panel for admins only
+  if (isAdmin.value) {
     items.push({ name: 'Benutzerverwaltung', path: '/users', icon: 'admin', component: ShieldCheckIcon });
   }
   
-  items.push({ name: 'Einstellungen', path: `${basePath}/settings`, icon: 'settings', component: CogIcon });
+  items.push({ name: 'Einstellungen', path: '/settings', icon: 'settings', component: CogIcon });
   
   return items;
 });
@@ -520,17 +588,25 @@ const filteredInsurers = computed(() => {
       if (Array.isArray(insurer.dokumentenart)) {
         docsRaw = insurer.dokumentenart;
       } else if (insurer.dokumentenart) {
-        // If it's a string or other value, wrap it in an array
-        docsRaw = [insurer.dokumentenart];
+        // If it's a comma-separated string, split it
+        if (typeof insurer.dokumentenart === 'string' && insurer.dokumentenart.includes(',')) {
+          docsRaw = insurer.dokumentenart.split(',');
+        } else {
+          docsRaw = [insurer.dokumentenart];
+        }
       }
       
-      const docs = docsRaw.map((item) => {
-        if (typeof item === 'string') return item.trim().toUpperCase();
+      // Flatten and normalize all document types
+      const docs = docsRaw.flatMap((item) => {
+        if (typeof item === 'string') {
+          // Also split by comma in case array items contain multiple values
+          return item.split(',').map(s => s.trim().toUpperCase());
+        }
         if (item && typeof item === 'object') {
           const strVal = Object.values(item).find(v => typeof v === 'string');
-          return strVal ? strVal.trim().toUpperCase() : '';
+          return strVal ? strVal.split(',').map(s => s.trim().toUpperCase()) : [];
         }
-        return String(item).trim().toUpperCase();
+        return [String(item).trim().toUpperCase()];
       });
       
       console.log(`[Filter] Insurer "${insurer.name}" docs:`, docs, 'Looking for:', activeFilters.value.dokumentenart, 'Match:', docs.includes(activeFilters.value.dokumentenart));
@@ -616,7 +692,17 @@ const normalizeZustellungsweg = (val) => {
   );
   if (isPortal) return 'Maklerportal/GetMyInvoices';
   if (s.includes('mail') || s.includes('e-mail') || s.includes('email')) return 'E-Mail';
-  if (s.includes('post') || s.includes('brief')) return 'Per Post';
+  // Strenger Check für "Per Post" - nur wenn explizit Post/Papier/Brief gemeint ist
+  const isPost = (
+    s.includes('per post') ||
+    s.includes('papier') ||
+    s.includes('brief') ||
+    s === 'post' ||
+    s.includes('postalisch') ||
+    s.includes('postversand') ||
+    s.includes('postweg')
+  );
+  if (isPost) return 'Per Post';
   return val;
 };
 

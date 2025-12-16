@@ -136,6 +136,41 @@
                     </button>
                   </div>
                   
+                  <!-- Pools Filter -->
+                  <div class="flex items-center gap-1">
+                    <span class="text-xs text-gray-500 font-medium mr-1">Pools:</span>
+                    <button
+                      v-for="pool in poolOptions"
+                      :key="pool.value"
+                      @click="togglePoolFilter(pool.value)"
+                      :class="[
+                        'px-2.5 py-1 text-xs font-medium rounded-md transition-all',
+                        activeFilters.pool === pool.value
+                          ? 'bg-orange-600 text-white shadow-sm'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      ]"
+                    >
+                      {{ pool.label }}
+                    </button>
+                  </div>
+                  
+                  <!-- Filter zurücksetzen Button -->
+                  <button
+                    @click="clearAllFilters"
+                    :disabled="!anyFiltersActive"
+                    :class="[
+                      'px-2.5 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1 border transition-all',
+                      anyFiltersActive 
+                        ? 'bg-yellow-400 text-yellow-900 border-yellow-500 hover:bg-yellow-500 blink-yellow' 
+                        : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                    ]"
+                    title="Filter zurücksetzen"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
+                      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
+                    </svg>
+                    Zurücksetzen
+                  </button>
                 </div>
               </div>
               <div class="flex items-center space-x-4">
@@ -162,21 +197,6 @@
                   </button>
                 </div>
                 
-                <button
-                  v-if="route.path.startsWith('/insurers') || route.path.startsWith('/stats')"
-                  @click="clearAllFilters"
-                  :disabled="!anyFiltersActive"
-                  :class="[
-                    'ml-2 inline-flex items-center gap-1 px-3 py-1.5 rounded transition border font-medium',
-                    anyFiltersActive ? 'bg-yellow-400 text-yellow-900 border-yellow-500 hover:bg-yellow-500 blink-yellow' : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                  ]"
-                  title="Filter zurücksetzen"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                  </svg>
-                  Filter zurücksetzen
-                </button>
                 <button 
                   v-if="route.path.startsWith('/insurers')"
                   @click="exportInsurersPdf"
@@ -309,6 +329,7 @@ const activeFilters = ref({
   zustellungsweg: null,
   turnus: null,
   dokumentenart: null,
+  pool: null,
 });
 
 // Filter Options
@@ -323,6 +344,10 @@ const zustellungswegOptions = [
   { label: 'Post', value: 'Per Post' },
   { label: 'BiPRO', value: 'BiPRO' },
   { label: 'GetMyInvoices', value: 'Maklerportal/GetMyInvoices' },
+];
+
+const poolOptions = [
+  { label: 'Vema-Pool', value: 'vema' },
 ];
 
 // Toggle functions for filter buttons
@@ -342,6 +367,13 @@ const toggleZustellungswegFilter = (value) => {
   }
 };
 
+const togglePoolFilter = (value) => {
+  if (activeFilters.value.pool === value) {
+    activeFilters.value.pool = null;
+  } else {
+    activeFilters.value.pool = value;
+  }
+};
 
 // PDF export for current insurer list (filteredInsurers)
 const exportInsurersPdf = () => {
@@ -616,6 +648,13 @@ const filteredInsurers = computed(() => {
       }
     }
 
+    // Pool filter (check vemapool boolean field)
+    if (activeFilters.value.pool === 'vema') {
+      if (insurer.vemapool !== true) {
+        return false;
+      }
+    }
+
     return true;
   });
 
@@ -768,14 +807,15 @@ const anyFiltersActive = computed(() => {
     !!searchQuery.value ||
     !!activeFilters.value.zustellungsweg ||
     !!activeFilters.value.dokumentenart ||
-    !!activeFilters.value.turnus
+    !!activeFilters.value.turnus ||
+    !!activeFilters.value.pool
   );
 });
 
 const clearAllFilters = () => {
   statusFilter.value = 'all';
   searchQuery.value = '';
-  activeFilters.value = { zustellungsweg: null, dokumentenart: null, turnus: null };
+  activeFilters.value = { zustellungsweg: null, dokumentenart: null, turnus: null, pool: null };
   priorityZustellungsweg.value = null;
   priorityDokumentenart.value = null;
 };
@@ -861,21 +901,25 @@ onUnmounted(() => {
   0% {
     background-color: rgb(250 204 21); /* yellow-400 */
     border-color: rgb(234 179 8); /* yellow-500 */
-    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.7);
+    transform: scale(1);
   }
   50% {
-    background-color: rgb(234 179 8); /* yellow-500 */
-    border-color: rgb(202 138 4); /* yellow-600 */
-    opacity: 0.7;
+    background-color: rgb(253 224 71); /* yellow-300 */
+    border-color: rgb(250 204 21); /* yellow-400 */
+    box-shadow: 0 0 20px 5px rgba(250, 204, 21, 0.5);
+    transform: scale(1.08);
   }
   100% {
     background-color: rgb(250 204 21); /* yellow-400 */
     border-color: rgb(234 179 8); /* yellow-500 */
-    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.7);
+    transform: scale(1);
   }
 }
 
 .blink-yellow {
-  animation: blink-yellow 1s ease-in-out infinite;
+  animation: blink-yellow 0.8s ease-in-out infinite;
+  transform-origin: center;
 }
 </style>

@@ -122,7 +122,28 @@ export const useUserStore = defineStore('user', () => {
         
         return currentUser.value;
       } else {
-        throw new Error('Benutzerdaten nicht gefunden.');
+        // Auto-create Firestore document if it doesn't exist
+        console.log('Creating missing Firestore document for user:', firebaseUser.uid);
+        
+        const newUserData = {
+          email: firebaseUser.email,
+          displayName: firebaseUser.displayName || firebaseUser.email.split('@')[0],
+          role: 'user',
+          active: true,
+          createdAt: serverTimestamp(),
+          lastLogin: serverTimestamp(),
+          autoCreated: true // Flag to identify auto-created accounts
+        };
+        
+        await setDoc(doc(db, 'users', firebaseUser.uid), newUserData);
+        
+        currentUser.value = {
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          ...newUserData
+        };
+        
+        return currentUser.value;
       }
     } catch (err) {
       console.error('Login error:', err);

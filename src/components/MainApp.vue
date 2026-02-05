@@ -218,24 +218,32 @@
               :is="Component"
               :is-production="isProduction"
               :filtered-insurers="filteredInsurers"
+              :filtered-gdv-entries="filteredGdvEntries"
               :status-counts="statusCountsForView"
+              :gdv-status-counts="gdvStatusCounts"
               :status-filter="statusFilter"
               :search-filter="searchQuery"
               :simulated-date="systemDate"
               :current-date="currentDate"
               :any-filters-active="anyFiltersActive"
+              :selected-gdv="selectedGdv"
+              :sort-option="gdvSortOption"
+              :is-loading="gdvIsLoading"
               @status-clicked="applyFilter"
               @filter-by-zustellungsweg="handleSortByZustellungsweg"
               @filter-by-dokumentenart="handleSortByDokumentenart"
               @update:search-filter="handleSearch"
               @update:sort-option="updateSortOption"
+              @update:gdv-sort-option="gdvSortOption = $event"
               @change-date="handleDateChange"
               @reset-date="resetDate"
               @clear-status-filter="statusFilter = 'all'"
               @clear-all-filters="clearAllFilters"
               @select-insurer="selectedInsurer = $event"
+              @select-gdv="handleSelectGdv"
               @delete-insurer="handleDeleteInsurer"
               @create-insurer="handleCreateInsurer"
+              @create-gdv="handleCreateGdv"
             />
           </router-view>
           
@@ -267,6 +275,36 @@
               </div>
             </div>
           </Teleport>
+
+          <!-- GDV Detail Panel -->
+          <Teleport to="body">
+            <GdvDetail 
+              v-if="selectedGdv" 
+              :gdv="selectedGdv"
+              @close="selectedGdv = null"
+              @update:gdv="handleUpdateGdv"
+              @gdv-deleted="handleGdvDeleted"
+            />
+          </Teleport>
+
+          <!-- Create GDV Modal -->
+          <Teleport to="body">
+            <div v-if="showCreateGdvModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div class="bg-white rounded-lg p-6 shadow-xl w-full max-w-md">
+                <h3 class="text-lg font-medium mb-4">Neuen GDV-Eintrag erstellen</h3>
+                <input
+                  v-model="newGdvName"
+                  type="text"
+                  class="w-full p-2 border rounded-md mb-4"
+                  placeholder="Name des Versicherers"
+                />
+                <div class="flex justify-end gap-3">
+                  <button @click="showCreateGdvModal = false" class="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Abbrechen</button>
+                  <button @click="saveNewGdv" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Speichern</button>
+                </div>
+              </div>
+            </div>
+          </Teleport>
         </main>
       </div>
     </div>
@@ -281,12 +319,14 @@ import { useInsurerStore } from '../stores/insurerStore';
 import { useAbrechnungStore } from '../stores/abrechnungStore';
 import { useUserStore } from '../stores/userStore';
 import { useActivityStore } from '../stores/activityStore';
+import { useGdvStore } from '../stores/gdvStore';
 import { useInsurerUtils } from '@/composables/useInsurerUtils.js';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
-import { HomeIcon, UserGroupIcon, ChartBarIcon, ClockIcon, CogIcon, ShieldCheckIcon, ArrowRightOnRectangleIcon } from '@heroicons/vue/24/outline';
+import { HomeIcon, UserGroupIcon, ChartBarIcon, ClockIcon, CogIcon, ShieldCheckIcon, ArrowRightOnRectangleIcon, DocumentTextIcon } from '@heroicons/vue/24/outline';
 import InsurerDetail from './InsurerDetail.vue';
+import GdvDetail from './GdvDetail.vue';
 import TestDateSimulator from './TestDateSimulator.vue';
 
 const router = useRouter();
@@ -296,6 +336,7 @@ const insurerStore = useInsurerStore();
 const abrechnungStore = useAbrechnungStore();
 const userStore = useUserStore();
 const activityStore = useActivityStore();
+const gdvStore = useGdvStore();
 const { calculateDaysOverdue } = useInsurerUtils();
 
 const { 
@@ -309,6 +350,11 @@ const {
   abrechnungen 
 } = storeToRefs(abrechnungStore);
 
+const {
+  gdvEntries,
+  isLoading: gdvIsLoading
+} = storeToRefs(gdvStore);
+
 const isProduction = import.meta.env.PROD;
 const isDevelopment = !import.meta.env.PROD;
 
@@ -319,7 +365,11 @@ const searchQuery = ref('');
 const statusFilter = ref('all');
 const currentDate = ref(new Date());
 const selectedInsurer = ref(null);
+const selectedGdv = ref(null);
 const sortOption = ref('status'); // Default sort option
+const gdvSortOption = ref('name'); // GDV sort option
+const showCreateGdvModal = ref(false);
+const newGdvName = ref('');
 // Priority sorting triggered from StatisticsView clicks
 const priorityZustellungsweg = ref(null);
 const priorityDokumentenart = ref(null);
@@ -442,14 +492,33 @@ const statusLabel = (key) => {
   return labels[key] || 'Unbekannt';
 };
 
-const statusFilters = ref([
-  { key: 'all', label: 'Alle', count: 0 },
-  { key: 'on_time', label: 'Aktuell', count: 0 },
-  { key: 'warning', label: 'Mahnung', count: 0 },
-  { key: 'critical', label: 'Kritisch', count: 0 },
-  { key: 'no_invoice', label: 'Keine Abrechnung', count: 0 },
-  { key: 'incomplete', label: 'Unvollständig', count: 0 },
-]);
+// Status filters - dynamically show different options based on current route
+const isGdvRoute = computed(() => route.path.startsWith('/gdv'));
+
+const statusFilters = computed(() => {
+  if (isGdvRoute.value) {
+    // GDV-specific status filters
+    const counts = gdvStatusCounts.value || {};
+    return [
+      { key: 'all', label: 'Alle', count: counts.all || 0 },
+      { key: 'on_time', label: 'Aktuell', count: counts.on_time || 0 },
+      { key: 'warning', label: 'Fällig', count: counts.warning || 0 },
+      { key: 'critical', label: 'Überfällig', count: counts.critical || 0 },
+      { key: 'no_import', label: 'Kein Import', count: counts.no_import || 0 },
+    ];
+  } else {
+    // Insurer-specific status filters
+    const counts = insurerStatusCounts.value || {};
+    return [
+      { key: 'all', label: 'Alle', count: counts.all || 0 },
+      { key: 'on_time', label: 'Aktuell', count: counts.on_time || 0 },
+      { key: 'warning', label: 'Mahnung', count: counts.warning || 0 },
+      { key: 'critical', label: 'Kritisch', count: counts.critical || 0 },
+      { key: 'no_invoice', label: 'Keine Abrechnung', count: counts.no_invoice || 0 },
+      { key: 'incomplete', label: 'Unvollständig', count: counts.incomplete || 0 },
+    ];
+  }
+});
 
 // Check if user is admin
 const isAdmin = computed(() => userStore.isAdmin);
@@ -457,7 +526,8 @@ const isAdmin = computed(() => userStore.isAdmin);
 // Navigation items - dynamically show admin panel
 const navItems = computed(() => {
   const items = [
-    { name: 'Versicherungen', path: '/insurers', icon: 'users', component: UserGroupIcon },
+    { name: 'Abrechnung', path: '/insurers', icon: 'users', component: UserGroupIcon },
+    { name: 'GDV', path: '/gdv', icon: 'document', component: DocumentTextIcon },
     { name: 'Statistiken', path: '/stats', icon: 'stats', component: ChartBarIcon },
     { name: 'Aktivitäten', path: '/activities', icon: 'activity', component: ClockIcon },
   ];
@@ -479,7 +549,7 @@ const currentRouteName = computed(() => {
   return currentNav ? currentNav.name : 'Übersicht';
 });
 
-const statusCounts = computed(() => {
+const insurerStatusCounts = computed(() => {
   const counts = {
     all: 0,
     on_time: 0,
@@ -513,22 +583,85 @@ const statusCounts = computed(() => {
     counts.all += 1;
   });
 
-  statusFilters.value = statusFilters.value.map((filter) => ({
-    ...filter,
-    count: counts[filter.key] ?? 0,
-  }));
-
   return counts;
 });
 
 const statusCountsForView = computed(() => {
-  const counts = statusCounts.value ?? {};
+  const counts = insurerStatusCounts.value ?? {};
   return {
     critical: counts.critical ?? 0,
     warning: counts.warning ?? 0,
     on_time: counts.on_time ?? 0,
     no_invoice: counts.no_invoice ?? 0,
   };
+});
+
+// GDV Status Counts
+const gdvStatusCounts = computed(() => {
+  const counts = {
+    all: 0,
+    on_time: 0,
+    warning: 0,
+    critical: 0,
+    no_import: 0,
+    no_data: 0
+  };
+
+  (gdvEntries.value || []).forEach((gdv) => {
+    if (!gdv) return;
+    const status = gdvStore.getGdvStatus(gdv, currentDate.value);
+    if (counts[status] !== undefined) {
+      counts[status] += 1;
+    }
+    counts.all += 1;
+  });
+
+  return counts;
+});
+
+// Filtered GDV Entries
+const filteredGdvEntries = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase();
+  
+  let filtered = (gdvEntries.value || []).filter((gdv) => {
+    if (!gdv) return false;
+    
+    // Status filter
+    if (statusFilter.value !== 'all') {
+      const status = gdvStore.getGdvStatus(gdv, currentDate.value);
+      if (status !== statusFilter.value) {
+        return false;
+      }
+    }
+    
+    // Search filter
+    if (query) {
+      const matchesName = typeof gdv.name === 'string' && gdv.name.toLowerCase().includes(query);
+      if (!matchesName) {
+        return false;
+      }
+    }
+    
+    return true;
+  });
+  
+  // Sorting
+  if (gdvSortOption.value === 'name') {
+    return filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  } else if (gdvSortOption.value === 'date') {
+    return filtered.sort((a, b) => {
+      const dateA = a.last_import ? new Date(a.last_import) : new Date(0);
+      const dateB = b.last_import ? new Date(b.last_import) : new Date(0);
+      return dateB - dateA;
+    });
+  } else {
+    // Sort by overdue status
+    return filtered.sort((a, b) => {
+      const daysA = gdvStore.calculateDaysSinceImport(a, currentDate.value) ?? -99999;
+      const daysB = gdvStore.calculateDaysSinceImport(b, currentDate.value) ?? -99999;
+      return daysB - daysA;
+    });
+  }
 });
 
 const getStatusColor = (status) => {
@@ -864,6 +997,60 @@ const saveNewInsurer = async () => {
 
 const handleDeleteInsurer = () => {};
 
+// GDV Event Handlers
+const handleCreateGdv = () => {
+  newGdvName.value = '';
+  showCreateGdvModal.value = true;
+};
+
+const saveNewGdv = async () => {
+  if (!newGdvName.value.trim()) {
+    return;
+  }
+
+  try {
+    const newGdv = await gdvStore.addGdvEntry({ 
+      name: newGdvName.value.trim(),
+      delivers_gdv: true,
+      versandarten: [],
+      frequency: '',
+      bestandsart: ''
+    });
+    showCreateGdvModal.value = false;
+    
+    // Log activity
+    await activityStore.logActivity(activityStore.ActivityType.INSURER_CREATED, {
+      entityType: 'gdv',
+      entityId: newGdv?.id,
+      entityName: newGdvName.value.trim(),
+      description: `GDV-Eintrag "${newGdvName.value.trim()}" erstellt`
+    });
+    
+    newGdvName.value = '';
+  } catch (error) {
+    console.error('Failed to save new GDV entry:', error);
+  }
+};
+
+const handleGdvDeleted = () => {
+  selectedGdv.value = null;
+};
+
+const handleUpdateGdv = (updatedGdv) => {
+  try {
+    if (!updatedGdv) return;
+    if (selectedGdv.value?.id === updatedGdv.id) {
+      selectedGdv.value = { ...selectedGdv.value, ...updatedGdv };
+    }
+  } catch (e) {
+    console.error('[MainApp] handleUpdateGdv error', e);
+  }
+};
+
+const handleSelectGdv = (gdv) => {
+  selectedGdv.value = gdv;
+};
+
 // Merge updates from InsurerDetail into the local selectedInsurer and log turnus
 const handleUpdateInsurer = (updatedInsurer) => {
   try {
@@ -882,8 +1069,11 @@ const handleUpdateInsurer = (updatedInsurer) => {
 
 onMounted(async () => {
   try {
-    await insurerStore.switchEnvironmentAndFetchData?.('production');
-    await abrechnungStore.fetchAbrechnungen?.();
+    await Promise.all([
+      insurerStore.switchEnvironmentAndFetchData?.('production'),
+      abrechnungStore.fetchAbrechnungen?.(),
+      gdvStore.fetchGdvEntries()
+    ]);
   } catch (err) {
     console.error('Failed to load initial data', err);
   } finally {

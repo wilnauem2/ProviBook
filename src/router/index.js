@@ -3,6 +3,7 @@ import { useUserStore } from '@/stores/userStore'
 import LoginView from '../views/LoginView.vue'
 import MainApp from '../components/MainApp.vue'
 import DashboardView from '../views/DashboardView.vue'
+import GdvDashboardView from '../views/GdvDashboardView.vue'
 import HistoryView from '../views/HistoryView.vue'
 import ActivitiesView from '../views/ActivitiesView.vue'
 import StatisticsView from '../views/StatisticsView.vue'
@@ -34,6 +35,12 @@ const router = createRouter({
           name: 'insurers',
           component: DashboardView,
           meta: { title: 'Versicherungen' }
+        },
+        {
+          path: 'gdv',
+          name: 'gdv',
+          component: GdvDashboardView,
+          meta: { title: 'GDV-Daten' }
         },
         {
           path: 'stats',

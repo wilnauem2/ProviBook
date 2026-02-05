@@ -141,13 +141,21 @@ const handleLogin = async () => {
   isLoading.value = true;
 
   try {
-    await userStore.login(email.value, password.value);
+    const user = await userStore.login(email.value, password.value);
     
     // Successful login
-    console.log('Login successful');
+    console.log('Login successful, user:', user);
     
-    // Redirect to main app
-    router.push('/');
+    // Wait a tick to ensure state is fully updated
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Double-check authentication before redirect
+    if (userStore.isAuthenticated) {
+      router.push('/');
+    } else {
+      // Fallback: force reload to ensure clean state
+      window.location.href = '/';
+    }
   } catch (error) {
     console.error('Login failed:', error);
     errorMessage.value = error.message || 'Login fehlgeschlagen. Bitte überprüfen Sie Ihre Eingaben.';

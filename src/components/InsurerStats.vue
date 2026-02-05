@@ -13,12 +13,6 @@
   </div>
   
   <div class="p-8 bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-lg">
-    <!-- Title Row -->
-    <div class="mb-8">
-      <h2 class="text-4xl font-extrabold text-gray-900 tracking-tight">Statistische Übersicht</h2>
-      <p class="text-lg text-gray-600 mt-2 font-medium">Analyse und Verteilung Ihrer Versichererdaten</p>
-    </div>
-    
     <!-- Distributions (high visibility) -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <!-- Zustellungsweg Distribution -->

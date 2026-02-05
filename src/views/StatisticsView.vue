@@ -1,17 +1,5 @@
 <template>
   <div class="space-y-6">
-    <header class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-      <div>
-        <h1 class="text-2xl font-semibold text-gray-900">Statistiken</h1>
-        <p class="text-sm text-gray-500">Übersicht über die Versicherer-Datenbasis.</p>
-      </div>
-      <div class="flex items-center gap-2 text-sm text-gray-500">
-        <span class="px-2 py-1 bg-gray-100 rounded">
-          Datenstand: {{ formattedCurrentDate }}
-        </span>
-      </div>
-    </header>
-
     <section>
       <InsurerStats
         :insurers="actualInsurers"
@@ -42,21 +30,6 @@ const props = defineProps({
 });
 
 const actualInsurers = computed(() => props.filteredInsurers || props.insurers || []);
-
-const formattedCurrentDate = computed(() => {
-  try {
-    const date = props.currentDate ? new Date(props.currentDate) : new Date();
-    return date.toLocaleDateString('de-DE', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  } catch (e) {
-    return 'Unbekannt';
-  }
-});
 
 const handleFilter = (type, value) => {
   emit(`filter-by-${type}`, value);

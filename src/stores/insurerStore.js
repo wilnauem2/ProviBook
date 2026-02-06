@@ -490,6 +490,23 @@ export const useInsurerStore = defineStore('insurer', () => {
       
       const docRef = await addDoc(insurersRef, {
         ...insurerData,
+        // Initialize new fields with defaults
+        loginInfo: insurerData.loginInfo || {
+          type: '',
+          customNotes: ''
+        },
+        abrechnungswege: insurerData.abrechnungswege || {
+          csv: {
+            enabled: false,
+            link: '',
+            description: ''
+          },
+          pdf: {
+            enabled: false,
+            link: '',
+            description: ''
+          }
+        },
         created_at: serverTimestamp(),
         updated_at: serverTimestamp()
       });
@@ -497,6 +514,22 @@ export const useInsurerStore = defineStore('insurer', () => {
       const newInsurer = {
         id: docRef.id,
         ...insurerData,
+        loginInfo: insurerData.loginInfo || {
+          type: '',
+          customNotes: ''
+        },
+        abrechnungswege: insurerData.abrechnungswege || {
+          csv: {
+            enabled: false,
+            link: '',
+            description: ''
+          },
+          pdf: {
+            enabled: false,
+            link: '',
+            description: ''
+          }
+        },
         created_at: new Date(),
         updated_at: new Date()
       };

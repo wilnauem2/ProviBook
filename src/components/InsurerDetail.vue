@@ -262,6 +262,185 @@
                     </label>
                   </div>
                 </div>
+
+                <!-- Login-Informationen -->
+                <div class="pt-4 border-t border-gray-200 mt-4">
+                  <div class="flex justify-between items-center mb-4">
+                    <div>
+                      <dt class="text-sm font-medium text-gray-500">Login-Informationen</dt>
+                      <dd class="text-xs text-gray-500 mt-1">Art des Zugangs zum Maklerportal</dd>
+                    </div>
+                    <button @click="startEditing('loginInfo')" class="text-gray-400 hover:text-blue-600 transition-colors duration-200 text-sm font-medium">Bearbeiten</button>
+                  </div>
+                  
+                  <div v-if="!isEditing || editField !== 'loginInfo'">
+                    <div class="space-y-2">
+                      <div v-if="props.insurer.loginInfo?.type" class="flex items-center">
+                        <svg class="w-4 h-4 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                        </svg>
+                        <span class="text-sm font-medium text-gray-900">{{ getLoginTypeLabel(props.insurer.loginInfo.type) }}</span>
+                      </div>
+                      <div v-if="props.insurer.loginInfo?.customNotes" class="text-sm text-gray-600 bg-gray-50 p-3 rounded-md">
+                        <span class="font-medium">Individuelle Hinweise:</span> {{ props.insurer.loginInfo.customNotes }}
+                      </div>
+                      <div v-if="!props.insurer.loginInfo?.type && !props.insurer.loginInfo?.customNotes" class="text-sm text-gray-400 italic">
+                        Keine Login-Informationen hinterlegt
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div v-else class="space-y-3">
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-1">Login-Typ</label>
+                      <select v-model="editedLoginInfo.type" class="w-full text-sm border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Bitte auswählen...</option>
+                        <option v-for="option in loginTypeOptions" :key="option.value" :value="option.value">
+                          {{ option.label }}
+                        </option>
+                      </select>
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-1">Individuelle Hinweise</label>
+                      <textarea v-model="editedLoginInfo.customNotes" 
+                                class="w-full border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" 
+                                rows="3" 
+                                placeholder="Besondere Hinweise zum Login..."></textarea>
+                    </div>
+                    <div class="flex justify-end gap-2">
+                      <button @click="cancelEditing()" class="px-3 py-1 text-sm font-medium bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Abbrechen</button>
+                      <button @click="saveField('loginInfo')" class="px-3 py-1 text-sm font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700">Speichern</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Abrechnungswege -->
+                <div class="pt-4 border-t border-gray-200 mt-4">
+                  <div class="flex justify-between items-center mb-4">
+                    <div>
+                      <dt class="text-sm font-medium text-gray-500">Abrechnungswege</dt>
+                      <dd class="text-xs text-gray-500 mt-1">Wo finde ich die Abrechnungsdaten?</dd>
+                    </div>
+                    <button @click="startEditing('abrechnungswege')" class="text-gray-400 hover:text-blue-600 transition-colors duration-200 text-sm font-medium">Bearbeiten</button>
+                  </div>
+                  
+                  <div v-if="!isEditing || editField !== 'abrechnungswege'">
+                    <div class="space-y-4">
+                      <!-- CSV/Excel Weg -->
+                      <div class="border border-gray-200 rounded-lg p-3">
+                        <div class="flex items-center justify-between mb-2">
+                          <div class="flex items-center">
+                            <svg class="w-4 h-4 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <span class="text-sm font-medium text-gray-900">CSV/Excel</span>
+                          </div>
+                          <span v-if="props.insurer.abrechnungswege?.csv?.enabled" class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">Verfügbar</span>
+                          <span v-else class="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full">Nicht verfügbar</span>
+                        </div>
+                        <div v-if="props.insurer.abrechnungswege?.csv?.enabled" class="space-y-1 text-sm text-gray-600">
+                          <div v-if="props.insurer.abrechnungswege.csv.link">
+                            <strong>Link:</strong> 
+                            <a v-if="props.insurer.abrechnungswege.csv.link.startsWith('http')" 
+                               :href="props.insurer.abrechnungswege.csv.link" 
+                               target="_blank" 
+                               class="text-blue-600 hover:underline">{{ props.insurer.abrechnungswege.csv.link }}</a>
+                            <span v-else>{{ props.insurer.abrechnungswege.csv.link }}</span>
+                          </div>
+                          <div v-if="props.insurer.abrechnungswege.csv.description">
+                            <strong>Beschreibung:</strong> {{ props.insurer.abrechnungswege.csv.description }}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <!-- PDF Weg -->
+                      <div class="border border-gray-200 rounded-lg p-3">
+                        <div class="flex items-center justify-between mb-2">
+                          <div class="flex items-center">
+                            <svg class="w-4 h-4 mr-2 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                            </svg>
+                            <span class="text-sm font-medium text-gray-900">PDF</span>
+                          </div>
+                          <span v-if="props.insurer.abrechnungswege?.pdf?.enabled" class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">Verfügbar</span>
+                          <span v-else class="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full">Nicht verfügbar</span>
+                        </div>
+                        <div v-if="props.insurer.abrechnungswege?.pdf?.enabled" class="space-y-1 text-sm text-gray-600">
+                          <div v-if="props.insurer.abrechnungswege.pdf.link">
+                            <strong>Link:</strong> 
+                            <a v-if="props.insurer.abrechnungswege.pdf.link.startsWith('http')" 
+                               :href="props.insurer.abrechnungswege.pdf.link" 
+                               target="_blank" 
+                               class="text-blue-600 hover:underline">{{ props.insurer.abrechnungswege.pdf.link }}</a>
+                            <span v-else>{{ props.insurer.abrechnungswege.pdf.link }}</span>
+                          </div>
+                          <div v-if="props.insurer.abrechnungswege.pdf.description">
+                            <strong>Beschreibung:</strong> {{ props.insurer.abrechnungswege.pdf.description }}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div v-else class="space-y-4">
+                    <!-- CSV/Excel Bearbeitung -->
+                    <div class="border border-gray-200 rounded-lg p-3">
+                      <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center">
+                          <svg class="w-4 h-4 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          <span class="text-sm font-medium text-gray-900">CSV/Excel</span>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                          <input type="checkbox" v-model="editedAbrechnungswege.csv.enabled" class="sr-only peer">
+                          <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                      </div>
+                      <div v-if="editedAbrechnungswege.csv.enabled" class="space-y-2">
+                        <input v-model="editedAbrechnungswege.csv.link" 
+                               type="text" 
+                               class="w-full text-sm border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" 
+                               placeholder="Link zum CSV/Excel Download...">
+                        <textarea v-model="editedAbrechnungswege.csv.description" 
+                                  class="w-full border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" 
+                                  rows="2" 
+                                  placeholder="Beschreibung des Weges zur CSV/Excel-Datei..."></textarea>
+                      </div>
+                    </div>
+                    
+                    <!-- PDF Bearbeitung -->
+                    <div class="border border-gray-200 rounded-lg p-3">
+                      <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center">
+                          <svg class="w-4 h-4 mr-2 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                          </svg>
+                          <span class="text-sm font-medium text-gray-900">PDF</span>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                          <input type="checkbox" v-model="editedAbrechnungswege.pdf.enabled" class="sr-only peer">
+                          <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                      </div>
+                      <div v-if="editedAbrechnungswege.pdf.enabled" class="space-y-2">
+                        <input v-model="editedAbrechnungswege.pdf.link" 
+                               type="text" 
+                               class="w-full text-sm border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" 
+                               placeholder="Link zum PDF Download...">
+                        <textarea v-model="editedAbrechnungswege.pdf.description" 
+                                  class="w-full border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500" 
+                                  rows="2" 
+                                  placeholder="Beschreibung des Weges zur PDF-Datei..."></textarea>
+                      </div>
+                    </div>
+                    
+                    <div class="flex justify-end gap-2">
+                      <button @click="cancelEditing()" class="px-3 py-1 text-sm font-medium bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Abbrechen</button>
+                      <button @click="saveField('abrechnungswege')" class="px-3 py-1 text-sm font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700">Speichern</button>
+                    </div>
+                  </div>
+                </div>
               </dl>
             </div>
           </div>
@@ -637,6 +816,37 @@ const editedTurnus = ref('');
 const editedZustellungsweg = ref('');
 const editedDokumentenart = ref([]);
 const editedVemapool = ref(false);
+const editedLoginInfo = ref({
+  type: '',
+  customNotes: ''
+});
+const editedAbrechnungswege = ref({
+  csv: {
+    enabled: false,
+    link: '',
+    description: ''
+  },
+  pdf: {
+    enabled: false,
+    link: '',
+    description: ''
+  }
+});
+
+// Options for login types
+const loginTypeOptions = [
+  { value: 'direct_login', label: 'Direkter Login im Maklerportal' },
+  { value: 'easylogin', label: 'EasyLogin' },
+  { value: 'certificate', label: 'Zertifikat' },
+  { value: 'username_password', label: 'Benutzername und Passwort' },
+  { value: 'other', label: 'Sonstiges' }
+];
+
+// Helper function to get login type label
+const getLoginTypeLabel = (type) => {
+  const option = loginTypeOptions.find(opt => opt.value === type);
+  return option ? option.label : type;
+};
 
 // Document type colors (allDocTypes is imported from useInsurerUtils)
 const docTypeColors = {
@@ -671,7 +881,9 @@ const fieldNames = {
   turnus: 'Turnus',
   zustellungsweg: 'Zustellungsweg',
   dokumentenart: 'Dokumentenart',
-  vemapool: 'Vemapool'
+  vemapool: 'Vemapool',
+  loginInfo: 'Login-Informationen',
+  abrechnungswege: 'Abrechnungswege'
 };
 
 // Helper method to safely get zustellungsweg value
@@ -720,6 +932,24 @@ watch(() => props.insurer, (newInsurer) => {
     editedZustellungsweg.value = getSafeZustellungsweg(newInsurer);
     editedDokumentenart.value = getNormalizedDocTypes(newInsurer.dokumentenart);
     editedVemapool.value = newInsurer.vemapool || false;
+    
+    // Initialize new fields
+    editedLoginInfo.value = {
+      type: newInsurer.loginInfo?.type || '',
+      customNotes: newInsurer.loginInfo?.customNotes || ''
+    };
+    editedAbrechnungswege.value = {
+      csv: {
+        enabled: newInsurer.abrechnungswege?.csv?.enabled || false,
+        link: newInsurer.abrechnungswege?.csv?.link || '',
+        description: newInsurer.abrechnungswege?.csv?.description || ''
+      },
+      pdf: {
+        enabled: newInsurer.abrechnungswege?.pdf?.enabled || false,
+        link: newInsurer.abrechnungswege?.pdf?.link || '',
+        description: newInsurer.abrechnungswege?.pdf?.description || ''
+      }
+    };
 
     // Initialize local last invoice
     if (newInsurer.last_invoice) {
@@ -992,6 +1222,26 @@ const startEditing = (field) => {
       break;
     case 'vemapool':
       break;
+    case 'loginInfo':
+      editedLoginInfo.value = {
+        type: props.insurer.loginInfo?.type || '',
+        customNotes: props.insurer.loginInfo?.customNotes || ''
+      };
+      break;
+    case 'abrechnungswege':
+      editedAbrechnungswege.value = {
+        csv: {
+          enabled: props.insurer.abrechnungswege?.csv?.enabled || false,
+          link: props.insurer.abrechnungswege?.csv?.link || '',
+          description: props.insurer.abrechnungswege?.csv?.description || ''
+        },
+        pdf: {
+          enabled: props.insurer.abrechnungswege?.pdf?.enabled || false,
+          link: props.insurer.abrechnungswege?.pdf?.link || '',
+          description: props.insurer.abrechnungswege?.pdf?.description || ''
+        }
+      };
+      break;
   }
 };
 
@@ -1127,6 +1377,14 @@ const saveField = async (field) => {
         updateData = { vemapool: editedVemapool.value };
         successMessage = `Vemapool ${editedVemapool.value ? 'aktiviert' : 'deaktiviert'}.`;
         break;
+      case 'loginInfo':
+        updateData = { loginInfo: { ...editedLoginInfo.value } };
+        successMessage = 'Login-Informationen aktualisiert.';
+        break;
+      case 'abrechnungswege':
+        updateData = { abrechnungswege: { ...editedAbrechnungswege.value } };
+        successMessage = 'Abrechnungswege aktualisiert.';
+        break;
       default:
         console.warn('Unhandled field save:', field);
         return;
@@ -1142,6 +1400,8 @@ const saveField = async (field) => {
                         field === 'zustellungsweg' ? activityStore.ActivityType.ZUSTELLUNGSWEG_UPDATED :
                         field === 'comment' ? activityStore.ActivityType.COMMENT_UPDATED :
                         field === 'vemapool' ? activityStore.ActivityType.VEMAPOOL_UPDATED :
+                        field === 'loginInfo' ? (activityStore.ActivityType.LOGIN_INFO_UPDATED || activityStore.ActivityType.FIELD_UPDATED) :
+                        field === 'abrechnungswege' ? (activityStore.ActivityType.ABRECHNUNGSWEGE_UPDATED || activityStore.ActivityType.FIELD_UPDATED) :
                         activityStore.ActivityType.FIELD_UPDATED;
     
     await activityStore.logActivity(activityType, {

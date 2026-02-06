@@ -230,6 +230,48 @@
                       </span>
                     </div>
                   </div>
+
+                  <!-- Login-Informationen & Abrechnungswege -->
+                  <div v-if="hasExtraInfo(insurer)" class="mt-3 pt-3 border-t border-slate-100 space-y-2">
+
+                    <!-- Login-Informationen -->
+                    <div v-if="insurer.loginInfo?.type || insurer.loginInfo?.customNotes" class="bg-brand-50/50 border border-brand-100/60 rounded-lg px-2.5 py-2 space-y-1">
+                      <div class="flex items-center gap-1.5">
+                        <svg class="w-3 h-3 text-brand-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+                        <span class="text-[10px] font-bold text-brand-600 uppercase tracking-wider">Login</span>
+                      </div>
+                      <div v-if="insurer.loginInfo?.type" class="text-[11px] font-semibold text-brand-700">{{ getLoginTypeLabel(insurer.loginInfo.type) }}</div>
+                      <div v-if="insurer.loginInfo?.customNotes" class="text-[11px] text-slate-600 leading-snug">{{ insurer.loginInfo.customNotes }}</div>
+                    </div>
+
+                    <!-- Abrechnungswege -->
+                    <div v-if="insurer.abrechnungswege?.csv?.enabled || insurer.abrechnungswege?.pdf?.enabled" class="space-y-1.5">
+
+                      <!-- CSV/Excel -->
+                      <div v-if="insurer.abrechnungswege?.csv?.enabled" class="bg-emerald-50/50 border border-emerald-100/60 rounded-lg px-2.5 py-2 space-y-1">
+                        <div class="flex items-center gap-1.5">
+                          <svg class="w-3 h-3 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                          <span class="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">CSV/Excel</span>
+                        </div>
+                        <div v-if="insurer.abrechnungswege.csv.link" class="text-[11px] relative z-20">
+                          <a :href="insurer.abrechnungswege.csv.link.startsWith('http') ? insurer.abrechnungswege.csv.link : 'https://' + insurer.abrechnungswege.csv.link" target="_blank" rel="noopener" @click.stop class="text-brand-600 hover:text-brand-700 underline decoration-brand-300 hover:decoration-brand-500 break-all leading-snug inline-block cursor-pointer">{{ insurer.abrechnungswege.csv.link }}</a>
+                        </div>
+                        <div v-if="insurer.abrechnungswege.csv.description" class="text-[11px] text-slate-600 leading-snug">{{ insurer.abrechnungswege.csv.description }}</div>
+                      </div>
+
+                      <!-- PDF -->
+                      <div v-if="insurer.abrechnungswege?.pdf?.enabled" class="bg-red-50/50 border border-red-100/60 rounded-lg px-2.5 py-2 space-y-1">
+                        <div class="flex items-center gap-1.5">
+                          <svg class="w-3 h-3 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                          <span class="text-[10px] font-bold text-red-500 uppercase tracking-wider">PDF</span>
+                        </div>
+                        <div v-if="insurer.abrechnungswege.pdf.link" class="text-[11px] relative z-20">
+                          <a :href="insurer.abrechnungswege.pdf.link.startsWith('http') ? insurer.abrechnungswege.pdf.link : 'https://' + insurer.abrechnungswege.pdf.link" target="_blank" rel="noopener" @click.stop class="text-brand-600 hover:text-brand-700 underline decoration-brand-300 hover:decoration-brand-500 break-all leading-snug inline-block cursor-pointer">{{ insurer.abrechnungswege.pdf.link }}</a>
+                        </div>
+                        <div v-if="insurer.abrechnungswege.pdf.description" class="text-[11px] text-slate-600 leading-snug">{{ insurer.abrechnungswege.pdf.description }}</div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -241,7 +283,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, inject } from 'vue'
 import { exportDetailedOverviewPdf } from '@/utils/exportPdf'
 import InsurerStats from './InsurerStats.vue'
 import { format, add, isAfter, isToday } from 'date-fns'
@@ -338,6 +380,24 @@ const getPoolName = (insurer) => {
   return '';
 };
 
+// Login type labels
+const loginTypeLabels = {
+  direct_login: 'Direkter Login im Maklerportal',
+  easylogin: 'EasyLogin',
+  certificate: 'Zertifikat',
+  username_password: 'Benutzername und Passwort',
+  other: 'Sonstiges'
+};
+const getLoginTypeLabel = (type) => loginTypeLabels[type] || type;
+
+// Check if insurer has any extra info (login or abrechnungswege) to show
+const hasExtraInfo = (insurer) => {
+  const hasLogin = insurer.loginInfo?.type || insurer.loginInfo?.customNotes;
+  const hasCsv = insurer.abrechnungswege?.csv?.enabled;
+  const hasPdf = insurer.abrechnungswege?.pdf?.enabled;
+  return hasLogin || hasCsv || hasPdf;
+};
+
 // Helper function to get the appropriate classes for a document type
 const getDocTypeClasses = (docType) => {
   if (!docType) return 'bg-gray-100 text-gray-800'; // Default for unknown types
@@ -361,6 +421,9 @@ const getDocTypeClasses = (docType) => {
 // Initialize utils
 const { calculateNextSettlementDate } = useInsurerUtils();
 const insurerStore = useInsurerStore();
+
+// Inject currentDate from MainApp for guaranteed reactivity
+const injectedCurrentDate = inject('currentDate', null);
 
 
 // Props
@@ -491,11 +554,18 @@ onMounted(() => {
 })
 
 // Computed
+const effectiveCurrentDate = computed(() => {
+  if (injectedCurrentDate && injectedCurrentDate.value) {
+    return injectedCurrentDate.value;
+  }
+  return props.currentDate;
+});
+
 const insurersWithStatus = computed(() => {
   if (!props.insurers) return [];
   return props.insurers.map(insurer => ({
     ...insurer,
-    status: insurerStore.getInsurerStatus(insurer, props.currentDate)
+    status: insurerStore.getInsurerStatus(insurer, effectiveCurrentDate.value)
   }));
 });
 
@@ -662,8 +732,8 @@ const safeInsurers = computed(() => {
     if (props.sortBy === 'name') {
       return a.name.localeCompare(b.name);
     } else if (props.sortBy === 'status') {
-      const statusA = getStatus(a, props.currentDate);
-      const statusB = getStatus(b, props.currentDate);
+      const statusA = getStatus(a, effectiveCurrentDate.value);
+      const statusB = getStatus(b, effectiveCurrentDate.value);
       return statusA.localeCompare(statusB);
     }
     return 0;

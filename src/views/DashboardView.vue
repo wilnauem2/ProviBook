@@ -20,19 +20,19 @@
           <!-- Date Simulator -->
           <div v-if="!isProduction" class="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-lg">
             <span class="text-[11px] font-medium text-amber-700">Test:</span>
-            <button @click="$emit('change-date', -1)" class="p-0.5 text-amber-600 hover:bg-amber-100 rounded transition-colors">
+            <button @click="changeDateBy(-1)" class="p-0.5 text-amber-600 hover:bg-amber-100 rounded transition-colors">
               <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
             </button>
             <input 
               type="date" 
-              :value="currentDate ? new Date(currentDate).toISOString().split('T')[0] : ''"
+              :value="effectiveCurrentDate ? new Date(effectiveCurrentDate).toISOString().split('T')[0] : ''"
               @input="handleDateInput($event.target.value)"
               class="text-xs border border-amber-200 rounded-md px-1.5 py-0.5 bg-white focus:outline-none focus:ring-1 focus:ring-amber-400 text-amber-800"
             />
-            <button @click="$emit('change-date', 1)" class="p-0.5 text-amber-600 hover:bg-amber-100 rounded transition-colors">
+            <button @click="changeDateBy(1)" class="p-0.5 text-amber-600 hover:bg-amber-100 rounded transition-colors">
               <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
             </button>
-            <button @click="$emit('reset-date')" class="text-[10px] font-medium text-amber-700 hover:text-amber-900 ml-0.5">Heute</button>
+            <button @click="doResetDate" class="text-[10px] font-medium text-amber-700 hover:text-amber-900 ml-0.5">Heute</button>
           </div>
           <!-- Active Status Filter -->
           <div v-if="statusFilter !== 'all'" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border" :class="statusFilterClass">
@@ -65,7 +65,7 @@
 </template>
 
 <script setup>
-import { defineProps, defineEmits, computed, onBeforeMount, onMounted, watch } from 'vue';
+import { defineProps, defineEmits, computed, onBeforeMount, onMounted, watch, inject, ref } from 'vue';
 import InsurerList from '@/components/InsurerList.vue';
 
 // Debug logging (only in development)
@@ -82,6 +82,10 @@ if (import.meta.env.DEV) {
 }
 
 const props = defineProps({
+  isProduction: {
+    type: Boolean,
+    default: false
+  },
   isLoading: Boolean,
   filteredInsurers: {
     type: Array,
@@ -138,6 +142,19 @@ const emit = defineEmits([
   'reset-date',
 ]);
 
+// Inject currentDate and date change functions from MainApp
+const injectedCurrentDate = inject('currentDate', null);
+const injectedHandleDateChange = inject('handleDateChange', null);
+const injectedResetDate = inject('resetDate', null);
+
+// Use injected currentDate if available, otherwise fall back to prop
+const effectiveCurrentDate = computed(() => {
+  if (injectedCurrentDate && injectedCurrentDate.value) {
+    return injectedCurrentDate.value;
+  }
+  return props.currentDate;
+});
+
 // Format date for display
 const formatDate = (date) => {
   if (!date) return '';
@@ -145,12 +162,32 @@ const formatDate = (date) => {
   return d.toLocaleDateString('de-DE');
 };
 
-// Handle date input changes
+// Handle date changes - use injected functions if available, otherwise emit
+const changeDateBy = (delta) => {
+  if (injectedHandleDateChange) {
+    injectedHandleDateChange(delta);
+  } else {
+    emit('change-date', delta);
+  }
+};
+
 const handleDateInput = (dateString) => {
   if (!dateString) return;
   const newDate = new Date(dateString);
   if (!isNaN(newDate.getTime())) {
-    emit('change-date', newDate.getTime());
+    if (injectedHandleDateChange) {
+      injectedHandleDateChange(newDate.getTime());
+    } else {
+      emit('change-date', newDate.getTime());
+    }
+  }
+};
+
+const doResetDate = () => {
+  if (injectedResetDate) {
+    injectedResetDate();
+  } else {
+    emit('reset-date');
   }
 };
 

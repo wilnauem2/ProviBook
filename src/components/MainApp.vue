@@ -333,7 +333,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted, provide } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import { useInsurerStore } from '../stores/insurerStore';
@@ -933,18 +933,26 @@ const handleSortByDokumentenart = (docType) => {
 };
 
 const handleDateChange = (payload) => {
+  console.log('[DateSimulator] handleDateChange called with payload:', payload, typeof payload);
   if (payload === 1 || payload === -1) {
     const newDate = new Date(currentDate.value);
     newDate.setDate(newDate.getDate() + payload);
     currentDate.value = newDate;
+    console.log('[DateSimulator] Arrow button: new currentDate =', currentDate.value);
   } else {
     currentDate.value = new Date(payload);
+    console.log('[DateSimulator] Direct date set: new currentDate =', currentDate.value);
   }
 };
 
 const resetDate = () => {
   currentDate.value = new Date();
 };
+
+// Provide currentDate and date change functions to all descendants
+provide('currentDate', currentDate);
+provide('handleDateChange', handleDateChange);
+provide('resetDate', resetDate);
 
 const handleInsurerDeleted = () => {
   selectedInsurer.value = null;

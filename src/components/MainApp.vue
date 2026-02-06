@@ -1,218 +1,231 @@
 <template>
   <div class="app-container">
-    <!-- Show loading state while data is being fetched -->
-    <div v-if="isComponentLoading" class="fixed inset-0 flex items-center justify-center bg-white bg-opacity-75 z-50">
-      <div class="text-center">
-        <div class="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-        <p class="mt-4 text-gray-700">Lade Daten...</p>
+    <!-- Premium Loading State -->
+    <div v-if="isComponentLoading" class="fixed inset-0 flex items-center justify-center bg-slate-50/90 backdrop-blur-sm z-50">
+      <div class="text-center animate-fade-in">
+        <div class="relative w-16 h-16 mx-auto mb-5">
+          <div class="absolute inset-0 rounded-full border-[3px] border-slate-200"></div>
+          <div class="absolute inset-0 rounded-full border-[3px] border-brand-500 border-t-transparent animate-spin"></div>
+          <div class="absolute inset-2 rounded-full bg-white shadow-soft flex items-center justify-center">
+            <svg class="w-6 h-6 text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+        </div>
+        <p class="text-sm font-medium text-slate-600 tracking-wide">Daten werden geladen...</p>
       </div>
     </div>
     
     <!-- Main Layout with Sidebar -->
-    <div class="min-h-screen bg-gray-50 flex">
-      <div class="w-64 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 shadow-2xl h-screen overflow-y-auto sticky top-0">
-        <div class="p-6 border-b border-slate-700/50 sticky top-0 bg-slate-900/95 backdrop-blur-sm z-10">
-          <div class="flex items-center mb-4">
-            <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mr-3 shadow-lg shadow-blue-500/30">
-              <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <div class="min-h-screen bg-slate-50 flex">
+      <!-- Sidebar -->
+      <aside class="w-[260px] bg-slate-900 h-screen overflow-y-auto sticky top-0 flex flex-col">
+        <!-- Logo & Search -->
+        <div class="p-5 pb-4 sticky top-0 bg-slate-900/98 backdrop-blur-md z-10 border-b border-white/[0.06]">
+          <div class="flex items-center mb-5">
+            <div class="w-9 h-9 bg-brand-500 rounded-lg flex items-center justify-center mr-3 shadow-lg shadow-brand-500/25">
+              <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
             </div>
-            <h2 class="text-xl font-extrabold text-white tracking-tight">ProviBook</h2>
-          </div>
-          <!-- Search -->
-          <div class="px-0 py-0">
-            <div class="relative">
-              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
-              <input
-                v-model="searchQuery"
-                type="text"
-                class="block w-full pl-10 pr-3 py-2.5 border border-slate-600/50 rounded-lg leading-5 bg-slate-800/50 text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm transition-all backdrop-blur-sm"
-                placeholder="Versicherer suchen..."
-                @input="handleSearch"
-              >
+            <div>
+              <h2 class="text-[17px] font-bold text-white tracking-tight leading-none">ProviBook</h2>
+              <span class="text-[10px] font-medium text-slate-400 tracking-wider uppercase">Provisionsmanager</span>
             </div>
           </div>
+          <!-- Search -->
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <svg class="h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <input
+              v-model="searchQuery"
+              type="text"
+              class="block w-full pl-9 pr-3 py-2 border-0 rounded-lg leading-5 bg-white/[0.07] text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-brand-400/50 focus:bg-white/[0.1] text-[13px] transition-all"
+              placeholder="Suchen..."
+              @input="handleSearch"
+            >
+          </div>
         </div>
-        <div class="p-4 space-y-1">
+
+        <!-- Navigation -->
+        <nav class="flex-1 px-3 py-4 space-y-6">
           <!-- Main Navigation -->
-          <div class="mb-6">
-            <h3 class="px-4 text-xs font-extrabold text-slate-400 uppercase tracking-widest mb-3">Hauptmenü</h3>
-            <div class="space-y-1">
+          <div>
+            <h3 class="px-3 text-[10px] font-semibold text-slate-500 uppercase tracking-[0.1em] mb-2">Navigation</h3>
+            <div class="space-y-0.5">
               <router-link 
                 v-for="item in navItems" 
                 :key="item.path" 
                 :to="item.path"
-                class="flex items-center px-4 py-3 text-slate-300 hover:bg-slate-700/60 rounded-xl transition-all duration-200 group"
-                :class="{ 'bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold shadow-lg shadow-blue-500/40': isNavItemActive(item.path) }"
+                class="flex items-center px-3 py-2.5 text-[13px] text-slate-400 hover:text-slate-200 hover:bg-white/[0.06] rounded-lg transition-all duration-150 group"
+                :class="{ 'bg-brand-500/15 text-brand-300 font-medium': isNavItemActive(item.path) }"
               >
-                <component :is="item.component" class="w-5 h-5 mr-3 flex-shrink-0 group-hover:scale-110 transition-transform" />
-                <span class="truncate">{{ item.name }}</span>
+                <component :is="item.component" class="w-[18px] h-[18px] mr-2.5 flex-shrink-0 opacity-70 group-hover:opacity-100 transition-opacity" />
+                <span>{{ item.name }}</span>
               </router-link>
             </div>
           </div>
 
           <!-- Status Filter -->
-          <div class="mb-6">
-            <h3 class="px-4 text-xs font-extrabold text-slate-400 uppercase tracking-widest mb-3">Status</h3>
-            <div class="space-y-1">
+          <div>
+            <h3 class="px-3 text-[10px] font-semibold text-slate-500 uppercase tracking-[0.1em] mb-2">Status</h3>
+            <div class="space-y-0.5">
               <a 
                 v-for="filter in statusFilters" 
                 :key="filter.key"
                 href="#"
                 @click.prevent="statusFilter = filter.key"
-                class="flex items-center justify-between px-4 py-3 text-sm text-slate-300 hover:bg-slate-700/60 rounded-xl transition-all duration-200 group"
-                :class="{ 'bg-slate-700/80 text-white font-semibold': statusFilter === filter.key }"
+                class="flex items-center justify-between px-3 py-2.5 text-[13px] text-slate-400 hover:text-slate-200 hover:bg-white/[0.06] rounded-lg transition-all duration-150"
+                :class="{ 'bg-white/[0.08] text-slate-200 font-medium': statusFilter === filter.key }"
               >
                 <div class="flex items-center">
-                  <span class="w-2.5 h-2.5 rounded-full mr-3 group-hover:scale-125 transition-transform" :class="getStatusColor(filter.key)"></span>
+                  <span class="w-2 h-2 rounded-full mr-2.5" :class="getStatusColor(filter.key)"></span>
                   <span>{{ filter.label }}</span>
                 </div>
-                <span v-if="filter.count > 0" class="bg-slate-600/80 text-slate-100 text-xs font-bold px-2.5 py-1 rounded-full">
+                <span v-if="filter.count > 0" class="text-[11px] font-semibold tabular-nums min-w-[22px] text-center px-1.5 py-0.5 rounded-md" 
+                      :class="{
+                        'bg-red-500/20 text-red-300': filter.key === 'critical',
+                        'bg-amber-500/20 text-amber-300': filter.key === 'warning',
+                        'bg-emerald-500/20 text-emerald-300': filter.key === 'on_time',
+                        'bg-slate-500/20 text-slate-300': filter.key === 'all' || filter.key === 'no_invoice'
+                      }">
                   {{ filter.count }}
                 </span>
               </a>
             </div>
           </div>
+        </nav>
 
+        <!-- Sidebar Footer - User -->
+        <div class="p-3 border-t border-white/[0.06]">
+          <div class="flex items-center justify-between px-2 py-2">
+            <div class="flex items-center min-w-0">
+              <div class="w-8 h-8 rounded-lg bg-brand-500/20 flex items-center justify-center mr-2.5 flex-shrink-0">
+                <span class="text-brand-300 font-semibold text-xs">
+                  {{ userStore.userDisplayName.charAt(0).toUpperCase() }}
+                </span>
+              </div>
+              <div class="min-w-0">
+                <p class="text-[13px] font-medium text-slate-300 truncate">{{ userStore.userDisplayName }}</p>
+                <p v-if="isAdmin" class="text-[10px] text-brand-400 font-medium">Admin</p>
+              </div>
+            </div>
+            <button
+              @click="handleLogout"
+              class="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-all flex-shrink-0"
+              title="Abmelden"
+            >
+              <ArrowRightOnRectangleIcon class="w-4 h-4" />
+            </button>
+          </div>
         </div>
-      </div>
+      </aside>
       
       <!-- Main Content -->
-      <div class="flex-1 flex flex-col">
-        <header class="bg-white border-b border-gray-200 sticky top-0 z-30">
-          <div class="w-full px-6">
-            <div class="flex justify-between items-center py-5">
-              <div>
-                <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">{{ currentRouteName }}</h1>
-                <div class="flex items-center space-x-2 mt-2">
-                  <span class="inline-flex items-center px-3 py-1.5 bg-gradient-to-r from-blue-50 to-blue-100 text-blue-700 rounded-full text-xs font-bold tracking-wide shadow-sm">
-                    <svg class="w-3.5 h-3.5 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/>
-                    </svg>
-                    {{ Array.isArray(insurers) ? insurers.length : 0 }} Versicherer
-                  </span>
-                </div>
-                
-                <!-- Filter Buttons (nur auf Versicherungen-Seite) -->
-                <div v-if="route.path.startsWith('/insurers')" class="flex flex-wrap items-center gap-4 mt-3">
-                  <!-- Dokumentenformat Filter -->
-                  <div class="flex items-center gap-1">
-                    <span class="text-xs text-gray-500 font-medium mr-1">Format:</span>
-                    <button
-                      v-for="format in dokumentenFormatOptions"
-                      :key="format.value"
-                      @click="toggleDokumentenartFilter(format.value)"
-                      :class="[
-                        'px-2.5 py-1 text-xs font-medium rounded-md transition-all',
-                        activeFilters.dokumentenart === format.value
-                          ? 'bg-purple-600 text-white shadow-sm'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      ]"
-                    >
-                      {{ format.label }}
-                    </button>
-                  </div>
-                  
-                  <!-- Zustellungsweg Filter -->
-                  <div class="flex items-center gap-1">
-                    <span class="text-xs text-gray-500 font-medium mr-1">Zustellung:</span>
-                    <button
-                      v-for="weg in zustellungswegOptions"
-                      :key="weg.value"
-                      @click="toggleZustellungswegFilter(weg.value)"
-                      :class="[
-                        'px-2.5 py-1 text-xs font-medium rounded-md transition-all',
-                        activeFilters.zustellungsweg === weg.value
-                          ? 'bg-blue-600 text-white shadow-sm'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      ]"
-                    >
-                      {{ weg.label }}
-                    </button>
-                  </div>
-                  
-                  <!-- Pools Filter -->
-                  <div class="flex items-center gap-1">
-                    <span class="text-xs text-gray-500 font-medium mr-1">Pools:</span>
-                    <button
-                      v-for="pool in poolOptions"
-                      :key="pool.value"
-                      @click="togglePoolFilter(pool.value)"
-                      :class="[
-                        'px-2.5 py-1 text-xs font-medium rounded-md transition-all',
-                        activeFilters.pool === pool.value
-                          ? 'bg-orange-600 text-white shadow-sm'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      ]"
-                    >
-                      {{ pool.label }}
-                    </button>
-                  </div>
-                  
-                  <!-- Filter zurücksetzen Button -->
-                  <button
-                    @click="clearAllFilters"
-                    :disabled="!anyFiltersActive"
-                    :class="[
-                      'px-2.5 py-1 text-xs font-medium rounded-md inline-flex items-center gap-1 border transition-all',
-                      anyFiltersActive 
-                        ? 'bg-yellow-400 text-yellow-900 border-yellow-500 hover:bg-yellow-500 blink-yellow' 
-                        : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
-                    ]"
-                    title="Filter zurücksetzen"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5">
-                      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
-                    </svg>
-                    Zurücksetzen
-                  </button>
-                </div>
+      <div class="flex-1 flex flex-col min-w-0">
+        <!-- Header -->
+        <header class="bg-white/80 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-30">
+          <div class="px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+              <div class="flex items-center gap-4">
+                <h1 class="text-xl font-semibold text-slate-900 tracking-tight">{{ currentRouteName }}</h1>
+                <span class="hidden sm:inline-flex items-center px-2.5 py-1 bg-slate-100 text-slate-600 rounded-md text-xs font-medium">
+                  {{ Array.isArray(insurers) ? insurers.length : 0 }} Versicherer
+                </span>
               </div>
-              <div class="flex items-center space-x-4">
-                
-                <!-- User Info & Logout -->
-                <div class="flex items-center space-x-3 border-l pl-4">
-                  <div class="flex items-center space-x-2">
-                    <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
-                      <span class="text-indigo-800 font-medium text-sm">
-                        {{ userStore.userDisplayName.charAt(0).toUpperCase() }}
-                      </span>
-                    </div>
-                    <div class="flex flex-col">
-                      <span class="text-sm font-medium text-gray-900">{{ userStore.userDisplayName }}</span>
-                      <span v-if="isAdmin" class="text-xs text-indigo-600">Admin</span>
-                    </div>
-                  </div>
-                  <button
-                    @click="handleLogout"
-                    class="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                    title="Abmelden"
-                  >
-                    <ArrowRightOnRectangleIcon class="w-5 h-5" />
-                  </button>
-                </div>
-                
+              <div class="flex items-center gap-2">
                 <button 
                   v-if="route.path.startsWith('/insurers')"
                   @click="exportInsurersPdf"
-                  class="ml-2 inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+                  class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm"
                   title="Versichererliste als PDF exportieren"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4"><path d="M3 4.5A1.5 1.5 0 0 1 4.5 3h11A1.5 1.5 0 0 1 17 4.5v7a1.5 1.5 0 0 1-1.5 1.5H4.5A1.5 1.5 0 0 1 3 11.5v-7Z"/><path d="M3 14.5A1.5 1.5 0 0 0 4.5 16h11a1.5 1.5 0 0 0 1.5-1.5V13H3v1.5Z"/></svg>
-                  PDF
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5"><path d="M3 4.5A1.5 1.5 0 0 1 4.5 3h11A1.5 1.5 0 0 1 17 4.5v7a1.5 1.5 0 0 1-1.5 1.5H4.5A1.5 1.5 0 0 1 3 11.5v-7Z"/><path d="M3 14.5A1.5 1.5 0 0 0 4.5 16h11a1.5 1.5 0 0 0 1.5-1.5V13H3v1.5Z"/></svg>
+                  PDF Export
                 </button>
               </div>
+            </div>
+            
+            <!-- Filter Bar (nur auf Versicherungen-Seite) -->
+            <div v-if="route.path.startsWith('/insurers')" class="flex flex-wrap items-center gap-2 pb-3 -mt-1">
+              <!-- Dokumentenformat Filter -->
+              <div class="flex items-center gap-1">
+                <span class="text-[11px] text-slate-400 font-medium mr-0.5">Format:</span>
+                <button
+                  v-for="format in dokumentenFormatOptions"
+                  :key="format.value"
+                  @click="toggleDokumentenartFilter(format.value)"
+                  :class="[
+                    'px-2 py-1 text-[11px] font-medium rounded-md transition-all border',
+                    activeFilters.dokumentenart === format.value
+                      ? 'bg-purple-50 text-purple-700 border-purple-200 shadow-sm'
+                      : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700'
+                  ]"
+                >
+                  {{ format.label }}
+                </button>
+              </div>
+              
+              <div class="w-px h-4 bg-slate-200"></div>
+              
+              <!-- Zustellungsweg Filter -->
+              <div class="flex items-center gap-1">
+                <span class="text-[11px] text-slate-400 font-medium mr-0.5">Zustellung:</span>
+                <button
+                  v-for="weg in zustellungswegOptions"
+                  :key="weg.value"
+                  @click="toggleZustellungswegFilter(weg.value)"
+                  :class="[
+                    'px-2 py-1 text-[11px] font-medium rounded-md transition-all border',
+                    activeFilters.zustellungsweg === weg.value
+                      ? 'bg-blue-50 text-blue-700 border-blue-200 shadow-sm'
+                      : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700'
+                  ]"
+                >
+                  {{ weg.label }}
+                </button>
+              </div>
+              
+              <div class="w-px h-4 bg-slate-200"></div>
+              
+              <!-- Pools Filter -->
+              <div class="flex items-center gap-1">
+                <span class="text-[11px] text-slate-400 font-medium mr-0.5">Pools:</span>
+                <button
+                  v-for="pool in poolOptions"
+                  :key="pool.value"
+                  @click="togglePoolFilter(pool.value)"
+                  :class="[
+                    'px-2 py-1 text-[11px] font-medium rounded-md transition-all border',
+                    activeFilters.pool === pool.value
+                      ? 'bg-amber-50 text-amber-700 border-amber-200 shadow-sm'
+                      : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700'
+                  ]"
+                >
+                  {{ pool.label }}
+                </button>
+              </div>
+              
+              <!-- Filter zurücksetzen Button -->
+              <button
+                v-if="anyFiltersActive"
+                @click="clearAllFilters"
+                class="px-2 py-1 text-[11px] font-medium rounded-md inline-flex items-center gap-1 text-red-600 hover:bg-red-50 transition-all"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3 h-3">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
+                </svg>
+                Zurücksetzen
+              </button>
             </div>
           </div>
         </header>
         
-        <main class="flex-1 overflow-y-auto p-4">
-          <!-- Main content will be rendered here -->
+        <!-- Main Content Area -->
+        <main class="flex-1 overflow-y-auto p-5 lg:p-6">
           <router-view v-slot="{ Component, route }">
             <component
               :is="Component"
@@ -259,21 +272,25 @@
 
           <!-- Create Insurer Modal -->
           <Teleport to="body">
-            <div v-if="showCreateInsurerModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div class="bg-white rounded-lg p-6 shadow-xl w-full max-w-md">
-                <h3 class="text-lg font-medium mb-4">Neuen Versicherer erstellen</h3>
-                <input
-                  v-model="newInsurerName"
-                  type="text"
-                  class="w-full p-2 border rounded-md mb-4"
-                  placeholder="Name des Versicherers"
-                />
-                <div class="flex justify-end gap-3">
-                  <button @click="showCreateInsurerModal = false" class="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Abbrechen</button>
-                  <button @click="saveNewInsurer" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Speichern</button>
+            <Transition name="modal">
+              <div v-if="showCreateInsurerModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50" @click.self="showCreateInsurerModal = false">
+                <div class="bg-white rounded-2xl p-6 shadow-soft-xl w-full max-w-md animate-scale-in">
+                  <h3 class="text-lg font-semibold text-slate-900 mb-1">Neuen Versicherer erstellen</h3>
+                  <p class="text-sm text-slate-500 mb-5">Geben Sie den Namen des neuen Versicherers ein.</p>
+                  <input
+                    v-model="newInsurerName"
+                    type="text"
+                    class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all mb-5 placeholder-slate-400"
+                    placeholder="Name des Versicherers"
+                    autofocus
+                  />
+                  <div class="flex justify-end gap-2.5">
+                    <button @click="showCreateInsurerModal = false" class="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors">Abbrechen</button>
+                    <button @click="saveNewInsurer" class="px-4 py-2 text-sm font-medium text-white bg-brand-500 rounded-lg hover:bg-brand-600 shadow-sm shadow-brand-500/25 transition-all">Speichern</button>
+                  </div>
                 </div>
               </div>
-            </div>
+            </Transition>
           </Teleport>
 
           <!-- GDV Detail Panel -->
@@ -289,21 +306,25 @@
 
           <!-- Create GDV Modal -->
           <Teleport to="body">
-            <div v-if="showCreateGdvModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div class="bg-white rounded-lg p-6 shadow-xl w-full max-w-md">
-                <h3 class="text-lg font-medium mb-4">Neuen GDV-Eintrag erstellen</h3>
-                <input
-                  v-model="newGdvName"
-                  type="text"
-                  class="w-full p-2 border rounded-md mb-4"
-                  placeholder="Name des Versicherers"
-                />
-                <div class="flex justify-end gap-3">
-                  <button @click="showCreateGdvModal = false" class="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Abbrechen</button>
-                  <button @click="saveNewGdv" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Speichern</button>
+            <Transition name="modal">
+              <div v-if="showCreateGdvModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50" @click.self="showCreateGdvModal = false">
+                <div class="bg-white rounded-2xl p-6 shadow-soft-xl w-full max-w-md animate-scale-in">
+                  <h3 class="text-lg font-semibold text-slate-900 mb-1">Neuen GDV-Eintrag erstellen</h3>
+                  <p class="text-sm text-slate-500 mb-5">Geben Sie den Namen des Versicherers ein.</p>
+                  <input
+                    v-model="newGdvName"
+                    type="text"
+                    class="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-400 transition-all mb-5 placeholder-slate-400"
+                    placeholder="Name des Versicherers"
+                    autofocus
+                  />
+                  <div class="flex justify-end gap-2.5">
+                    <button @click="showCreateGdvModal = false" class="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors">Abbrechen</button>
+                    <button @click="saveNewGdv" class="px-4 py-2 text-sm font-medium text-white bg-brand-500 rounded-lg hover:bg-brand-600 shadow-sm shadow-brand-500/25 transition-all">Speichern</button>
+                  </div>
                 </div>
               </div>
-            </div>
+            </Transition>
           </Teleport>
         </main>
       </div>

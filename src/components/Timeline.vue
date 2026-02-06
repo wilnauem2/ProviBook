@@ -1,77 +1,79 @@
 <template>
   <div class="timeline-container">
     <div class="timeline-header">
-      <h3 class="text-lg font-semibold text-gray-800">Aktivitätsverlauf</h3>
-      <p class="text-sm text-gray-500 mt-1">Chronologische Übersicht aller Ereignisse</p>
+      <h3 class="text-base font-semibold text-slate-900">Aktivitätsverlauf</h3>
+      <p class="text-xs text-slate-400 mt-0.5">Chronologische Übersicht aller Ereignisse</p>
     </div>
 
     <!-- Timeline -->
     <div class="timeline-wrapper">
-      <div v-if="sortedEvents.length === 0" class="text-center py-8">
-        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        <p class="mt-2 text-sm text-gray-500">Noch keine Aktivitäten vorhanden</p>
+      <div v-if="sortedEvents.length === 0" class="text-center py-12">
+        <div class="w-12 h-12 mx-auto mb-3 rounded-xl bg-slate-100 flex items-center justify-center">
+          <svg class="h-6 w-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <p class="text-sm text-slate-500">Noch keine Aktivitäten vorhanden</p>
       </div>
 
       <div v-else class="relative">
         <!-- Timeline Line -->
-        <div class="absolute left-8 top-0 bottom-0 w-0.5 bg-gray-200"></div>
+        <div class="absolute left-5 top-0 bottom-0 w-px bg-slate-200"></div>
 
         <!-- Timeline Events -->
-        <div class="space-y-6">
+        <div class="space-y-4">
           <div
             v-for="event in sortedEvents"
             :key="event.id"
-            class="relative flex gap-4 group"
+            class="relative flex gap-3 group animate-fade-in"
           >
             <!-- Timeline Dot -->
             <div class="relative flex-shrink-0">
               <div
-                class="w-16 h-16 rounded-full flex items-center justify-center shadow-md transition-transform group-hover:scale-110"
+                class="w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 group-hover:scale-105 group-hover:shadow-md"
                 :class="getEventIconClasses(event.type)"
               >
-                <component :is="getEventIcon(event.type)" class="w-7 h-7" />
+                <component :is="getEventIcon(event.type)" class="w-5 h-5" />
               </div>
               <!-- Status Badge for Settlement Events -->
               <div
                 v-if="event.isLastInvoice"
-                class="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center shadow-sm"
+                class="absolute -top-0.5 -right-0.5 w-4 h-4 bg-brand-500 rounded-full flex items-center justify-center shadow-sm ring-2 ring-white"
                 title="Aktuelle Abrechnung"
               >
-                <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <svg class="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
                   <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
                 </svg>
               </div>
             </div>
 
             <!-- Event Content Card -->
-            <div class="flex-1 pb-8">
+            <div class="flex-1 pb-4">
               <div
-                class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 transition-all duration-200 hover:shadow-md cursor-pointer group"
-                :class="{ 'ring-2 ring-blue-400': event.isLastInvoice }"
+                class="bg-white rounded-xl border border-slate-200/80 p-3.5 transition-all duration-200 hover:shadow-soft hover:border-slate-300/80 cursor-pointer"
+                :class="{ 'ring-1 ring-brand-200 border-brand-200 bg-brand-50/30': event.isLastInvoice }"
                 @click="$emit('event-click', event)"
               >
                 <!-- Event Header -->
-                <div class="flex items-start justify-between mb-2">
-                  <div class="flex-1">
-                    <h4 class="text-base font-semibold text-gray-900 flex items-center gap-2">
-                      {{ event.title }}
+                <div class="flex items-start justify-between gap-2 mb-1.5">
+                  <div class="flex-1 min-w-0">
+                    <h4 class="text-sm font-semibold text-slate-900 flex items-center gap-1.5">
+                      <span class="truncate">{{ event.title }}</span>
                       <span
                         v-if="event.isLastInvoice"
-                        class="text-xs font-medium px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full"
+                        class="flex-shrink-0 text-[10px] font-semibold px-1.5 py-0.5 bg-brand-100 text-brand-700 rounded"
                       >
                         Aktuell
                       </span>
                     </h4>
-                    <p class="text-sm text-gray-500 mt-0.5">
+                    <p class="text-xs text-slate-400 mt-0.5">
                       {{ formatDate(event.date) }}
-                      <span v-if="event.time" class="ml-1">• {{ event.time }}</span>
+                      <span v-if="event.time" class="ml-1">{{ event.time }}</span>
                     </p>
                   </div>
-                  <div class="flex items-center gap-2">
+                  <div class="flex items-center gap-1.5 flex-shrink-0">
                     <span
-                      class="text-xs font-medium px-2.5 py-1 rounded-full"
+                      class="text-[10px] font-semibold px-1.5 py-0.5 rounded"
                       :class="getEventBadgeClasses(event.type)"
                     >
                       {{ getEventTypeLabel(event.type) }}
@@ -80,10 +82,10 @@
                     <button
                       v-if="event.deletable !== false && event.type === 'settlement' && !event.isLastInvoice"
                       @click.stop="$emit('delete-event', event)"
-                      class="p-1.5 hover:bg-red-50 rounded-md text-gray-400 hover:text-red-600 transition-all duration-200"
+                      class="p-1 hover:bg-red-50 rounded-md text-slate-300 hover:text-red-500 transition-all opacity-0 group-hover:opacity-100"
                       title="Aktivität löschen"
                     >
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                       </svg>
                     </button>
@@ -91,29 +93,23 @@
                 </div>
 
                 <!-- Event Description -->
-                <p v-if="event.description" class="text-sm text-gray-600 mt-2">
+                <p v-if="event.description" class="text-xs text-slate-500 mt-1.5 leading-relaxed">
                   {{ event.description }}
                 </p>
 
                 <!-- Event Note/Comment -->
-                <div v-if="event.note" class="mt-3 p-3 bg-gray-50 rounded-md border-l-4 border-gray-300">
-                  <div class="flex items-start gap-2">
-                    <svg class="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path>
-                    </svg>
-                    <p class="text-sm text-gray-700 whitespace-pre-line">{{ event.note }}</p>
-                  </div>
+                <div v-if="event.note" class="mt-2.5 px-3 py-2 bg-slate-50 rounded-lg border-l-2 border-slate-300">
+                  <p class="text-xs text-slate-600 whitespace-pre-line leading-relaxed">{{ event.note }}</p>
                 </div>
 
                 <!-- Event Metadata -->
-                <div v-if="event.metadata" class="mt-3 flex flex-wrap gap-2">
+                <div v-if="event.metadata" class="mt-2.5 flex flex-wrap gap-1.5">
                   <span
                     v-for="(value, key) in event.metadata"
                     :key="key"
-                    class="inline-flex items-center text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded"
+                    class="inline-flex items-center text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-medium"
                   >
-                    <span class="font-medium">{{ key }}:</span>
-                    <span class="ml-1">{{ value }}</span>
+                    {{ key }}: <span class="ml-0.5 text-slate-700">{{ value }}</span>
                   </span>
                 </div>
               </div>
@@ -285,19 +281,14 @@ const getEventBadgeClasses = (type) => {
 
 <style scoped>
 .timeline-container {
-  @apply bg-white p-6 rounded-lg shadow-sm border border-gray-200;
+  @apply bg-white p-5 rounded-2xl border border-slate-200/80;
 }
 
 .timeline-header {
-  @apply mb-6 pb-4 border-b border-gray-200;
+  @apply mb-5 pb-3 border-b border-slate-100;
 }
 
 .timeline-wrapper {
   @apply relative;
-}
-
-/* Smooth transitions */
-.timeline-container * {
-  transition: all 0.2s ease-in-out;
 }
 </style>

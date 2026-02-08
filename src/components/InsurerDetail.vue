@@ -687,10 +687,14 @@ const loginTypeOptions = [
   { value: 'other', label: 'Sonstiges' }
 ];
 
+// Legacy alias: 'username_password' was removed, map to 'direct_login'
+const loginTypeAliases = { username_password: 'direct_login' };
+
 // Helper function to get login type label
 const getLoginTypeLabel = (type) => {
-  const option = loginTypeOptions.find(opt => opt.value === type);
-  return option ? option.label : type;
+  const resolved = loginTypeAliases[type] || type;
+  const option = loginTypeOptions.find(opt => opt.value === resolved);
+  return option ? option.label : resolved;
 };
 
 // Document type colors with classes and icons

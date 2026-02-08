@@ -383,6 +383,7 @@ const getPoolName = (insurer) => {
 // Login type labels
 const loginTypeLabels = {
   direct_login: 'Direkter Login im Maklerportal',
+  username_password: 'Direkter Login im Maklerportal',
   easylogin: 'EasyLogin',
   certificate: 'Zertifikat',
   other: 'Sonstiges'

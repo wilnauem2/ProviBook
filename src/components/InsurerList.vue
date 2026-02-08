@@ -385,7 +385,6 @@ const loginTypeLabels = {
   direct_login: 'Direkter Login im Maklerportal',
   easylogin: 'EasyLogin',
   certificate: 'Zertifikat',
-  username_password: 'Benutzername und Passwort',
   other: 'Sonstiges'
 };
 const getLoginTypeLabel = (type) => loginTypeLabels[type] || type;

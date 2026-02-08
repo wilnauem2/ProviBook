@@ -684,7 +684,6 @@ const loginTypeOptions = [
   { value: 'direct_login', label: 'Direkter Login im Maklerportal' },
   { value: 'easylogin', label: 'EasyLogin' },
   { value: 'certificate', label: 'Zertifikat' },
-  { value: 'username_password', label: 'Benutzername und Passwort' },
   { value: 'other', label: 'Sonstiges' }
 ];
 
@@ -740,6 +739,7 @@ const zustellungswegOptions = [
   { value: 'E-Mail', label: 'E-Mail' },
   { value: 'Per Post', label: 'Per Post' },
   { value: 'BiPRO', label: 'BiPRO' },
+  { value: 'GMI', label: 'GMI' },
   { value: 'Maklerportal/GetMyInvoices', label: 'Maklerportal/GetMyInvoices' }
 ];
 

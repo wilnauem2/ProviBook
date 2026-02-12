@@ -744,6 +744,7 @@ const zustellungswegOptions = [
   { value: 'Per Post', label: 'Per Post' },
   { value: 'BiPRO', label: 'BiPRO' },
   { value: 'GMI', label: 'GMI' },
+  { value: 'VEMA', label: 'VEMA' },
   { value: 'Maklerportal/GetMyInvoices', label: 'Maklerportal/GetMyInvoices' }
 ];
 
